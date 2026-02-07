@@ -157,7 +157,8 @@ export default function StudentHome() {
                 <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
                 <p className="text-sm text-[var(--muted)] mt-1">
                   <span className={`font-medium ${categoryStyle(article)}`}>{categoryLabel(article)}</span>
-                  {" · "}{article.topic} · {article.estimatedReadTime} min read
+                  {article.category !== "news" && article.topic ? ` · ${article.topic}` : ""}
+                  {" · "}{article.estimatedReadTime} min read
                 </p>
               </div>
             </Link>
