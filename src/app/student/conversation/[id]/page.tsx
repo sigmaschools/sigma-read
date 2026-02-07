@@ -18,7 +18,7 @@ export default function ConversationPage() {
   const [selfAssessment, setSelfAssessment] = useState<string | null>(null);
   const [studentTurnCount, setStudentTurnCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const maxTurns = 4;
+  const maxTurns = 3;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -103,7 +103,7 @@ export default function ConversationPage() {
         </div>
         {!complete && (
           <div className="flex items-center gap-2">
-            {[1, 2, 3, 4].map((step) => (
+            {[1, 2, 3].map((step) => (
               <div
                 key={step}
                 className={`w-2 h-2 rounded-full transition-all ${
