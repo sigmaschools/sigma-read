@@ -29,6 +29,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const messages = [...(conversation.messages || [])];
   messages.push({ role: "user", content: message });
 
+  // Count student messages — hard backstop at 4
+  const studentMessageCount = messages.filter(m => m.role === "user").length;
+  const forceComplete = studentMessageCount >= 4;
+
   // Get AI response
   const systemPrompt = comprehensionConversationPrompt(
     article.bodyText,
@@ -36,15 +40,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     JSON.stringify(student.interestProfile || {})
   );
 
+  // If we're at the hard limit, append instruction to force wrap-up
+  const aiMessages = messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+  if (forceComplete) {
+    aiMessages.push({ role: "user" as const, content: "[SYSTEM: This is the student's final response. Wrap up now with brief positive feedback and output [CONVERSATION_COMPLETE].]" });
+    // Remove the injected system message from saved transcript
+    aiMessages.pop();
+  }
+
+  const finalMessages = forceComplete
+    ? [...messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })), { role: "user" as const, content: "[SYSTEM: This is the student's final response. Wrap up now with brief positive feedback and output [CONVERSATION_COMPLETE].]" }]
+    : messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 1024,
     system: systemPrompt,
-    messages: messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+    messages: finalMessages,
   });
 
   const assistantText = response.content[0].type === "text" ? response.content[0].text : "";
-  const isComplete = assistantText.includes("[CONVERSATION_COMPLETE]");
+  const isComplete = assistantText.includes("[CONVERSATION_COMPLETE]") || forceComplete;
   const cleanText = assistantText.replace("[CONVERSATION_COMPLETE]", "").trim();
 
   messages.push({ role: "assistant", content: cleanText });
@@ -55,8 +71,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     complete: isComplete,
   }).where(eq(schema.conversations.id, conversationId));
 
-  // If complete, generate report
+  // If complete, mark article as read and generate report
   if (isComplete) {
+    await db.update(schema.articles).set({ read: true }).where(eq(schema.articles.id, article.id));
     await db.update(schema.readingSessions).set({ completedAt: new Date() }).where(eq(schema.readingSessions.id, readingSession.id));
 
     // Generate comprehension report

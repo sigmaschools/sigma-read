@@ -14,21 +14,23 @@ export async function POST(req: NextRequest) {
 
   const level = student.readingLevel || 2;
 
-  // Check if student already has articles
-  const existing = await db.select({ id: schema.articles.id })
-    .from(schema.articles).where(eq(schema.articles.studentId, student.id)).limit(1);
-  if (existing.length > 0) return NextResponse.json({ message: "Already has articles", count: 0 });
+  // Get existing article titles to avoid duplicates
+  const existingArticles = await db.select({ title: schema.articles.title })
+    .from(schema.articles).where(eq(schema.articles.studentId, student.id));
+  const existingTitles = new Set(existingArticles.map(a => a.title));
 
-  // Get 2 news + 1 general, or whatever's available
-  const newsArticles = await db.select().from(schema.articleCache)
+  // Get 2 news + 1 general, excluding already-assigned articles
+  const allNews = await db.select().from(schema.articleCache)
     .where(and(eq(schema.articleCache.readingLevel, level), eq(schema.articleCache.category, "news")))
     .orderBy(sql`RANDOM()`)
-    .limit(2);
+    .limit(10);
+  const newsArticles = allNews.filter(a => !existingTitles.has(a.title)).slice(0, 2);
 
-  const generalArticles = await db.select().from(schema.articleCache)
+  const allGeneral = await db.select().from(schema.articleCache)
     .where(and(eq(schema.articleCache.readingLevel, level), eq(schema.articleCache.category, "general")))
     .orderBy(sql`RANDOM()`)
-    .limit(1);
+    .limit(10);
+  const generalArticles = allGeneral.filter(a => !existingTitles.has(a.title)).slice(0, 1);
 
   const cached = [...newsArticles, ...generalArticles];
 

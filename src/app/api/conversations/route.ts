@@ -11,8 +11,7 @@ export async function POST(req: NextRequest) {
 
   const { articleId } = await req.json();
 
-  // Mark article as read
-  await db.update(schema.articles).set({ read: true }).where(eq(schema.articles.id, articleId));
+  // Don't mark as read yet — wait until conversation completes
 
   // Create reading session
   const [readingSession] = await db.insert(schema.readingSessions).values({
