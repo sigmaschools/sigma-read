@@ -97,11 +97,30 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto">
-      <header className="px-6 py-4 border-b border-[var(--border)]">
-        <h1 className="text-lg font-semibold tracking-tight">SigmaRead</h1>
-        <p className="text-sm text-[var(--muted)]">
-          {phase === "interest" ? "Getting to know you" : "Finding your reading level"}
-        </p>
+      <header className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">SigmaRead</h1>
+          <p className="text-sm text-[var(--muted)]">
+            {phase === "interest" ? "Getting to know you" : "Finding your reading level"}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/student")}
+            className="text-xs text-[var(--muted)] hover:text-[var(--fg)] transition"
+          >
+            Skip for now
+          </button>
+          <button
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              router.push("/login");
+            }}
+            className="text-xs text-[var(--muted)] hover:text-[var(--danger)] transition"
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
