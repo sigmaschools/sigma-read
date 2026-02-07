@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     + `\n\nThe student's name is ${studentName}.`;
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-6",
+    model: "claude-sonnet-4-5",
     max_tokens: 2048,
     system: systemPrompt,
     messages: messages.map((m: { role: string; content: string }) => ({

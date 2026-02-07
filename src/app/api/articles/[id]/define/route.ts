@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!word) return NextResponse.json({ error: "Word required" }, { status: 400 });
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-6",
+    model: "claude-sonnet-4-5",
     max_tokens: 256,
     messages: [{ role: "user", content: wordDefinitionPrompt(word, sentence || "") }],
   });
