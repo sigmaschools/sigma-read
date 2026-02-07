@@ -38,34 +38,19 @@ export async function POST(req: NextRequest) {
   if (profileMatch) {
     try {
       const profile = JSON.parse(profileMatch[1]);
+      // Save profile, set default reading level 2 (grade 5-6), mark onboarding complete
+      // Reading level will be calibrated from their first comprehension session
       await db.update(schema.students)
-        .set({ interestProfile: profile })
+        .set({
+          interestProfile: profile,
+          readingLevel: 2,
+          onboardingComplete: true,
+        })
         .where(eq(schema.students.id, session.userId));
       return NextResponse.json({
         message: assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim(),
         profileComplete: true,
         profile,
-      });
-    } catch {
-      // Parse failed, continue conversation
-    }
-  }
-
-  // Check if level assessment is complete
-  const levelMatch = assistantText.match(/\[LEVEL\]\s*(\{[\s\S]*?\})/);
-  if (levelMatch) {
-    try {
-      const assessment = JSON.parse(levelMatch[1]);
-      await db.update(schema.students)
-        .set({
-          readingLevel: assessment.assigned_level,
-          onboardingComplete: true,
-        })
-        .where(eq(schema.students.id, session.userId));
-      return NextResponse.json({
-        message: assistantText.replace(/\[LEVEL\][\s\S]*/, "").trim(),
-        levelComplete: true,
-        level: assessment.assigned_level,
       });
     } catch {
       // Parse failed, continue conversation
