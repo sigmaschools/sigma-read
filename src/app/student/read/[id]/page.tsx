@@ -94,7 +94,7 @@ export default function ReaderPage() {
       body: JSON.stringify({ liked: value, read: true }),
     });
 
-    // Brief pause for visual feedback, then start conversation
+    // Longer pause for transition animation, then start conversation
     setTimeout(async () => {
       const res = await fetch("/api/conversations", {
         method: "POST",
@@ -103,7 +103,7 @@ export default function ReaderPage() {
       });
       const data = await res.json();
       router.push(`/student/conversation/${data.conversationId}`);
-    }, 800);
+    }, 2000);
   }
 
   if (!article) {
@@ -171,32 +171,40 @@ export default function ReaderPage() {
         )}
 
         {/* Feedback → auto-transition to conversation */}
-        <div className="mt-12 flex flex-col items-center gap-4">
+        <div className="mt-12 flex flex-col items-center gap-6">
           {transitioning ? (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <p className="text-sm font-medium text-[var(--fg)]">
-                {liked ? "Glad you enjoyed it! 👍" : "Thanks for the feedback 👍"}
+            <div className="flex flex-col items-center gap-4 py-8 animate-fade-in">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-xl animate-scale-in">
+                💬
+              </div>
+              <p className="text-lg font-medium text-[var(--fg)]">
+                {liked ? "Glad you enjoyed it!" : "Got it — thanks!"}
               </p>
               <p className="text-sm text-[var(--muted)]">Let&apos;s talk about what you read…</p>
-              <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mt-2" />
+              <div className="flex gap-1 mt-2">
+                <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
             </div>
           ) : (
             <>
-              <p className="text-sm text-[var(--muted)]">Did you enjoy this article?</p>
-              <div className="flex gap-3">
+              <p className="text-[15px] font-medium text-[var(--fg)]">Did you enjoy this article?</p>
+              <div className="flex gap-4">
                 <button
                   onClick={() => handleFeedback(true)}
-                  className="px-5 py-2.5 rounded-lg border text-sm transition border-[var(--border)] text-[var(--muted)] hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+                  className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-green-500 text-white hover:bg-green-600 shadow-sm"
                 >
-                  👍 Yes
+                  Yes
                 </button>
                 <button
                   onClick={() => handleFeedback(false)}
-                  className="px-5 py-2.5 rounded-lg border text-sm transition border-[var(--border)] text-[var(--muted)] hover:bg-red-50 hover:border-red-300 hover:text-red-700"
+                  className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-red-400 text-white hover:bg-red-500 shadow-sm"
                 >
-                  👎 No
+                  No
                 </button>
               </div>
+              <p className="text-xs text-[var(--muted)]">Click to continue to the discussion</p>
             </>
           )}
         </div>

@@ -16,6 +16,18 @@ interface Article {
 
 const MAX_UNREAD = 5;
 
+function categoryLabel(article: Article) {
+  if (article.category === "news") return "News";
+  if (article.category === "interest") return "For You";
+  return "Explore";
+}
+
+function categoryStyle(article: Article) {
+  if (article.category === "news") return "text-blue-600";
+  if (article.category === "interest") return "text-violet-600";
+  return "text-emerald-600";
+}
+
 export default function StudentHome() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +51,6 @@ export default function StudentHome() {
     const artRes = await fetch("/api/articles");
     let arts = await artRes.json();
 
-    // If no articles, serve cached articles immediately
     if (arts.length === 0) {
       setGenerating(true);
       await fetch("/api/articles/serve-cached", { method: "POST" });
@@ -106,14 +117,15 @@ export default function StudentHome() {
         <nav className="space-y-1 flex-1">
           <a className="block px-3 py-2 text-sm font-medium bg-[var(--surface-hover)] rounded-lg">Home</a>
         </nav>
-        <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] text-left">
-          Sign out
-        </button>
+        <div className="border-t border-[var(--border)] pt-3 mt-3">
+          <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] text-left">
+            Sign out
+          </button>
+        </div>
       </aside>
 
       {/* Main */}
       <main className="flex-1 p-8 max-w-3xl">
-        {/* Welcome */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold">Hey {userName} 👋</h2>
           <p className="text-sm text-[var(--muted)] mt-1">
@@ -123,33 +135,14 @@ export default function StudentHome() {
           </p>
         </div>
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
           <h2 className="text-lg font-semibold">Up Next</h2>
-          <div className="flex items-center gap-3">
-            {generating && (
-              <span className="text-sm text-[var(--muted)] flex items-center gap-2">
-                <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-                Loading…
-              </span>
-            )}
-            {feedback && (
-              <span className="text-sm text-green-600 animate-pulse">{feedback}</span>
-            )}
-            {!generating && canLoadMore && (
-              <button
-                onClick={generateMore}
-                className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] transition"
-              >
-                + More articles
-              </button>
-            )}
-          </div>
         </div>
 
         {unread.length === 0 && !generating && (
           <div className="text-center py-12 text-[var(--muted)]">
             <p className="text-lg mb-2">You&apos;ve read everything! 🎉</p>
-            <p className="text-sm">Hit &quot;+ More articles&quot; to load more.</p>
+            <p className="text-sm">Load more articles below.</p>
           </div>
         )}
 
@@ -163,12 +156,35 @@ export default function StudentHome() {
               <div>
                 <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
                 <p className="text-sm text-[var(--muted)] mt-1">
-                  {article.category === "news" ? "News" : article.topic} · {article.estimatedReadTime} min read
+                  <span className={`font-medium ${categoryStyle(article)}`}>{categoryLabel(article)}</span>
+                  {" · "}{article.topic} · {article.estimatedReadTime} min read
                 </p>
               </div>
             </Link>
           ))}
         </div>
+
+        {/* More articles button — below the list */}
+        {canLoadMore && (
+          <div className="mt-4 text-center">
+            {generating ? (
+              <span className="text-sm text-[var(--muted)] inline-flex items-center gap-2">
+                <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                Loading new articles…
+              </span>
+            ) : (
+              <button
+                onClick={generateMore}
+                className="text-sm px-4 py-2 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
+              >
+                Load more articles
+              </button>
+            )}
+            {feedback && (
+              <p className="text-sm text-green-600 mt-2 animate-pulse">{feedback}</p>
+            )}
+          </div>
+        )}
 
         {readArticles.length > 0 && (
           <>
