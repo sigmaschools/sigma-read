@@ -169,48 +169,50 @@ export default function ReaderPage() {
 
         {/* Done reading button */}
         <div className="mt-12 flex flex-col items-center gap-4 pb-4">
-          {transitioning ? (
-            <div className="flex flex-col items-center gap-4 py-8 animate-fade-in">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-xl animate-scale-in">
-                💬
-              </div>
-              <p className="text-sm text-[var(--muted)]">Let&apos;s talk about what you read…</p>
-              <div className="flex gap-1 mt-2">
-                <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowFeedbackModal(true)}
-              className="px-10 py-3.5 rounded-xl text-[15px] font-medium transition bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm"
-            >
-              I&apos;m done reading
-            </button>
-          )}
+          <button
+            onClick={() => setShowFeedbackModal(true)}
+            className="px-10 py-3.5 rounded-xl text-[15px] font-medium transition bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm"
+          >
+            I&apos;m done reading
+          </button>
         </div>
       </article>
 
-      {/* Feedback modal — no escape, must click Yes or No */}
-      {showFeedbackModal && !transitioning && (
+      {/* Feedback modal — no escape, must click Yes or No → transitions to conversation */}
+      {showFeedbackModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center animate-scale-in">
-            <p className="text-lg font-semibold mb-6">Did you enjoy this article?</p>
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={() => { setShowFeedbackModal(false); handleFeedback(true); }}
-                className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-green-500 text-white hover:bg-green-600 shadow-sm"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => { setShowFeedbackModal(false); handleFeedback(false); }}
-                className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-red-400 text-white hover:bg-red-500 shadow-sm"
-              >
-                No
-              </button>
-            </div>
+            {transitioning ? (
+              <div className="flex flex-col items-center gap-4 py-4 animate-fade-in">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-2xl animate-scale-in">
+                  💬
+                </div>
+                <p className="text-[15px] text-[var(--fg)] font-medium">Let&apos;s talk about what you read</p>
+                <div className="flex gap-1.5 mt-1">
+                  <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-lg font-semibold mb-6">Did you enjoy this article?</p>
+                <div className="flex gap-4 justify-center">
+                  <button
+                    onClick={() => handleFeedback(true)}
+                    className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-green-500 text-white hover:bg-green-600 shadow-sm"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => handleFeedback(false)}
+                    className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-red-400 text-white hover:bg-red-500 shadow-sm"
+                  >
+                    No
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
