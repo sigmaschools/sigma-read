@@ -87,15 +87,16 @@ export default function GuideDashboard() {
     router.push("/login");
   }
 
-  const levelLabel = (level: number | null) => {
+  const levelLabel = (level: number | null, short = false) => {
     if (!level) return "—";
+    if (short) return `L${level}`;
     const labels: Record<number, string> = {
-      1: "L1 · Gr 2-3",
-      2: "L2 · Gr 3-4",
-      3: "L3 · Gr 5-6",
-      4: "L4 · Gr 7",
-      5: "L5 · Gr 8",
-      6: "L6 · Gr 8+",
+      1: "L1 (Gr 2-3)",
+      2: "L2 (Gr 3-4)",
+      3: "L3 (Gr 5-6)",
+      4: "L4 (Gr 7)",
+      5: "L5 (Gr 8)",
+      6: "L6 (Gr 8+)",
     };
     return labels[level] || `L${level}`;
   };
@@ -200,10 +201,13 @@ export default function GuideDashboard() {
                     <div>
                       <h3 className="font-medium text-[15px]">{student.name}</h3>
                       <p className="text-xs text-[var(--muted)] mt-0.5">
-                        {student.gradeLevel ? `Gr ${student.gradeLevel}` : ""}
-                        {student.gradeLevel && student.readingLevel ? " · " : ""}
-                        {student.readingLevel ? `Reading ${levelLabel(student.readingLevel)}` : ""}
-                        {!student.readingLevel && !student.gradeLevel && "No level set"}
+                        {student.gradeLevel && student.readingLevel
+                          ? `Gr ${student.gradeLevel} · ${levelLabel(student.readingLevel, true)}`
+                          : student.gradeLevel
+                          ? `Gr ${student.gradeLevel}`
+                          : student.readingLevel
+                          ? levelLabel(student.readingLevel)
+                          : "No level set"}
                         {!student.onboardingComplete && " · Needs onboarding"}
                       </p>
                     </div>
