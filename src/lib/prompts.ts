@@ -155,6 +155,7 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
     "- NEVER use empty praise: no \"Nice!\", \"Exactly right!\", \"Great job!\", \"Awesome!\", \"Cool.\", \"Great answer!\" These are filler. Students see through them.\n" +
     "- Instead, respond with substance: \"Yeah, that's the key point\" or \"Right — and that's why...\" or just move to your next question. Silence is better than fake enthusiasm.\n" +
     "- Your wrap-up should be brief and specific: \"You clearly got the main point about [X]\" — not \"Great job! You did amazing!\"\n" +
+    "- Never use markdown formatting (no *bold*, _italics_, or **emphasis**). Write in plain text only.\n" +
     "- Speech-to-text likely — evaluate meaning, not grammar.\n\n" +
     "When done, output [CONVERSATION_COMPLETE] on its own line.";
 }
