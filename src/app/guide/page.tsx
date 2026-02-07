@@ -18,11 +18,35 @@ interface SessionData {
   completedAt: string | null;
 }
 
+interface WeeklySummary {
+  period: string;
+  totalStudents: number;
+  activeStudents: number;
+  totalSessionsThisWeek: number;
+  globalAlerts: string[];
+  students: {
+    id: number;
+    name: string;
+    readingLevel: number | null;
+    alerts: string[];
+    sessionsThisWeek: number;
+    avgScoreThisWeek: number | null;
+    avgScorePrevWeek: number | null;
+    scoreTrend: "up" | "down" | "stable" | "new";
+    lastActive: string | null;
+    topScore: { title: string; score: number } | null;
+    lowestScore: { title: string; score: number } | null;
+  }[];
+}
+
 export default function GuideDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [studentScores, setStudentScores] = useState<Record<number, SessionData[]>>({});
   const [loading, setLoading] = useState(true);
   const [guideName, setGuideName] = useState("");
+  const [showSummary, setShowSummary] = useState(false);
+  const [summary, setSummary] = useState<WeeklySummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -48,6 +72,15 @@ export default function GuideDashboard() {
     }
     setStudentScores(scores);
     setLoading(false);
+  }
+
+  async function openSummary() {
+    setShowSummary(true);
+    setSummaryLoading(true);
+    const res = await fetch("/api/guide/weekly-summary");
+    const data = await res.json();
+    setSummary(data);
+    setSummaryLoading(false);
   }
 
   async function handleLogout() {
@@ -102,7 +135,15 @@ export default function GuideDashboard() {
       </aside>
 
       <main className="flex-1 p-8 max-w-4xl">
-        <h2 className="text-xl font-semibold mb-6">Your Students</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold">Your Students</h2>
+          <button
+            onClick={openSummary}
+            className="text-sm px-3 py-1.5 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
+          >
+            📊 Weekly Summary
+          </button>
+        </div>
 
         {students.length === 0 ? (
           <div className="text-center py-12">
@@ -154,6 +195,112 @@ export default function GuideDashboard() {
           </div>
         )}
       </main>
+
+      {/* Weekly Summary Modal */}
+      {showSummary && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowSummary(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-[var(--border)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <div>
+                <h2 className="text-lg font-semibold">📊 Weekly Summary</h2>
+                {summary && <p className="text-xs text-[var(--muted)]">{summary.period}</p>}
+              </div>
+              <button onClick={() => setShowSummary(false)} className="text-[var(--muted)] hover:text-[var(--fg)] text-xl">×</button>
+            </div>
+
+            <div className="px-6 py-4">
+              {summaryLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : summary ? (
+                <div className="space-y-6">
+                  {/* Overview */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 bg-[var(--surface)] rounded-xl text-center">
+                      <p className="text-2xl font-semibold">{summary.activeStudents}/{summary.totalStudents}</p>
+                      <p className="text-xs text-[var(--muted)]">Active students</p>
+                    </div>
+                    <div className="p-3 bg-[var(--surface)] rounded-xl text-center">
+                      <p className="text-2xl font-semibold">{summary.totalSessionsThisWeek}</p>
+                      <p className="text-xs text-[var(--muted)]">Sessions this week</p>
+                    </div>
+                    <div className="p-3 bg-[var(--surface)] rounded-xl text-center">
+                      <p className="text-2xl font-semibold">
+                        {summary.students.filter(s => s.avgScoreThisWeek !== null).length > 0
+                          ? Math.round(summary.students.filter(s => s.avgScoreThisWeek !== null).reduce((a, s) => a + (s.avgScoreThisWeek || 0), 0) / summary.students.filter(s => s.avgScoreThisWeek !== null).length)
+                          : "—"
+                        }
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">Avg score</p>
+                    </div>
+                  </div>
+
+                  {/* Global Alerts */}
+                  {summary.globalAlerts.length > 0 && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <p className="text-sm font-medium text-amber-800 mb-1">Attention</p>
+                      {summary.globalAlerts.map((a, i) => (
+                        <p key={i} className="text-sm text-amber-700">{a}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Per-Student */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wider mb-3">Student Details</h3>
+                    <div className="space-y-3">
+                      {summary.students.map((s) => (
+                        <div key={s.id} className={`p-4 rounded-xl border ${s.alerts.length > 0 ? "border-amber-200 bg-amber-50/30" : "border-[var(--border)] bg-[var(--surface)]"}`}>
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h4 className="font-medium text-[15px]">{s.name}</h4>
+                              <p className="text-xs text-[var(--muted)]">
+                                Level {s.readingLevel || "?"} · {s.sessionsThisWeek} session{s.sessionsThisWeek !== 1 ? "s" : ""} this week
+                                {s.lastActive && ` · Last active ${s.lastActive}`}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              {s.avgScoreThisWeek !== null && (
+                                <span className={`text-lg font-semibold ${
+                                  s.avgScoreThisWeek >= 85 ? "text-green-600" :
+                                  s.avgScoreThisWeek >= 70 ? "text-blue-600" :
+                                  s.avgScoreThisWeek >= 55 ? "text-yellow-600" :
+                                  "text-red-500"
+                                }`}>
+                                  {s.avgScoreThisWeek}
+                                </span>
+                              )}
+                              {s.scoreTrend === "up" && <span className="ml-1 text-green-600">↑</span>}
+                              {s.scoreTrend === "down" && <span className="ml-1 text-red-500">↓</span>}
+                              {s.scoreTrend === "stable" && <span className="ml-1 text-[var(--muted)]">→</span>}
+                            </div>
+                          </div>
+
+                          {s.alerts.length > 0 && (
+                            <div className="space-y-1 mb-2">
+                              {s.alerts.map((a, i) => (
+                                <p key={i} className="text-sm">{a}</p>
+                              ))}
+                            </div>
+                          )}
+
+                          {(s.topScore || s.lowestScore) && (
+                            <div className="flex gap-4 text-xs text-[var(--muted)]">
+                              {s.topScore && <span>Best: {s.topScore.score} — {s.topScore.title.slice(0, 40)}...</span>}
+                              {s.lowestScore && <span>Lowest: {s.lowestScore.score} — {s.lowestScore.title.slice(0, 40)}...</span>}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
