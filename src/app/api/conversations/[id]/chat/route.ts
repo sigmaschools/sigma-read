@@ -49,7 +49,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     article.bodyText,
     student.readingLevel || 2,
     JSON.stringify(student.interestProfile || {}),
-    previousArticles.length > 0 ? previousArticles : undefined
+    previousArticles.length > 0 ? previousArticles : undefined,
+    article.liked
   );
 
   // If we're at the hard limit, append instruction to force wrap-up
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Score 85+: move up, Score <40: move down, 40-55: move down one, otherwise stay
         const currentLevel = student.readingLevel || 2;
         let newLevel = currentLevel;
-        if (report.score >= 85 && currentLevel < 4) newLevel = currentLevel + 1;
+        if (report.score >= 85 && currentLevel < 6) newLevel = currentLevel + 1;
         else if (report.score < 40 && currentLevel > 1) newLevel = Math.max(1, currentLevel - 1);
         else if (report.score < 55 && currentLevel > 1) newLevel = currentLevel - 1;
 

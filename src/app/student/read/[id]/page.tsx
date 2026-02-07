@@ -23,6 +23,8 @@ export default function ReaderPage() {
   const [liked, setLiked] = useState<boolean | null>(null);
   const [definition, setDefinition] = useState<{ word: string; text: string } | null>(null);
   const [defLoading, setDefLoading] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const [showSources, setShowSources] = useState(false);
 
   useEffect(() => {
     fetch(`/api/articles/${id}`).then((r) => r.json()).then((a) => {
@@ -52,7 +54,6 @@ export default function ReaderPage() {
   }, [id]);
 
   function renderBody(text: string) {
-    // Split into paragraphs and wrap each word in a span for click-to-define
     return text.split("\n\n").map((para, i) => {
       if (para.startsWith("## ") || para.startsWith("### ")) {
         const level = para.startsWith("### ") ? "h3" : "h2";
@@ -82,30 +83,27 @@ export default function ReaderPage() {
   }
 
   async function handleFeedback(value: boolean) {
-    const newValue = liked === value ? null : value; // toggle off if same
-    setLiked(newValue);
+    if (transitioning) return;
+    setLiked(value);
+    setTransitioning(true);
+
+    // Save feedback and mark as read
     await fetch(`/api/articles/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ liked: newValue }),
-    });
-  }
-
-  async function handleDoneReading() {
-    // Mark as read and start conversation
-    await fetch(`/api/articles/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ read: true }),
+      body: JSON.stringify({ liked: value, read: true }),
     });
 
-    const res = await fetch("/api/conversations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ articleId: parseInt(id as string) }),
-    });
-    const data = await res.json();
-    router.push(`/student/conversation/${data.conversationId}`);
+    // Brief pause for visual feedback, then start conversation
+    setTimeout(async () => {
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: parseInt(id as string) }),
+      });
+      const data = await res.json();
+      router.push(`/student/conversation/${data.conversationId}`);
+    }, 800);
   }
 
   if (!article) {
@@ -157,43 +155,50 @@ export default function ReaderPage() {
         </div>
 
         {article.sources && article.sources.length > 0 && (
-          <div className="mt-8 pt-6 border-t border-[var(--border)]">
-            <p className="text-xs text-[var(--muted)]">
-              Sources: {article.sources.join(", ")}
-            </p>
+          <div className="mt-8 pt-4 border-t border-[var(--border)]">
+            <button
+              onClick={() => setShowSources(!showSources)}
+              className="text-xs text-[var(--muted)] hover:text-[var(--fg)] transition"
+            >
+              {showSources ? "Hide sources ▾" : "Sources ▸"}
+            </button>
+            {showSources && (
+              <p className="text-xs text-[var(--muted)] mt-2">
+                {article.sources.join(", ")}
+              </p>
+            )}
           </div>
         )}
 
+        {/* Feedback → auto-transition to conversation */}
         <div className="mt-12 flex flex-col items-center gap-4">
-          <p className="text-sm text-[var(--muted)]">Did you enjoy this article?</p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => handleFeedback(true)}
-              className={`px-4 py-2 rounded-lg border text-sm transition ${
-                liked === true
-                  ? "bg-green-50 border-green-300 text-green-700"
-                  : "border-[var(--border)] text-[var(--muted)] hover:border-green-300"
-              }`}
-            >
-              👍 Yes
-            </button>
-            <button
-              onClick={() => handleFeedback(false)}
-              className={`px-4 py-2 rounded-lg border text-sm transition ${
-                liked === false
-                  ? "bg-red-50 border-red-300 text-red-700"
-                  : "border-[var(--border)] text-[var(--muted)] hover:border-red-300"
-              }`}
-            >
-              👎 No
-            </button>
-          </div>
-          <button
-            onClick={handleDoneReading}
-            className="mt-2 px-8 py-3 bg-[var(--accent)] text-white text-[15px] font-medium rounded-xl hover:bg-[var(--accent-hover)] transition"
-          >
-            Done Reading — Talk About It
-          </button>
+          {transitioning ? (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <p className="text-sm font-medium text-[var(--fg)]">
+                {liked ? "Glad you enjoyed it! 👍" : "Thanks for the feedback 👍"}
+              </p>
+              <p className="text-sm text-[var(--muted)]">Let&apos;s talk about what you read…</p>
+              <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mt-2" />
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-[var(--muted)]">Did you enjoy this article?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleFeedback(true)}
+                  className="px-5 py-2.5 rounded-lg border text-sm transition border-[var(--border)] text-[var(--muted)] hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+                >
+                  👍 Yes
+                </button>
+                <button
+                  onClick={() => handleFeedback(false)}
+                  className="px-5 py-2.5 rounded-lg border text-sm transition border-[var(--border)] text-[var(--muted)] hover:bg-red-50 hover:border-red-300 hover:text-red-700"
+                >
+                  👎 No
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </article>
 

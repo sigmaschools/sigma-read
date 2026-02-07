@@ -14,10 +14,13 @@ interface Article {
   createdAt: string;
 }
 
+const MAX_UNREAD = 5;
+
 export default function StudentHome() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [feedback, setFeedback] = useState("");
   const [userName, setUserName] = useState("");
   const router = useRouter();
 
@@ -36,7 +39,7 @@ export default function StudentHome() {
     const artRes = await fetch("/api/articles");
     let arts = await artRes.json();
 
-    // If no articles, serve cached news articles immediately
+    // If no articles, serve cached articles immediately
     if (arts.length === 0) {
       setGenerating(true);
       await fetch("/api/articles/serve-cached", { method: "POST" });
@@ -49,23 +52,19 @@ export default function StudentHome() {
     setLoading(false);
   }
 
-  const [feedback, setFeedback] = useState("");
-
   async function generateMore() {
     setGenerating(true);
     setFeedback("");
     try {
-      // Try to serve more cached articles first, fall back to generation
       const cacheRes = await fetch("/api/articles/serve-cached", { method: "POST" });
       const cacheData = await cacheRes.json();
       if (cacheData.count > 0) {
         setFeedback(`${cacheData.count} new article${cacheData.count > 1 ? "s" : ""} added!`);
       } else {
-        // No more cached, try generating
         const genRes = await fetch("/api/articles/generate", { method: "POST" });
         const genData = await genRes.json();
         if (genData.generated > 0) {
-          setFeedback(`${genData.generated} new article${genData.generated > 1 ? "s" : ""} created just for you!`);
+          setFeedback(`${genData.generated} new article${genData.generated > 1 ? "s" : ""} created for you!`);
         } else {
           setFeedback("No new articles available right now. Check back later!");
         }
@@ -88,6 +87,7 @@ export default function StudentHome() {
   const unread = articles.filter((a) => !a.read);
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
+  const canLoadMore = unread.length < MAX_UNREAD;
 
   if (loading) {
     return (
@@ -105,9 +105,6 @@ export default function StudentHome() {
         <p className="text-sm text-[var(--muted)] mb-8">{userName}</p>
         <nav className="space-y-1 flex-1">
           <a className="block px-3 py-2 text-sm font-medium bg-[var(--surface-hover)] rounded-lg">Home</a>
-          <Link href="/student/sessions" className="block px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--fg)] rounded-lg hover:bg-[var(--surface-hover)] transition">
-            My Sessions
-          </Link>
         </nav>
         <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] text-left">
           Sign out
@@ -116,7 +113,7 @@ export default function StudentHome() {
 
       {/* Main */}
       <main className="flex-1 p-8 max-w-3xl">
-        {/* Welcome & stats */}
+        {/* Welcome */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold">Hey {userName} 👋</h2>
           <p className="text-sm text-[var(--muted)] mt-1">
@@ -138,7 +135,7 @@ export default function StudentHome() {
             {feedback && (
               <span className="text-sm text-green-600 animate-pulse">{feedback}</span>
             )}
-            {!generating && (
+            {!generating && canLoadMore && (
               <button
                 onClick={generateMore}
                 className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] transition"
@@ -152,7 +149,7 @@ export default function StudentHome() {
         {unread.length === 0 && !generating && (
           <div className="text-center py-12 text-[var(--muted)]">
             <p className="text-lg mb-2">You&apos;ve read everything! 🎉</p>
-            <p className="text-sm">Hit &quot;+ More articles&quot; to load more, or check your past sessions.</p>
+            <p className="text-sm">Hit &quot;+ More articles&quot; to load more.</p>
           </div>
         )}
 
@@ -163,16 +160,11 @@ export default function StudentHome() {
               href={`/student/read/${article.id}`}
               className="block p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition group"
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    {article.category === "news" && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">News</span>
-                    )}
-                    <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
-                  </div>
-                  <p className="text-sm text-[var(--muted)] mt-1">{article.topic} · {article.estimatedReadTime} min read</p>
-                </div>
+              <div>
+                <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
+                <p className="text-sm text-[var(--muted)] mt-1">
+                  {article.category === "news" ? "News" : article.topic} · {article.estimatedReadTime} min read
+                </p>
               </div>
             </Link>
           ))}
@@ -188,7 +180,7 @@ export default function StudentHome() {
                   href={`/student/read/${article.id}`}
                   className="block p-3 text-sm text-[var(--muted)] hover:text-[var(--fg)] rounded-lg hover:bg-[var(--surface-hover)] transition"
                 >
-                  {article.title} · {article.topic}
+                  {article.title}
                 </Link>
               ))}
             </div>

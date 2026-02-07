@@ -4,18 +4,16 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-interface Student {
+interface DashboardStudent {
   id: number;
   name: string;
   username: string;
   readingLevel: number | null;
   onboardingComplete: boolean;
-  createdAt: string;
-}
-
-interface SessionData {
-  score: number | null;
-  completedAt: string | null;
+  avgScore: number | null;
+  totalSessions: number;
+  sessionsThisWeek: number;
+  status: "succeeding" | "on-track" | "struggling" | "inactive" | "new";
 }
 
 interface WeeklySummary {
@@ -34,14 +32,13 @@ interface WeeklySummary {
     avgScorePrevWeek: number | null;
     scoreTrend: "up" | "down" | "stable" | "new";
     lastActive: string | null;
-    topScore: { title: string; score: number } | null;
-    lowestScore: { title: string; score: number } | null;
   }[];
 }
 
 export default function GuideDashboard() {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [studentScores, setStudentScores] = useState<Record<number, SessionData[]>>({});
+  const [students, setStudents] = useState<DashboardStudent[]>([]);
+  const [filtered, setFiltered] = useState<DashboardStudent[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [guideName, setGuideName] = useState("");
   const [showSummary, setShowSummary] = useState(false);
@@ -53,24 +50,24 @@ export default function GuideDashboard() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!search.trim()) {
+      setFiltered(students);
+    } else {
+      const q = search.toLowerCase();
+      setFiltered(students.filter((s) => s.name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q)));
+    }
+  }, [search, students]);
+
   async function loadData() {
     const meRes = await fetch("/api/auth/me");
     const me = await meRes.json();
     if (me.error || me.role !== "guide") { router.push("/login"); return; }
     setGuideName(me.name);
 
-    const studRes = await fetch("/api/students");
-    const studs = await studRes.json();
-    setStudents(studs);
-
-    // Load recent scores for each student
-    const scores: Record<number, SessionData[]> = {};
-    for (const s of studs) {
-      const repRes = await fetch(`/api/reports?studentId=${s.id}`);
-      const reps = await repRes.json();
-      scores[s.id] = reps.filter((r: any) => r.score !== null).map((r: any) => ({ score: r.score, completedAt: r.completedAt }));
-    }
-    setStudentScores(scores);
+    const dashRes = await fetch("/api/guide/dashboard");
+    const data = await dashRes.json();
+    setStudents(data.students);
     setLoading(false);
   }
 
@@ -89,26 +86,47 @@ export default function GuideDashboard() {
   }
 
   const levelLabel = (level: number | null) => {
-    if (!level) return "Not assessed";
-    const labels: Record<number, string> = { 1: "Level 1 (Grade 4)", 2: "Level 2 (Grade 5-6)", 3: "Level 3 (Grade 7)", 4: "Level 4 (Grade 8+)" };
-    return labels[level] || `Level ${level}`;
+    if (!level) return "—";
+    const labels: Record<number, string> = {
+      1: "L1 · Gr 2-3",
+      2: "L2 · Gr 3-4",
+      3: "L3 · Gr 5-6",
+      4: "L4 · Gr 7",
+      5: "L5 · Gr 8",
+      6: "L6 · Gr 8+",
+    };
+    return labels[level] || `L${level}`;
   };
 
-  function sparkline(scores: SessionData[]) {
-    if (scores.length < 2) return null;
-    const vals = scores.slice(-10).map(s => s.score || 0);
-    const min = Math.min(...vals);
-    const max = Math.max(...vals);
-    const range = max - min || 1;
-    const w = 80;
-    const h = 24;
-    const points = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
+  const statusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      succeeding: "bg-green-50 text-green-700 border-green-200",
+      "on-track": "bg-blue-50 text-blue-700 border-blue-200",
+      struggling: "bg-red-50 text-red-700 border-red-200",
+      inactive: "bg-gray-50 text-gray-500 border-gray-200",
+      new: "bg-purple-50 text-purple-700 border-purple-200",
+    };
+    const labels: Record<string, string> = {
+      succeeding: "Succeeding",
+      "on-track": "On Track",
+      struggling: "Struggling",
+      inactive: "Inactive",
+      new: "New",
+    };
     return (
-      <svg width={w} height={h} className="inline-block ml-2">
-        <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${styles[status] || styles.inactive}`}>
+        {labels[status] || status}
+      </span>
     );
-  }
+  };
+
+  const scoreColor = (score: number | null) => {
+    if (score === null) return "text-[var(--muted)]";
+    if (score >= 80) return "text-green-600";
+    if (score >= 60) return "text-blue-600";
+    if (score >= 45) return "text-yellow-600";
+    return "text-red-500";
+  };
 
   if (loading) {
     return (
@@ -122,27 +140,39 @@ export default function GuideDashboard() {
     <div className="flex min-h-screen">
       <aside className="w-56 border-r border-[var(--border)] p-5 flex flex-col">
         <h1 className="text-lg font-semibold tracking-tight mb-1">SigmaRead</h1>
-        <p className="text-sm text-[var(--muted)] mb-8">{guideName}</p>
+        <p className="text-sm text-[var(--muted)] mb-8">Guide</p>
         <nav className="space-y-1 flex-1">
           <a className="block px-3 py-2 text-sm font-medium bg-[var(--surface-hover)] rounded-lg">Students</a>
           <Link href="/guide/add-student" className="block px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--fg)] rounded-lg hover:bg-[var(--surface-hover)] transition">
             + Add Student
           </Link>
         </nav>
-        <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] text-left">
-          Sign out
-        </button>
+        <div className="border-t border-[var(--border)] pt-3 mt-3">
+          <p className="text-sm text-[var(--fg)] mb-2">{guideName}</p>
+          <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] text-left">
+            Sign out
+          </button>
+        </div>
       </aside>
 
       <main className="flex-1 p-8 max-w-4xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Your Students</h2>
-          <button
-            onClick={openSummary}
-            className="text-sm px-3 py-1.5 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
-          >
-            📊 Weekly Summary
-          </button>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search students…"
+              className="px-3 py-1.5 text-sm border border-[var(--border)] rounded-lg outline-none focus:border-[var(--accent)] transition w-48"
+            />
+            <button
+              onClick={openSummary}
+              className="text-sm px-3 py-1.5 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
+            >
+              📊 Weekly Summary
+            </button>
+          </div>
         </div>
 
         {students.length === 0 ? (
@@ -157,41 +187,39 @@ export default function GuideDashboard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {students.map((student) => {
-              const scores = studentScores[student.id] || [];
-              const thisWeek = scores.filter(s => {
-                if (!s.completedAt) return false;
-                const d = new Date(s.completedAt);
-                const now = new Date();
-                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                return d > weekAgo;
-              });
-
-              return (
-                <Link
-                  key={student.id}
-                  href={`/guide/student/${student.id}`}
-                  className="block p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
-                >
-                  <div className="flex items-center justify-between">
+            {filtered.map((student) => (
+              <Link
+                key={student.id}
+                href={`/guide/student/${student.id}`}
+                className="block p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
                     <div>
                       <h3 className="font-medium text-[15px]">{student.name}</h3>
-                      <p className="text-sm text-[var(--muted)] mt-1">
+                      <p className="text-xs text-[var(--muted)] mt-0.5">
                         {levelLabel(student.readingLevel)}
-                        {!student.onboardingComplete && " · Onboarding incomplete"}
+                        {!student.onboardingComplete && " · Needs onboarding"}
                       </p>
                     </div>
-                    <div className="text-right flex items-center">
-                      <div>
-                        <p className="text-sm font-medium">{thisWeek.length} this week</p>
-                        <p className="text-xs text-[var(--muted)]">{scores.length} total sessions</p>
-                      </div>
-                      {sparkline(scores)}
-                    </div>
                   </div>
-                </Link>
-              );
-            })}
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className={`text-lg font-semibold ${scoreColor(student.avgScore)}`}>
+                        {student.avgScore !== null ? student.avgScore : "—"}
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {student.sessionsThisWeek} this week · {student.totalSessions} total
+                      </p>
+                    </div>
+                    {statusBadge(student.status)}
+                  </div>
+                </div>
+              </Link>
+            ))}
+            {filtered.length === 0 && search && (
+              <p className="text-center text-sm text-[var(--muted)] py-8">No students matching &quot;{search}&quot;</p>
+            )}
           </div>
         )}
       </main>
@@ -199,7 +227,7 @@ export default function GuideDashboard() {
       {/* Weekly Summary Modal */}
       {showSummary && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowSummary(false)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-[var(--border)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
               <div>
                 <h2 className="text-lg font-semibold">📊 Weekly Summary</h2>
@@ -215,7 +243,6 @@ export default function GuideDashboard() {
                 </div>
               ) : summary ? (
                 <div className="space-y-6">
-                  {/* Overview */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="p-3 bg-[var(--surface)] rounded-xl text-center">
                       <p className="text-2xl font-semibold">{summary.activeStudents}/{summary.totalStudents}</p>
@@ -227,16 +254,19 @@ export default function GuideDashboard() {
                     </div>
                     <div className="p-3 bg-[var(--surface)] rounded-xl text-center">
                       <p className="text-2xl font-semibold">
-                        {summary.students.filter(s => s.avgScoreThisWeek !== null).length > 0
-                          ? Math.round(summary.students.filter(s => s.avgScoreThisWeek !== null).reduce((a, s) => a + (s.avgScoreThisWeek || 0), 0) / summary.students.filter(s => s.avgScoreThisWeek !== null).length)
-                          : "—"
-                        }
+                        {summary.students.filter((s) => s.avgScoreThisWeek !== null).length > 0
+                          ? Math.round(
+                              summary.students
+                                .filter((s) => s.avgScoreThisWeek !== null)
+                                .reduce((a, s) => a + (s.avgScoreThisWeek || 0), 0) /
+                                summary.students.filter((s) => s.avgScoreThisWeek !== null).length
+                            )
+                          : "—"}
                       </p>
                       <p className="text-xs text-[var(--muted)]">Avg score</p>
                     </div>
                   </div>
 
-                  {/* Global Alerts */}
                   {summary.globalAlerts.length > 0 && (
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
                       <p className="text-sm font-medium text-amber-800 mb-1">Attention</p>
@@ -246,53 +276,53 @@ export default function GuideDashboard() {
                     </div>
                   )}
 
-                  {/* Per-Student */}
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wider mb-3">Student Details</h3>
                     <div className="space-y-3">
-                      {summary.students.map((s) => (
-                        <div key={s.id} className={`p-4 rounded-xl border ${s.alerts.length > 0 ? "border-amber-200 bg-amber-50/30" : "border-[var(--border)] bg-[var(--surface)]"}`}>
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h4 className="font-medium text-[15px]">{s.name}</h4>
-                              <p className="text-xs text-[var(--muted)]">
-                                Level {s.readingLevel || "?"} · {s.sessionsThisWeek} session{s.sessionsThisWeek !== 1 ? "s" : ""} this week
-                                {s.lastActive && ` · Last active ${s.lastActive}`}
-                              </p>
+                      {summary.students
+                        .sort((a, b) => {
+                          // Sort by score descending (highest first) per Wayne's request
+                          if (a.avgScoreThisWeek !== null && b.avgScoreThisWeek !== null) return b.avgScoreThisWeek - a.avgScoreThisWeek;
+                          if (a.avgScoreThisWeek === null) return 1;
+                          return -1;
+                        })
+                        .map((s) => (
+                          <Link
+                            key={s.id}
+                            href={`/guide/student/${s.id}`}
+                            className={`block p-4 rounded-xl border transition hover:border-[var(--accent)] ${
+                              s.alerts.length > 0 ? "border-amber-200 bg-amber-50/30" : "border-[var(--border)] bg-[var(--surface)]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-1">
+                              <div>
+                                <h4 className="font-medium text-[15px]">{s.name}</h4>
+                                <p className="text-xs text-[var(--muted)]">
+                                  {s.readingLevel ? levelLabel(s.readingLevel) : "Not assessed"} · {s.sessionsThisWeek} session{s.sessionsThisWeek !== 1 ? "s" : ""} this week
+                                  {s.lastActive && ` · Last active ${s.lastActive}`}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                {s.avgScoreThisWeek !== null && (
+                                  <span className={`text-lg font-semibold ${scoreColor(s.avgScoreThisWeek)}`}>
+                                    {s.avgScoreThisWeek}
+                                  </span>
+                                )}
+                                {s.scoreTrend === "up" && <span className="ml-1 text-green-600">↑</span>}
+                                {s.scoreTrend === "down" && <span className="ml-1 text-red-500">↓</span>}
+                                {s.scoreTrend === "stable" && <span className="ml-1 text-[var(--muted)]">→</span>}
+                              </div>
                             </div>
-                            <div className="text-right">
-                              {s.avgScoreThisWeek !== null && (
-                                <span className={`text-lg font-semibold ${
-                                  s.avgScoreThisWeek >= 85 ? "text-green-600" :
-                                  s.avgScoreThisWeek >= 70 ? "text-blue-600" :
-                                  s.avgScoreThisWeek >= 55 ? "text-yellow-600" :
-                                  "text-red-500"
-                                }`}>
-                                  {s.avgScoreThisWeek}
-                                </span>
-                              )}
-                              {s.scoreTrend === "up" && <span className="ml-1 text-green-600">↑</span>}
-                              {s.scoreTrend === "down" && <span className="ml-1 text-red-500">↓</span>}
-                              {s.scoreTrend === "stable" && <span className="ml-1 text-[var(--muted)]">→</span>}
-                            </div>
-                          </div>
 
-                          {s.alerts.length > 0 && (
-                            <div className="space-y-1 mb-2">
-                              {s.alerts.map((a, i) => (
-                                <p key={i} className="text-sm">{a}</p>
-                              ))}
-                            </div>
-                          )}
-
-                          {(s.topScore || s.lowestScore) && (
-                            <div className="flex gap-4 text-xs text-[var(--muted)]">
-                              {s.topScore && <span>Best: {s.topScore.score} — {s.topScore.title.slice(0, 40)}...</span>}
-                              {s.lowestScore && <span>Lowest: {s.lowestScore.score} — {s.lowestScore.title.slice(0, 40)}...</span>}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                            {s.alerts.length > 0 && (
+                              <div className="space-y-1">
+                                {s.alerts.map((a, i) => (
+                                  <p key={i} className="text-sm">{a}</p>
+                                ))}
+                              </div>
+                            )}
+                          </Link>
+                        ))}
                     </div>
                   </div>
                 </div>
