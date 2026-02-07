@@ -15,7 +15,9 @@ export default function ConversationPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [complete, setComplete] = useState(false);
+  const [studentTurnCount, setStudentTurnCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const maxTurns = 3;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -44,6 +46,7 @@ export default function ConversationPage() {
     setInput("");
 
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setStudentTurnCount((prev) => prev + 1);
     setLoading(true);
 
     try {
@@ -76,6 +79,25 @@ export default function ConversationPage() {
             <p className="text-sm text-[var(--muted)]">Tell me what you thought of the article</p>
           </div>
         </div>
+        {!complete && (
+          <div className="flex items-center gap-2">
+            {[1, 2, 3].map((step) => (
+              <div
+                key={step}
+                className={`w-2 h-2 rounded-full transition-all ${
+                  studentTurnCount >= step
+                    ? "bg-[var(--accent)]"
+                    : studentTurnCount === step - 1
+                    ? "bg-[var(--accent)] opacity-40"
+                    : "bg-[var(--border)]"
+                }`}
+              />
+            ))}
+            <span className="text-xs text-[var(--muted)] ml-1">
+              {studentTurnCount < maxTurns ? `${studentTurnCount}/${maxTurns}` : "Done!"}
+            </span>
+          </div>
+        )}
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">

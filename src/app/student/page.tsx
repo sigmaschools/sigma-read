@@ -49,22 +49,35 @@ export default function StudentHome() {
     setLoading(false);
   }
 
+  const [feedback, setFeedback] = useState("");
+
   async function generateMore() {
     setGenerating(true);
+    setFeedback("");
     try {
       // Try to serve more cached articles first, fall back to generation
       const cacheRes = await fetch("/api/articles/serve-cached", { method: "POST" });
       const cacheData = await cacheRes.json();
-      if (cacheData.count === 0) {
+      if (cacheData.count > 0) {
+        setFeedback(`${cacheData.count} new article${cacheData.count > 1 ? "s" : ""} added!`);
+      } else {
         // No more cached, try generating
-        await fetch("/api/articles/generate", { method: "POST" });
+        const genRes = await fetch("/api/articles/generate", { method: "POST" });
+        const genData = await genRes.json();
+        if (genData.generated > 0) {
+          setFeedback(`${genData.generated} new article${genData.generated > 1 ? "s" : ""} created just for you!`);
+        } else {
+          setFeedback("No new articles available right now. Check back later!");
+        }
       }
       const artRes = await fetch("/api/articles");
       setArticles(await artRes.json());
     } catch (e) {
       console.error(e);
+      setFeedback("Something went wrong. Try again in a moment.");
     }
     setGenerating(false);
+    setTimeout(() => setFeedback(""), 5000);
   }
 
   async function handleLogout() {
@@ -74,6 +87,7 @@ export default function StudentHome() {
 
   const unread = articles.filter((a) => !a.read);
   const readArticles = articles.filter((a) => a.read);
+  const totalRead = readArticles.length;
 
   if (loading) {
     return (
@@ -102,14 +116,27 @@ export default function StudentHome() {
 
       {/* Main */}
       <main className="flex-1 p-8 max-w-3xl">
+        {/* Welcome & stats */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold">Hey {userName} 👋</h2>
+          <p className="text-sm text-[var(--muted)] mt-1">
+            {totalRead === 0
+              ? "Pick an article below to get started."
+              : `You've read ${totalRead} article${totalRead === 1 ? "" : "s"} so far. Keep it up!`}
+          </p>
+        </div>
+
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">Your Articles</h2>
+          <h2 className="text-lg font-semibold">Up Next</h2>
           <div className="flex items-center gap-3">
             {generating && (
               <span className="text-sm text-[var(--muted)] flex items-center gap-2">
                 <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
                 Loading…
               </span>
+            )}
+            {feedback && (
+              <span className="text-sm text-green-600 animate-pulse">{feedback}</span>
             )}
             {!generating && (
               <button
@@ -124,7 +151,8 @@ export default function StudentHome() {
 
         {unread.length === 0 && !generating && (
           <div className="text-center py-12 text-[var(--muted)]">
-            <p>You've read everything! Nice work.</p>
+            <p className="text-lg mb-2">You&apos;ve read everything! 🎉</p>
+            <p className="text-sm">Hit &quot;+ More articles&quot; to load more, or check your past sessions.</p>
           </div>
         )}
 

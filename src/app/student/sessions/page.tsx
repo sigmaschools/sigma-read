@@ -4,24 +4,26 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-interface Article {
-  id: number;
+interface SessionData {
+  articleId: number;
   title: string;
   topic: string;
-  read: boolean;
-  createdAt: string;
+  category: string | null;
+  completedAt: string;
+  score: number | null;
+  rating: string | null;
 }
 
 export default function StudentSessions() {
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [sessions, setSessions] = useState<SessionData[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    fetch("/api/articles").then((r) => r.json()).then((data) => {
-      setArticles(data.filter((a: Article) => a.read));
+    fetch("/api/articles/sessions").then((r) => r.json()).then((data) => {
+      setSessions(data);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
 
   if (loading) {
@@ -30,6 +32,14 @@ export default function StudentSessions() {
         <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
+  }
+
+  function scoreColor(score: number | null) {
+    if (!score) return "text-[var(--muted)]";
+    if (score >= 85) return "text-green-600";
+    if (score >= 70) return "text-blue-600";
+    if (score >= 55) return "text-yellow-600";
+    return "text-red-500";
   }
 
   return (
@@ -46,20 +56,33 @@ export default function StudentSessions() {
 
       <main className="flex-1 p-8 max-w-3xl">
         <h2 className="text-xl font-semibold mb-6">Past Sessions</h2>
-        {articles.length === 0 ? (
-          <p className="text-[var(--muted)]">No completed sessions yet.</p>
+        {sessions.length === 0 ? (
+          <p className="text-[var(--muted)]">No completed sessions yet. Read an article and talk about it to see your sessions here.</p>
         ) : (
           <div className="space-y-2">
-            {articles.map((article) => (
+            {sessions.map((s, i) => (
               <Link
-                key={article.id}
-                href={`/student/read/${article.id}`}
-                className="block p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
+                key={i}
+                href={`/student/read/${s.articleId}`}
+                className="flex items-center justify-between p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
               >
-                <h3 className="font-medium text-[15px]">{article.title}</h3>
-                <p className="text-sm text-[var(--muted)] mt-1">
-                  {article.topic} · {new Date(article.createdAt).toLocaleDateString()}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {s.category === "news" && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded flex-shrink-0">News</span>
+                    )}
+                    <h3 className="font-medium text-[15px] truncate">{s.title}</h3>
+                  </div>
+                  <p className="text-sm text-[var(--muted)] mt-1">
+                    {s.topic} · {new Date(s.completedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                {s.score !== null && (
+                  <div className="flex-shrink-0 ml-4 text-right">
+                    <span className={`text-lg font-semibold ${scoreColor(s.score)}`}>{s.score}</span>
+                    <p className="text-xs text-[var(--muted)]">{s.rating}</p>
+                  </div>
+                )}
               </Link>
             ))}
           </div>
