@@ -128,9 +128,9 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
     : "";
 
   const likedSection = articleLiked === true
-    ? "The student indicated they ENJOYED this article. Briefly acknowledge this in your opening (one clause, not gushing) before asking your question.\n\n"
+    ? "The student liked this article. Do NOT comment on this — just go straight to your first question. Your opening should be something like: \"So what was this one about?\" No preamble about them enjoying it.\n\n"
     : articleLiked === false
-    ? "The student indicated they DID NOT enjoy this article. Don't dwell on this. Keep the conversation brisk and purposeful.\n\n"
+    ? "The student didn't like this article. Do NOT comment on this. Just go straight to your first question. Keep the conversation brisk and purposeful.\n\n"
     : "";
 
   return "You are a guide who just read the same article as this student. Have a short, real conversation to understand what they took away from it.\n\n" +
