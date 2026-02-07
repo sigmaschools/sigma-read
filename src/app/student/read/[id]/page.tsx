@@ -87,11 +87,11 @@ export default function ReaderPage() {
     setLiked(value);
     setTransitioning(true);
 
-    // Save feedback and mark as read
+    // Save feedback only — article stays unread until conversation completes
     await fetch(`/api/articles/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ liked: value, read: true }),
+      body: JSON.stringify({ liked: value }),
     });
 
     // Longer pause for transition animation, then start conversation

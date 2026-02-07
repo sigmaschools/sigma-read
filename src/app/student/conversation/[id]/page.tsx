@@ -24,19 +24,26 @@ export default function ConversationPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Start conversation with AI opener
+  // Start or resume conversation
   useEffect(() => {
     setLoading(true);
+    // First check if conversation already has messages (resume case)
     fetch(`/api/conversations/${id}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "I just finished reading the article." }),
+      body: JSON.stringify({ message: "__resume_check__" }),
     })
       .then((r) => r.json())
       .then((data) => {
-        setMessages([
-          { role: "assistant", content: data.message },
-        ]);
+        if (data.existingMessages && data.existingMessages.length > 0) {
+          // Resume: restore existing messages
+          setMessages(data.existingMessages);
+          setStudentTurnCount(data.existingMessages.filter((m: Message) => m.role === "user").length);
+          if (data.complete) setComplete(true);
+        } else {
+          // New conversation: show AI opener
+          setMessages([{ role: "assistant", content: data.message }]);
+        }
         setLoading(false);
       });
   }, [id]);
