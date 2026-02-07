@@ -25,9 +25,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const [article] = await db.select().from(schema.articles).where(eq(schema.articles.id, readingSession.articleId)).limit(1);
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
 
+  // Handle resume check — return existing messages if any
+  if (message === "__resume_check__") {
+    const existing = conversation.messages || [];
+    if (existing.length > 0) {
+      return NextResponse.json({
+        existingMessages: existing,
+        complete: conversation.complete,
+      });
+    }
+    // No existing messages — fall through to generate opener
+  }
+
   // Build messages
   const messages = [...(conversation.messages || [])];
-  messages.push({ role: "user", content: message });
+  if (message !== "__resume_check__") {
+    messages.push({ role: "user", content: message });
+  } else {
+    // Resume check with no messages — generate opener with a synthetic first message
+    messages.push({ role: "user", content: "I just finished reading the article." });
+  }
 
   // Count student messages — hard backstop at 5 (allows 4 normal turns + 1 buffer for scaffolding)
   const studentMessageCount = messages.filter(m => m.role === "user").length;
