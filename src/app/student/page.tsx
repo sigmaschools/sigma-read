@@ -10,6 +10,7 @@ interface Article {
   topic: string;
   estimatedReadTime: number;
   read: boolean;
+  category: string | null;
   createdAt: string;
 }
 
@@ -136,7 +137,12 @@ export default function StudentHome() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
+                  <div className="flex items-center gap-2">
+                    {article.category === "news" && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">News</span>
+                    )}
+                    <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
+                  </div>
                   <p className="text-sm text-[var(--muted)] mt-1">{article.topic} · {article.estimatedReadTime} min read</p>
                 </div>
               </div>

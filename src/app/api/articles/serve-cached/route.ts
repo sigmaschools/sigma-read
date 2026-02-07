@@ -19,11 +19,18 @@ export async function POST(req: NextRequest) {
     .from(schema.articles).where(eq(schema.articles.studentId, student.id)).limit(1);
   if (existing.length > 0) return NextResponse.json({ message: "Already has articles", count: 0 });
 
-  // Get 3 random cached articles at the student's level
-  const cached = await db.select().from(schema.articleCache)
-    .where(eq(schema.articleCache.readingLevel, level))
+  // Get 2 news + 1 general, or whatever's available
+  const newsArticles = await db.select().from(schema.articleCache)
+    .where(and(eq(schema.articleCache.readingLevel, level), eq(schema.articleCache.category, "news")))
     .orderBy(sql`RANDOM()`)
-    .limit(3);
+    .limit(2);
+
+  const generalArticles = await db.select().from(schema.articleCache)
+    .where(and(eq(schema.articleCache.readingLevel, level), eq(schema.articleCache.category, "general")))
+    .orderBy(sql`RANDOM()`)
+    .limit(1);
+
+  const cached = [...newsArticles, ...generalArticles];
 
   if (cached.length === 0) return NextResponse.json({ message: "No cached articles available", count: 0 });
 
@@ -38,6 +45,7 @@ export async function POST(req: NextRequest) {
       readingLevel: level,
       sources: c.sources || [],
       estimatedReadTime: c.estimatedReadTime || 4,
+      category: c.category || "general",
     }).returning();
     inserted.push(article);
   }
