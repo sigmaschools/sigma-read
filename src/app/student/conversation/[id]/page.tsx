@@ -67,9 +67,14 @@ export default function ConversationPage() {
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto">
       <header className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Let&apos;s talk about it</h1>
-          <p className="text-sm text-[var(--muted)]">Tell me what you thought of the article</p>
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push("/student")} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
+            ← Back
+          </button>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">Let&apos;s talk about it</h1>
+            <p className="text-sm text-[var(--muted)]">Tell me what you thought of the article</p>
+          </div>
         </div>
       </header>
 
