@@ -17,7 +17,6 @@ export default function StudentHome() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [searchTopic, setSearchTopic] = useState("");
   const [userName, setUserName] = useState("");
   const router = useRouter();
 
@@ -34,21 +33,31 @@ export default function StudentHome() {
     setUserName(me.name);
 
     const artRes = await fetch("/api/articles");
-    const arts = await artRes.json();
+    let arts = await artRes.json();
+
+    // If no articles, serve cached news articles immediately
+    if (arts.length === 0) {
+      setGenerating(true);
+      await fetch("/api/articles/serve-cached", { method: "POST" });
+      const refreshRes = await fetch("/api/articles");
+      arts = await refreshRes.json();
+      setGenerating(false);
+    }
+
     setArticles(arts);
     setLoading(false);
-
-    // Auto-generate if fewer than 3 unread
-    const unread = arts.filter((a: Article) => !a.read);
-    if (unread.length < 3) {
-      generateArticles();
-    }
   }
 
-  async function generateArticles() {
+  async function generateMore() {
     setGenerating(true);
     try {
-      await fetch("/api/articles/generate", { method: "POST" });
+      // Try to serve more cached articles first, fall back to generation
+      const cacheRes = await fetch("/api/articles/serve-cached", { method: "POST" });
+      const cacheData = await cacheRes.json();
+      if (cacheData.count === 0) {
+        // No more cached, try generating
+        await fetch("/api/articles/generate", { method: "POST" });
+      }
       const artRes = await fetch("/api/articles");
       setArticles(await artRes.json());
     } catch (e) {
@@ -94,23 +103,27 @@ export default function StudentHome() {
       <main className="flex-1 p-8 max-w-3xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Your Articles</h2>
-          {generating && (
-            <span className="text-sm text-[var(--muted)] flex items-center gap-2">
-              <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-              Generating new articles…
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {generating && (
+              <span className="text-sm text-[var(--muted)] flex items-center gap-2">
+                <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                Loading…
+              </span>
+            )}
+            {!generating && (
+              <button
+                onClick={generateMore}
+                className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] transition"
+              >
+                + More articles
+              </button>
+            )}
+          </div>
         </div>
 
         {unread.length === 0 && !generating && (
           <div className="text-center py-12 text-[var(--muted)]">
-            <p className="mb-4">No articles yet.</p>
-            <button
-              onClick={generateArticles}
-              className="px-4 py-2 bg-[var(--accent)] text-white text-sm font-medium rounded-lg hover:bg-[var(--accent-hover)] transition"
-            >
-              Generate Articles
-            </button>
+            <p>You've read everything! Nice work.</p>
           </div>
         )}
 
