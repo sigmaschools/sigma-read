@@ -268,7 +268,7 @@ export default function GuideDashboard() {
                             )
                           : "—"}
                       </p>
-                      <p className="text-xs text-[var(--muted)]">Avg score</p>
+                      <p className="text-xs text-[var(--muted)]">Avg score /100</p>
                     </div>
                   </div>
 
@@ -310,7 +310,7 @@ export default function GuideDashboard() {
                               <div className="text-right">
                                 {s.avgScoreThisWeek !== null && (
                                   <span className={`text-lg font-semibold ${scoreColor(s.avgScoreThisWeek)}`}>
-                                    {s.avgScoreThisWeek}
+                                    {s.avgScoreThisWeek}<span className="text-xs font-normal text-[var(--muted)]">/100</span>
                                   </span>
                                 )}
                                 {s.scoreTrend === "up" && <span className="ml-1 text-green-600">↑</span>}
