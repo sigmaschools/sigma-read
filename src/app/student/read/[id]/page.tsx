@@ -25,6 +25,7 @@ export default function ReaderPage() {
   const [defLoading, setDefLoading] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [showSources, setShowSources] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   useEffect(() => {
     fetch(`/api/articles/${id}`).then((r) => r.json()).then((a) => {
@@ -145,13 +146,7 @@ export default function ReaderPage() {
       {/* Article */}
       <article className="max-w-[640px] mx-auto px-6 py-10" onClick={handleWordClick}>
         <h1 className="text-3xl font-semibold tracking-tight mb-2">{article.title}</h1>
-        <p className="text-sm text-[var(--muted)] mb-4">{article.topic}</p>
-        {article.preReadingPrompt && !article.read && (
-          <div className="mb-8 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-            <p className="text-sm font-medium text-[var(--muted)] mb-1">Before you read</p>
-            <p className="text-[15px] italic">{article.preReadingPrompt}</p>
-          </div>
-        )}
+        <p className="text-sm text-[var(--muted)] mb-8">{article.topic}</p>
         <div className="reader-body" style={{ fontSize: `${fontSize}px` }}>
           {renderBody(article.bodyText)}
         </div>
@@ -172,16 +167,13 @@ export default function ReaderPage() {
           </div>
         )}
 
-        {/* Feedback → auto-transition to conversation */}
-        <div className="mt-12 flex flex-col items-center gap-6">
+        {/* Done reading button */}
+        <div className="mt-12 flex flex-col items-center gap-4 pb-4">
           {transitioning ? (
             <div className="flex flex-col items-center gap-4 py-8 animate-fade-in">
               <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-xl animate-scale-in">
                 💬
               </div>
-              <p className="text-lg font-medium text-[var(--fg)]">
-                {liked ? "Glad you enjoyed it!" : "Got it — thanks!"}
-              </p>
               <p className="text-sm text-[var(--muted)]">Let&apos;s talk about what you read…</p>
               <div className="flex gap-1 mt-2">
                 <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -190,27 +182,38 @@ export default function ReaderPage() {
               </div>
             </div>
           ) : (
-            <>
-              <p className="text-[15px] font-medium text-[var(--fg)]">Did you enjoy this article?</p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => handleFeedback(true)}
-                  className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-green-500 text-white hover:bg-green-600 shadow-sm"
-                >
-                  Yes
-                </button>
-                <button
-                  onClick={() => handleFeedback(false)}
-                  className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-red-400 text-white hover:bg-red-500 shadow-sm"
-                >
-                  No
-                </button>
-              </div>
-              <p className="text-xs text-[var(--muted)]">Click to continue to the discussion</p>
-            </>
+            <button
+              onClick={() => setShowFeedbackModal(true)}
+              className="px-10 py-3.5 rounded-xl text-[15px] font-medium transition bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm"
+            >
+              I&apos;m done reading
+            </button>
           )}
         </div>
       </article>
+
+      {/* Feedback modal — no escape, must click Yes or No */}
+      {showFeedbackModal && !transitioning && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center animate-scale-in">
+            <p className="text-lg font-semibold mb-6">Did you enjoy this article?</p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => { setShowFeedbackModal(false); handleFeedback(true); }}
+                className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-green-500 text-white hover:bg-green-600 shadow-sm"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => { setShowFeedbackModal(false); handleFeedback(false); }}
+                className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-red-400 text-white hover:bg-red-500 shadow-sm"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Definition popover */}
       {definition && (
