@@ -55,6 +55,8 @@ export default function ReaderPage() {
 
   function renderBody(text: string) {
     return text.split("\n\n").map((para, i) => {
+      // Skip h1 headings (duplicate of article title)
+      if (para.startsWith("# ") && !para.startsWith("## ")) return null;
       if (para.startsWith("## ") || para.startsWith("### ")) {
         const level = para.startsWith("### ") ? "h3" : "h2";
         const content = para.replace(/^#{2,3}\s/, "");
