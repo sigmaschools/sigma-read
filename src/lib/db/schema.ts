@@ -30,6 +30,7 @@ export const articles = pgTable("articles", {
   sources: jsonb("sources").$type<string[]>().default([]),
   estimatedReadTime: integer("estimated_read_time").default(4),
   read: boolean("read").default(false).notNull(),
+  liked: boolean("liked"), // null = no feedback, true = liked, false = disliked
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
