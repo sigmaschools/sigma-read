@@ -9,6 +9,8 @@ interface DashboardStudent {
   name: string;
   username: string;
   readingLevel: number | null;
+  gradeLevel: number | null;
+  age: number | null;
   onboardingComplete: boolean;
   avgScore: number | null;
   totalSessions: number;
@@ -198,7 +200,10 @@ export default function GuideDashboard() {
                     <div>
                       <h3 className="font-medium text-[15px]">{student.name}</h3>
                       <p className="text-xs text-[var(--muted)] mt-0.5">
-                        {levelLabel(student.readingLevel)}
+                        {student.gradeLevel ? `Gr ${student.gradeLevel}` : ""}
+                        {student.gradeLevel && student.readingLevel ? " · " : ""}
+                        {student.readingLevel ? `Reading ${levelLabel(student.readingLevel)}` : ""}
+                        {!student.readingLevel && !student.gradeLevel && "No level set"}
                         {!student.onboardingComplete && " · Needs onboarding"}
                       </p>
                     </div>
@@ -206,7 +211,7 @@ export default function GuideDashboard() {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className={`text-lg font-semibold ${scoreColor(student.avgScore)}`}>
-                        {student.avgScore !== null ? student.avgScore : "—"}
+                        {student.avgScore !== null ? <>{student.avgScore}<span className="text-xs font-normal text-[var(--muted)]">/100</span></> : "—"}
                       </p>
                       <p className="text-xs text-[var(--muted)]">
                         {student.sessionsThisWeek} this week · {student.totalSessions} total

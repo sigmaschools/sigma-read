@@ -14,7 +14,9 @@ export const students = pgTable("students", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   guideId: integer("guide_id").references(() => guides.id).notNull(),
-  readingLevel: integer("reading_level"), // 1-4, null until assessed
+  readingLevel: integer("reading_level"), // 1-6, null until assessed
+  gradeLevel: integer("grade_level"), // actual grade (2-8+)
+  age: integer("age"), // student age
   interestProfile: jsonb("interest_profile"),
   onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

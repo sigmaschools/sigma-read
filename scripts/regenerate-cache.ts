@@ -53,13 +53,34 @@ async function generateArticle(level: number, topic: string, category: string): 
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const match = text.match(/\[ARTICLE\]\s*(\{[\s\S]*\})/);
-    if (!match) {
+    // Try multiple parse strategies
+    let article: any = null;
+    
+    // Strategy 1: [ARTICLE] tag followed by JSON
+    const match1 = text.match(/\[ARTICLE\]\s*```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    const match2 = text.match(/\[ARTICLE\]\s*(\{[\s\S]*\})/);
+    // Strategy 3: Just find the JSON object with title/body
+    const match3 = text.match(/(\{[^{}]*"title"[\s\S]*?"body"[\s\S]*?\})\s*$/);
+    
+    const matchStr = match1?.[1] || match2?.[1] || match3?.[1];
+    
+    if (!matchStr) {
       console.error(`  ✗ Failed to parse article for L${level} "${topic}"`);
       return null;
     }
 
-    const article = JSON.parse(match[1]);
+    try {
+      article = JSON.parse(matchStr);
+    } catch {
+      // Try cleaning up the JSON
+      try {
+        const cleaned = matchStr.replace(/,\s*}/, '}').replace(/\n/g, '\\n');
+        article = JSON.parse(cleaned);
+      } catch {
+        console.error(`  ✗ JSON parse failed for L${level} "${topic}"`);
+        return null;
+      }
+    }
     
     // Verify word count
     const wordCount = article.body.split(/\s+/).length;
@@ -83,9 +104,8 @@ async function generateArticle(level: number, topic: string, category: string): 
 async function main() {
   console.log("=== Regenerating Article Cache ===\n");
 
-  // Clear existing cache
-  const deleted = await db.delete(schema.articleCache);
-  console.log("Cleared existing cache\n");
+  // Don't clear — add to existing cache
+  console.log("Adding to existing cache...\n");
 
   let total = 0;
   let failed = 0;
