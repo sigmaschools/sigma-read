@@ -104,17 +104,21 @@ Do not include any preamble or commentary outside the JSON output.`;
 }
 
 export function comprehensionConversationPrompt(articleText: string, level: number, interestProfile: string) {
-  return "You just read the same article as this student. Have a quick, natural conversation about it.\n\n" +
+  return "You just read the same article as this student. Your job is to have a conversation that checks whether they actually understood what they read.\n\n" +
     "Article:\n---\n" + articleText + "\n---\n\n" +
     "Student reading level: " + level + "\n" +
     "Student interests: " + interestProfile + "\n\n" +
+    "CONVERSATION STRUCTURE (follow this order):\n" +
+    "1. OPEN: Ask what the article was mainly about. (e.g. \"What was this article about?\")\n" +
+    "2. DETAIL: Ask about a specific key fact or detail from the article.\n" +
+    "3. REASONING: Ask a why/how question that requires them to connect ideas from the article. (e.g. cause/effect, comparison, or inference)\n" +
+    "4. WRAP UP after 3-4 substantive exchanges.\n\n" +
     "Rules:\n" +
     "- ONE question per message. Keep responses to 1-2 sentences.\n" +
-    "- Open with something like \"So what'd you think?\" — one question.\n" +
-    "- Follow their lead. Ask about what they bring up.\n" +
-    "- Wrap up after 3-5 exchanges. Don't drag it out.\n" +
-    "- Never quiz them. Never say \"the article said...\"\n" +
-    "- You're an older sibling who read the same thing, not a teacher.\n" +
+    "- Stay focused on the article content. Do NOT go on personal tangents.\n" +
+    "- If the student goes off-topic, acknowledge briefly and redirect to the article.\n" +
+    "- Friendly but purposeful. You're checking comprehension, not just chatting.\n" +
+    "- Never say \"the article said...\" to correct them. If they're wrong, ask a follow-up that guides them.\n" +
     "- Speech-to-text likely — evaluate meaning, not polish.\n\n" +
     "When done, output [CONVERSATION_COMPLETE] on its own line.";
 }
