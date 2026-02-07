@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { comprehensionConversationPrompt, comprehensionReportPrompt } from "@/lib/prompts";
 
@@ -29,15 +29,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const messages = [...(conversation.messages || [])];
   messages.push({ role: "user", content: message });
 
-  // Count student messages — hard backstop at 4
+  // Count student messages — hard backstop at 5 (allows 4 normal turns + 1 buffer for scaffolding)
   const studentMessageCount = messages.filter(m => m.role === "user").length;
-  const forceComplete = studentMessageCount >= 4;
+  const forceComplete = studentMessageCount >= 5;
+
+  // Fetch previous articles for cross-article connections (last 5 read articles, excluding current)
+  const previousArticles = await db.select({ title: schema.articles.title, topic: schema.articles.topic })
+    .from(schema.articles)
+    .where(and(
+      eq(schema.articles.studentId, session.userId),
+      eq(schema.articles.read, true),
+      ne(schema.articles.id, article.id)
+    ))
+    .orderBy(desc(schema.articles.createdAt))
+    .limit(5);
 
   // Get AI response
   const systemPrompt = comprehensionConversationPrompt(
     article.bodyText,
     student.readingLevel || 2,
-    JSON.stringify(student.interestProfile || {})
+    JSON.stringify(student.interestProfile || {}),
+    previousArticles.length > 0 ? previousArticles : undefined
   );
 
   // If we're at the hard limit, append instruction to force wrap-up
@@ -71,9 +83,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     complete: isComplete,
   }).where(eq(schema.conversations.id, conversationId));
 
-  // If complete, mark article as read and generate report
+  // If complete, mark article as read, save summary, and generate report
   if (isComplete) {
-    await db.update(schema.articles).set({ read: true }).where(eq(schema.articles.id, article.id));
+    // Store a brief summary for cross-article connections
+    const summaryText = `${article.title}: ${article.topic}`;
+    await db.update(schema.articles).set({ read: true, summary: summaryText }).where(eq(schema.articles.id, article.id));
     await db.update(schema.readingSessions).set({ completedAt: new Date() }).where(eq(schema.readingSessions.id, readingSession.id));
 
     // Generate comprehension report

@@ -12,6 +12,7 @@ interface Article {
   estimatedReadTime: number;
   read: boolean;
   liked: boolean | null;
+  preReadingPrompt: string | null;
 }
 
 export default function ReaderPage() {
@@ -144,7 +145,13 @@ export default function ReaderPage() {
       {/* Article */}
       <article className="max-w-[640px] mx-auto px-6 py-10" onClick={handleWordClick}>
         <h1 className="text-3xl font-semibold tracking-tight mb-2">{article.title}</h1>
-        <p className="text-sm text-[var(--muted)] mb-8">{article.topic}</p>
+        <p className="text-sm text-[var(--muted)] mb-4">{article.topic}</p>
+        {article.preReadingPrompt && !article.read && (
+          <div className="mb-8 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+            <p className="text-sm font-medium text-[var(--muted)] mb-1">Before you read</p>
+            <p className="text-[15px] italic">{article.preReadingPrompt}</p>
+          </div>
+        )}
         <div className="reader-body" style={{ fontSize: `${fontSize}px` }}>
           {renderBody(article.bodyText)}
         </div>
