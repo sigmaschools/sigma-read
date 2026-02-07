@@ -202,7 +202,7 @@ export default function StudentDetailPage() {
                     <p className="text-sm">{s.engagementNote}</p>
                   </div>
                   {s.messages && (
-                    <details className="mt-3">
+                    <details className="mt-3" onClick={(e) => e.stopPropagation()}>
                       <summary className="text-xs text-[var(--accent)] cursor-pointer">View transcript</summary>
                       <div className="mt-2 space-y-2 text-sm">
                         {s.messages.map((m, i) => (
