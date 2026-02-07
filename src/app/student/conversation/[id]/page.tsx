@@ -15,9 +15,10 @@ export default function ConversationPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [complete, setComplete] = useState(false);
+  const [selfAssessment, setSelfAssessment] = useState<string | null>(null);
   const [studentTurnCount, setStudentTurnCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const maxTurns = 3;
+  const maxTurns = 4;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -81,7 +82,7 @@ export default function ConversationPage() {
         </div>
         {!complete && (
           <div className="flex items-center gap-2">
-            {[1, 2, 3].map((step) => (
+            {[1, 2, 3, 4].map((step) => (
               <div
                 key={step}
                 className={`w-2 h-2 rounded-full transition-all ${
@@ -130,12 +131,45 @@ export default function ConversationPage() {
 
       <div className="px-6 py-4 border-t border-[var(--border)]">
         {complete ? (
-          <button
-            onClick={() => router.push("/student")}
-            className="w-full py-3 bg-[var(--accent)] text-white text-[15px] font-medium rounded-xl hover:bg-[var(--accent-hover)] transition"
-          >
-            Back to Home
-          </button>
+          <div className="space-y-4">
+            {!selfAssessment && (
+              <div className="text-center">
+                <p className="text-sm text-[var(--muted)] mb-3">How well do you think you understood this article?</p>
+                <div className="flex gap-2 justify-center">
+                  {[
+                    { value: "really_well", label: "Really well" },
+                    { value: "pretty_well", label: "Pretty well" },
+                    { value: "not_sure", label: "Not sure" },
+                    { value: "lost", label: "I was lost" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={async () => {
+                        setSelfAssessment(opt.value);
+                        await fetch(`/api/conversations/${id}/self-assess`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ assessment: opt.value }),
+                        });
+                      }}
+                      className="px-3 py-2 text-sm border border-[var(--border)] rounded-lg hover:border-[var(--accent)] hover:text-[var(--accent)] transition"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selfAssessment && (
+              <p className="text-center text-sm text-[var(--muted)]">Thanks for sharing! 👍</p>
+            )}
+            <button
+              onClick={() => router.push("/student")}
+              className="w-full py-3 bg-[var(--accent)] text-white text-[15px] font-medium rounded-xl hover:bg-[var(--accent-hover)] transition"
+            >
+              Back to Home
+            </button>
+          </div>
         ) : (
           <div className="flex gap-2">
             <input

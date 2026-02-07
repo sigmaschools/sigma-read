@@ -32,6 +32,8 @@ export const articles = pgTable("articles", {
   read: boolean("read").default(false).notNull(),
   liked: boolean("liked"), // null = no feedback, true = liked, false = disliked
   category: varchar("category", { length: 20 }).default("general"), // news, general, interest
+  preReadingPrompt: text("pre_reading_prompt"), // AI-generated activation question
+  summary: text("summary"), // Brief summary for cross-article connections
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -72,5 +74,6 @@ export const comprehensionReports = pgTable("comprehension_reports", {
   understood: text("understood").notNull(),
   missed: text("missed").notNull(),
   engagementNote: text("engagement_note").notNull(),
+  selfAssessment: varchar("self_assessment", { length: 20 }), // Student's self-rating: "really_well" | "pretty_well" | "not_sure" | "lost"
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

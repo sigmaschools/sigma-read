@@ -103,16 +103,24 @@ Output format:
 Do not include any preamble or commentary outside the JSON output.`;
 }
 
-export function comprehensionConversationPrompt(articleText: string, level: number, interestProfile: string) {
+export function comprehensionConversationPrompt(articleText: string, level: number, interestProfile: string, previousArticles?: {title: string, topic: string}[]) {
+  const previousArticlesSection = previousArticles && previousArticles.length > 0
+    ? "\nPrevious articles this student has read recently:\n" +
+      previousArticles.map((a: {title: string, topic: string}) => `- "${a.title}" (${a.topic})`).join("\n") +
+      "\nIf a natural connection exists between the current article and a previous one, you may ask about it during the REASONING step. Only do this if the connection is genuine and obvious — don't force it.\n\n"
+    : "";
+
   return "You just read the same article as this student. Your job is to have a conversation that checks whether they actually understood what they read.\n\n" +
     "Article:\n---\n" + articleText + "\n---\n\n" +
     "Student reading level: " + level + "\n" +
-    "Student interests: " + interestProfile + "\n\n" +
+    "Student interests: " + interestProfile + "\n" +
+    previousArticlesSection +
     "CONVERSATION STRUCTURE (follow this order):\n" +
     "1. OPEN: Ask what the article was mainly about. (e.g. \"What was this article about?\")\n" +
     "2. DETAIL: Ask about a specific key fact or detail from the article.\n" +
-    "3. REASONING: Ask a why/how question that requires them to connect ideas from the article. (e.g. cause/effect, comparison, or inference)\n\n" +
-    "HARD LIMIT: The conversation must complete within 3 student responses. After the student's 3rd response, you MUST wrap up and output [CONVERSATION_COMPLETE]. No exceptions.\n\n" +
+    "3. METACOGNITIVE: Ask about their reading experience. Examples: \"Was there any part that was confusing?\" or \"Did anything surprise you?\" or \"Was there a word or idea you weren't sure about?\" This builds self-awareness about their own comprehension. Accept whatever they say — confusion is valuable signal, not failure.\n" +
+    "4. REASONING: Ask a why/how question that requires them to connect ideas from the article. (e.g. cause/effect, comparison, or inference)\n\n" +
+    "HARD LIMIT: The conversation must complete within 4 student responses. After the student's 4th response, you MUST wrap up and output [CONVERSATION_COMPLETE]. No exceptions.\n\n" +
     "If a student gives a vague or minimal answer (like \"idk\" or a one-word response):\n" +
     "- Give a brief hint or rephrase the question ONE time.\n" +
     "- If they're still vague, accept what you have and move to the next step.\n" +
@@ -125,7 +133,7 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
     "- Friendly but purposeful. You're checking comprehension, not just chatting.\n" +
     "- Never say \"the article said...\" to correct them. If they're wrong, ask a follow-up that guides them.\n" +
     "- Speech-to-text likely — evaluate meaning, not polish.\n" +
-    "- After your 3rd question (the reasoning question), give brief positive feedback and output [CONVERSATION_COMPLETE].\n\n" +
+    "- After your 4th question (the reasoning question), give brief positive feedback and output [CONVERSATION_COMPLETE].\n\n" +
     "When done, output [CONVERSATION_COMPLETE] on its own line.";
 }
 
@@ -140,9 +148,10 @@ export function comprehensionReportPrompt(articleText: string, transcript: strin
     "- 55-69: Solid — basics grasped but missed nuance or had vocabulary gaps\n" +
     "- 40-54: Developing — fragments but missed main idea or significant portions\n" +
     "- Below 40: Struggled — could not articulate what the article was about\n\n" +
+    "Note: The conversation includes a metacognitive question (asking the student about confusion or surprises). Factor their self-awareness into the engagement note — a student who accurately identifies what confused them shows stronger metacognition than one who claims everything was clear but missed key concepts.\n\n" +
     "Output format:\n\n" +
     "[REPORT]\n" +
-    '{\n  "score": 74,\n  "rating": "Solid",\n  "understood": "2-3 sentences about what they understood.",\n  "missed": "2-3 sentences about what they missed.",\n  "engagement": "1-2 sentences on engagement level."\n}\n\n' +
+    '{\n  "score": 74,\n  "rating": "Solid",\n  "understood": "2-3 sentences about what they understood.",\n  "missed": "2-3 sentences about what they missed.",\n  "engagement": "1-2 sentences on engagement level and metacognitive awareness."\n}\n\n' +
     "No preamble. No softening. The guide needs honest signal.";
 }
 
@@ -155,6 +164,27 @@ export function batchPlannerPrompt(level: number, interests: string, existingTit
     "Output:\n\n" +
     "[BATCH]\n" +
     '[\n  {"topic": "Topic description", "type": "interest_matched"},\n  {"topic": "Topic description", "type": "horizon_expanding"},\n  {"topic": "Topic description", "type": "news"}\n]';
+}
+
+export function preReadingPrompt(title: string, topic: string, level: number) {
+  return `Generate a brief pre-reading activation prompt for a student about to read an article.
+
+Article title: "${title}"
+Topic: ${topic}
+Reading level: ${level}
+
+Write ONE short question (1 sentence) that activates the student's prior knowledge about this topic. Examples:
+- "What do you already know about how volcanoes form?"
+- "Have you ever wondered why some animals can survive in the desert?"
+- "Before you read — what comes to mind when you think about space exploration?"
+
+Rules:
+- One question only. Keep it under 20 words.
+- Make it genuinely curiosity-provoking, not a test question.
+- Match the vocabulary to the reading level.
+- Do NOT reveal the article's conclusion or main argument.
+
+Output ONLY the question, nothing else.`;
 }
 
 export function wordDefinitionPrompt(word: string, sentence: string) {
