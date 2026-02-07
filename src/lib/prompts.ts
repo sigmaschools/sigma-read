@@ -74,18 +74,35 @@ Then output:
 }`;
 
 export function articleGenerationPrompt(level: number, topic: string, type: string) {
+  const levelGuide: Record<number, { lexile: string; grade: string; words: string; vocab: string }> = {
+    1: { lexile: "~400-500", grade: "2-3", words: "100-200", vocab: "Use simple, common words. Define any science/topic word in the same sentence. Max 1 challenging word per paragraph." },
+    2: { lexile: "~550-650", grade: "3-4", words: "200-300", vocab: "Mostly common words. At most 1-2 topic-specific words per paragraph, explained in context." },
+    3: { lexile: "~700-800", grade: "5-6", words: "300-400", vocab: "At most 2-3 challenging words per paragraph. Each one should be defined or contextually clear from surrounding text." },
+    4: { lexile: "~850-950", grade: "7", words: "400-500", vocab: "Can use domain vocabulary with context clues. Avoid stacking multiple technical terms in one sentence." },
+    5: { lexile: "~1000-1100", grade: "8", words: "400-600", vocab: "Domain-specific vocabulary is fine when supported by context. Complex sentence structures allowed." },
+    6: { lexile: "~1150+", grade: "8+", words: "500-600", vocab: "Advanced vocabulary acceptable. Assume strong reader who can handle nuance and inference." },
+  };
+  const guide = levelGuide[level] || levelGuide[3];
+
   return `Write an original nonfiction article for a student with the following profile:
 
-Reading level: ${level} (1 = ~700 Lexile/grade 4, 2 = ~850 Lexile/grade 5-6, 3 = ~1000 Lexile/grade 7, 4 = ~1150 Lexile/grade 8+)
+Reading level: ${level} (Lexile ${guide.lexile}, Grade ${guide.grade})
 Topic: ${topic}
 Article type: ${type} (one of: interest_matched, horizon_expanding, news)
 
+CRITICAL LENGTH: ${guide.words} words. Students read this in 2-5 minutes total (including a brief comprehension discussion). Do NOT exceed the word count.
+
+VOCABULARY RULES: ${guide.vocab}
+- NEVER stack Latin/scientific nomenclature in consecutive sentences.
+- If using a proper noun (species name, technical term), explain it immediately.
+- The goal is comprehension, not vocabulary exposure.
+
 Requirements:
-- Length: 500-800 words
 - Write an ORIGINAL article grounded in real, current information. Do not fabricate facts, statistics, or quotes.
-- Calibrate vocabulary, sentence complexity, and conceptual density to the reading level.
+- Calibrate sentence length and complexity to the grade level.
 - Make it genuinely interesting. Strong opening that hooks the reader. Concrete details and examples.
-- Age-appropriate for grades 4-8.
+- Age-appropriate for the target grade range.
+- Short paragraphs (2-4 sentences each). White space matters for younger readers.
 - For news articles: Write original coverage of a recent news event.
 - For horizon-expanding articles: The topic should be adjacent to the student's interests but in a new domain.
 
@@ -97,20 +114,27 @@ Output format:
   "topic": "Topic tag",
   "body": "The full article text in markdown format.",
   "sources": ["List of source URLs or publication names"],
-  "estimated_read_time_minutes": 4
+  "estimated_read_time_minutes": ${level <= 2 ? 2 : level <= 4 ? 3 : 4}
 }
 
 Do not include any preamble or commentary outside the JSON output.`;
 }
 
-export function comprehensionConversationPrompt(articleText: string, level: number, interestProfile: string, previousArticles?: {title: string, topic: string}[]) {
+export function comprehensionConversationPrompt(articleText: string, level: number, interestProfile: string, previousArticles?: {title: string, topic: string}[], articleLiked?: boolean | null) {
   const previousArticlesSection = previousArticles && previousArticles.length > 0
     ? "\nPrevious articles this student has read recently:\n" +
       previousArticles.map((a: {title: string, topic: string}) => `- "${a.title}" (${a.topic})`).join("\n") +
       "\nIf a natural connection exists between the current article and a previous one, you may ask about it during the REASONING step. Only do this if the connection is genuine and obvious — don't force it.\n\n"
     : "";
 
+  const likedSection = articleLiked === true
+    ? "The student indicated they ENJOYED this article. You can briefly acknowledge this positively in your opening (e.g., \"Glad you liked it!\") before asking about the content.\n\n"
+    : articleLiked === false
+    ? "The student indicated they DID NOT enjoy this article. Don't dwell on this, but be aware — keep the conversation brisk and purposeful. Don't try to convince them it was great.\n\n"
+    : "";
+
   return "You just read the same article as this student. Your job is to have a conversation that checks whether they actually understood what they read.\n\n" +
+    likedSection +
     "Article:\n---\n" + articleText + "\n---\n\n" +
     "Student reading level: " + level + "\n" +
     "Student interests: " + interestProfile + "\n" +

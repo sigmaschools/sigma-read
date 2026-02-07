@@ -39,7 +39,7 @@ Brief conversation with AI (3-4 turns) → Self-assessment → Next article
 - Structure is consistent enough that students know what to expect, varied enough it doesn't feel robotic
 
 ## The Ideal Session
-5 articles available. 3 required per day. Student reads, reacts, discusses, repeats. Takes ~15 minutes per article. Student feels good about the experience. The AI occasionally asks about adding new interests. When done, the student is done.
+5 articles available. 3 required per day. Student reads, reacts, discusses, repeats. Takes 2-5 minutes per article (including discussion). Student feels good about the experience. The AI occasionally asks about adding new interests. When done, the student is done.
 
 ## What Breaks the Experience
 - Boring articles disconnected from interests
@@ -123,5 +123,5 @@ vs. Reading Eggs: "Gamified to the point of distraction. We focus on actual comp
 2. **Comprehension over completion** — understanding matters more than finishing
 3. **Simplicity over features** — one path forward, minimal cognitive load
 4. **Honesty over encouragement** — real signal for guides, not inflated metrics
-5. **Joy over obligation** — reading should feel like the best part of the day
+5. **Joy over obligation** — reading should feel like a pleasant part of the day
 6. **Accuracy over speed** — no hallucinated facts, ever
