@@ -92,6 +92,8 @@ export async function GET() {
       name: s.name,
       username: s.username,
       readingLevel: s.readingLevel,
+      gradeLevel: s.gradeLevel,
+      age: s.age,
       onboardingComplete: s.onboardingComplete,
       avgScore,
       totalSessions,

@@ -16,8 +16,14 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "guide") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, username, password } = await req.json();
+  const { name, username, password, gradeLevel, age } = await req.json();
   if (!name || !username || !password) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+
+  // Set initial reading level from grade level
+  const gradeToLevel: Record<number, number> = {
+    2: 1, 3: 1, 4: 2, 5: 3, 6: 3, 7: 4, 8: 5,
+  };
+  const initialLevel = gradeLevel ? gradeToLevel[gradeLevel] || 2 : null;
 
   const passwordHash = await hashPassword(password);
   const [student] = await db.insert(schema.students).values({
@@ -25,6 +31,9 @@ export async function POST(req: NextRequest) {
     username,
     passwordHash,
     guideId: session.userId,
+    gradeLevel: gradeLevel || null,
+    age: age || null,
+    readingLevel: initialLevel,
   }).returning();
 
   return NextResponse.json(student, { status: 201 });
