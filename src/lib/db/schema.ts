@@ -34,6 +34,19 @@ export const articles = pgTable("articles", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Pre-generated news articles cached at multiple reading levels
+export const articleCache = pgTable("article_cache", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  topic: text("topic").notNull(),
+  bodyText: text("body_text").notNull(),
+  readingLevel: integer("reading_level").notNull(), // 1-4
+  sources: jsonb("sources").$type<string[]>().default([]),
+  estimatedReadTime: integer("estimated_read_time").default(4),
+  category: varchar("category", { length: 20 }).notNull().default("news"), // news, general
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const readingSessions = pgTable("reading_sessions", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").references(() => students.id).notNull(),
