@@ -14,7 +14,12 @@ export async function POST(req: NextRequest) {
 
   const { messages, phase } = await req.json(); // phase: "interest" | "level"
 
-  const systemPrompt = phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT;
+  // Get student name for personalization
+  const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
+  const studentName = student?.name || "there";
+
+  const systemPrompt = (phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT)
+    + `\n\nThe student's name is ${studentName}.`;
 
   const response = await anthropic.messages.create({
     model: "claude-opus-4-6",
