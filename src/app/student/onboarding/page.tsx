@@ -30,12 +30,11 @@ export default function OnboardingPage() {
     fetch("/api/onboarding/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: "Hi! I'm ready to get started." }], phase: "interest" }),
+      body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }], phase: "interest" }),
     })
       .then((r) => r.json())
       .then((data) => {
         setMessages([
-          { role: "user", content: "Hi! I'm ready to get started." },
           { role: "assistant", content: data.message },
         ]);
         setLoading(false);
