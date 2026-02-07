@@ -11,6 +11,7 @@ interface Article {
   sources: string[];
   estimatedReadTime: number;
   read: boolean;
+  liked: boolean | null;
 }
 
 export default function ReaderPage() {
@@ -18,11 +19,15 @@ export default function ReaderPage() {
   const router = useRouter();
   const [article, setArticle] = useState<Article | null>(null);
   const [fontSize, setFontSize] = useState(18);
+  const [liked, setLiked] = useState<boolean | null>(null);
   const [definition, setDefinition] = useState<{ word: string; text: string } | null>(null);
   const [defLoading, setDefLoading] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/articles/${id}`).then((r) => r.json()).then(setArticle);
+    fetch(`/api/articles/${id}`).then((r) => r.json()).then((a) => {
+      setArticle(a);
+      setLiked(a.liked);
+    });
   }, [id]);
 
   const handleWordClick = useCallback(async (e: React.MouseEvent) => {
@@ -72,6 +77,16 @@ export default function ReaderPage() {
           )}
         </p>
       );
+    });
+  }
+
+  async function handleFeedback(value: boolean) {
+    const newValue = liked === value ? null : value; // toggle off if same
+    setLiked(newValue);
+    await fetch(`/api/articles/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ liked: newValue }),
     });
   }
 
@@ -142,10 +157,33 @@ export default function ReaderPage() {
           </div>
         )}
 
-        <div className="mt-12 text-center">
+        <div className="mt-12 flex flex-col items-center gap-4">
+          <p className="text-sm text-[var(--muted)]">Did you enjoy this article?</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleFeedback(true)}
+              className={`px-4 py-2 rounded-lg border text-sm transition ${
+                liked === true
+                  ? "bg-green-50 border-green-300 text-green-700"
+                  : "border-[var(--border)] text-[var(--muted)] hover:border-green-300"
+              }`}
+            >
+              👍 Yes
+            </button>
+            <button
+              onClick={() => handleFeedback(false)}
+              className={`px-4 py-2 rounded-lg border text-sm transition ${
+                liked === false
+                  ? "bg-red-50 border-red-300 text-red-700"
+                  : "border-[var(--border)] text-[var(--muted)] hover:border-red-300"
+              }`}
+            >
+              👎 No
+            </button>
+          </div>
           <button
             onClick={handleDoneReading}
-            className="px-8 py-3 bg-[var(--accent)] text-white text-[15px] font-medium rounded-xl hover:bg-[var(--accent-hover)] transition"
+            className="mt-2 px-8 py-3 bg-[var(--accent)] text-white text-[15px] font-medium rounded-xl hover:bg-[var(--accent-hover)] transition"
           >
             Done Reading — Talk About It
           </button>
