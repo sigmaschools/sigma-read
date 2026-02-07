@@ -31,6 +31,7 @@ export const articles = pgTable("articles", {
   estimatedReadTime: integer("estimated_read_time").default(4),
   read: boolean("read").default(false).notNull(),
   liked: boolean("liked"), // null = no feedback, true = liked, false = disliked
+  category: varchar("category", { length: 20 }).default("general"), // news, general, interest
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
