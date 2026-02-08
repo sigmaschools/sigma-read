@@ -46,7 +46,7 @@ export default function AdminContentPage() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [categoryMix, setCategoryMix] = useState<Record<string, number>>({});
   const [archive, setArchive] = useState<ArchiveDate[]>([]);
-  const [bufferHealth, setBufferHealth] = useState({ full: 0, total: 0 });
+  const [studentsNeedingArticles, setStudentsNeedingArticles] = useState<string[]>([]);
   const [expandedTopic, setExpandedTopic] = useState<number | null>(null);
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
   const [archiveArticles, setArchiveArticles] = useState<Record<string, ArchiveArticle[]>>({});
@@ -63,7 +63,7 @@ export default function AdminContentPage() {
     setTopics(data.topics);
     setCategoryMix(data.categoryMix);
     setArchive(data.archive);
-    setBufferHealth(data.bufferHealth);
+    setStudentsNeedingArticles(data.studentsNeedingArticles || []);
     setLoading(false);
   }
 
@@ -118,20 +118,16 @@ export default function AdminContentPage() {
   return (
     <div className="p-8 max-w-4xl">
       {/* Header */}
-      <div className="flex items-baseline justify-between mb-1">
-        <h1 className="text-2xl font-semibold">
+      <div className="mb-5">
+        <h1 className="text-2xl font-semibold mb-1">
           {isToday ? "Today's Articles" : `Articles · ${new Date(batchDate + "T12:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" })}`}
         </h1>
-        <span className="text-sm text-[var(--muted)]">{totalTopics} topics</span>
-      </div>
-
-      {/* Buffer health */}
-      <p className="text-sm text-[var(--muted)] mb-5">
-        {bufferHealth.full}/{bufferHealth.total} students have full reading buffers
-        {bufferHealth.full < bufferHealth.total && (
-          <span className="text-amber-600"> · {bufferHealth.total - bufferHealth.full} need articles</span>
+        {studentsNeedingArticles.length > 0 && (
+          <p className="text-sm text-amber-600">
+            ⚠️ {studentsNeedingArticles.join(", ")} {studentsNeedingArticles.length === 1 ? "needs" : "need"} articles
+          </p>
         )}
-      </p>
+      </div>
 
       {/* Category mix bar */}
       {totalTopics > 0 && (
