@@ -176,28 +176,44 @@ export default function AdminContentPage() {
 
   return (
     <div className="p-8 max-w-5xl">
-      <h1 className="text-2xl font-semibold mb-2">Articles</h1>
-      <p className="text-sm text-[var(--muted)] mb-6">{groups.length} articles · {total} level versions</p>
+      <h1 className="text-2xl font-semibold mb-6">{groups.length} Articles</h1>
 
-      {/* Category breakdown */}
-      {filteredGroups.length > 0 && (
-        <div className="mb-6">
-          <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl inline-flex gap-6">
-            {Object.entries(
-              groups.reduce((acc, g) => {
-                const cat = g.category || "unknown";
-                acc[cat] = (acc[cat] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>)
-            ).map(([cat, count]) => (
-              <div key={cat} className="flex items-center gap-2">
-                {categoryBadge(cat)}
-                <span className="font-semibold text-sm">{count}</span>
-              </div>
-            ))}
+      {/* Content mix bar */}
+      {groups.length > 0 && (() => {
+        const cats: Record<string, { count: number; color: string; bg: string }> = {
+          news: { count: 0, color: "#3b82f6", bg: "#dbeafe" },
+          interest: { count: 0, color: "#7c3aed", bg: "#ede9fe" },
+          general: { count: 0, color: "#22c55e", bg: "#dcfce7" },
+        };
+        groups.forEach(g => {
+          const cat = g.category || "general";
+          if (cats[cat]) cats[cat].count++;
+        });
+        const total = groups.length;
+        const entries = Object.entries(cats).filter(([, v]) => v.count > 0);
+
+        return (
+          <div className="mb-6">
+            {/* Stacked bar */}
+            <div className="flex rounded-lg overflow-hidden h-9">
+              {entries.map(([cat, v]) => {
+                const pct = (v.count / total) * 100;
+                const label = cat === "general" ? "Explore" : cat.charAt(0).toUpperCase() + cat.slice(1);
+                return (
+                  <div
+                    key={cat}
+                    className="flex items-center justify-center gap-1.5 text-xs font-medium transition-all"
+                    style={{ width: `${pct}%`, backgroundColor: v.color, color: "white", minWidth: pct > 8 ? undefined : "60px" }}
+                  >
+                    <span>{label}</span>
+                    <span className="opacity-75">{v.count}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">
