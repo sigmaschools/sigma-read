@@ -187,7 +187,7 @@ export default function ReaderPage() {
                 <div className="w-14 h-14 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-2xl animate-scale-in">
                   💬
                 </div>
-                <p className="text-[15px] text-[var(--fg)] font-medium">Let&apos;s talk about what you read</p>
+                <p className="text-[15px] text-[var(--fg)] font-medium">Let&apos;s discuss what you read</p>
                 <div className="flex gap-1.5 mt-1">
                   <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                   <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />

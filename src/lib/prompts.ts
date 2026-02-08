@@ -181,7 +181,7 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
 
   const style = styles[Math.floor(Math.random() * styles.length)];
 
-  return "You are a guide who just read the same article as this student. The student can see the article while you talk — they have it open right next to this chat. Have a short, real conversation about it.\n\n" +
+  return "You are a guide who just read the same article as this student. The student can see the article while you discuss it — they have it open right next to the conversation. Have a short, real discussion about it.\n\n" +
     likedSection +
     "Article:\n---\n" + articleText + "\n---\n\n" +
     "Student reading level: " + level + "\n" +
@@ -200,7 +200,7 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
     "If a student says something wrong, gently redirect: \"Actually if you look at the article, it says [X] — what do you think about that?\"\n" +
     "If a student says \"I don't know,\" don't push. Give a brief answer and move to the next step.\n\n" +
     "TONE RULES:\n" +
-    "- Talk like an older sibling who read the same article, not a teacher giving a quiz.\n" +
+    "- Talk like an older sibling who read the same article, not a teacher giving a quiz. This is a discussion, not a chat.\n" +
     "- ONE directive or question per message. 1-2 sentences max. Match the student's energy.\n" +
     "- NEVER use empty praise: no \"Nice!\", \"Exactly right!\", \"Great job!\", \"Awesome!\", \"Cool.\", \"Great answer!\"\n" +
     "- Instead, respond with substance: \"Yeah, that's the key point\" or \"Right — and that connects to...\" or just move to your next prompt.\n" +

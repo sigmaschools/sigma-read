@@ -8,7 +8,27 @@ interface Message {
   content: string;
 }
 
+const walkthroughSteps = [
+  {
+    emoji: "📚",
+    title: "Welcome to SigmaRead",
+    body: "You'll read short articles about topics you're interested in. We pick articles just for you.",
+  },
+  {
+    emoji: "💬",
+    title: "Then we'll discuss it",
+    body: "After reading, you'll have a quick discussion about the article. It's not a test — the article stays open so you can look back at it anytime.",
+  },
+  {
+    emoji: "✨",
+    title: "That's it!",
+    body: "Pick an article, read it, discuss it. Ready? Let's start by learning what you're into.",
+  },
+];
+
 export default function OnboardingPage() {
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
+  const [walkthroughDone, setWalkthroughDone] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,7 +41,7 @@ export default function OnboardingPage() {
   }, [messages]);
 
   useEffect(() => {
-    if (started) return;
+    if (!walkthroughDone || started) return;
     setStarted(true);
     setLoading(true);
 
@@ -35,7 +55,15 @@ export default function OnboardingPage() {
         setMessages([{ role: "assistant", content: data.message }]);
         setLoading(false);
       });
-  }, [started]);
+  }, [walkthroughDone, started]);
+
+  function advanceWalkthrough() {
+    if (walkthroughStep < walkthroughSteps.length - 1) {
+      setWalkthroughStep(walkthroughStep + 1);
+    } else {
+      setWalkthroughDone(true);
+    }
+  }
 
   async function handleSend() {
     if (!input.trim() || loading) return;
@@ -57,7 +85,6 @@ export default function OnboardingPage() {
       setMessages([...newMessages, { role: "assistant", content: data.message }]);
 
       if (data.profileComplete) {
-        // Interest profiling done — redirect to main app
         setTimeout(() => router.push("/student"), 1500);
         return;
       }
@@ -68,6 +95,40 @@ export default function OnboardingPage() {
     }
   }
 
+  // Walkthrough screens
+  if (!walkthroughDone) {
+    const step = walkthroughSteps[walkthroughStep];
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-6">
+        <div className="max-w-sm w-full text-center">
+          <div className="text-5xl mb-6">{step.emoji}</div>
+          <h1 className="text-2xl font-semibold mb-3">{step.title}</h1>
+          <p className="text-[var(--muted)] text-[16px] leading-relaxed mb-10">{step.body}</p>
+
+          <button
+            onClick={advanceWalkthrough}
+            className="w-full py-3 bg-[var(--accent)] text-white text-[15px] font-medium rounded-xl hover:bg-[var(--accent-hover)] transition"
+          >
+            {walkthroughStep < walkthroughSteps.length - 1 ? "Next" : "Let's go"}
+          </button>
+
+          {/* Progress dots */}
+          <div className="flex justify-center gap-2 mt-6">
+            {walkthroughSteps.map((_, i) => (
+              <div
+                key={i}
+                className={`w-2 h-2 rounded-full transition-all ${
+                  i === walkthroughStep ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Interest interview
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto">
       <header className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
