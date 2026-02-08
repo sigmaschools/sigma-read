@@ -37,13 +37,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // No existing messages — fall through to generate opener
   }
 
-  // Build messages
+  // Build messages (with timestamps)
   const messages = [...(conversation.messages || [])];
+  const now = new Date().toISOString();
   if (message !== "__resume_check__") {
-    messages.push({ role: "user", content: message });
+    messages.push({ role: "user", content: message, timestamp: now });
   } else {
     // Resume check with no messages — generate opener with a synthetic first message
-    messages.push({ role: "user", content: "I just finished reading the article." });
+    messages.push({ role: "user", content: "I just finished reading the article.", timestamp: now });
   }
 
   // Safety backstop — force wrap-up after 8 student messages (generous limit, AI should wrap up naturally well before this)
@@ -93,13 +94,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const isComplete = assistantText.includes("[CONVERSATION_COMPLETE]") || forceComplete;
   const cleanText = assistantText.replace("[CONVERSATION_COMPLETE]", "").trim();
 
-  messages.push({ role: "assistant", content: cleanText });
+  messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
 
-  // Save updated messages
-  await db.update(schema.conversations).set({
-    messages,
-    complete: isComplete,
-  }).where(eq(schema.conversations.id, conversationId));
+  // Save updated messages and conversation style (on first save)
+  const updateData: any = { messages, complete: isComplete };
+  if (!conversation.conversationStyle) {
+    // Extract style name from the system prompt (it's set randomly each time)
+    const styleMatch = systemPrompt.match(/CONVERSATION APPROACH: (\w+)/);
+    if (styleMatch) updateData.conversationStyle = styleMatch[1];
+  }
+  await db.update(schema.conversations).set(updateData).where(eq(schema.conversations.id, conversationId));
 
   // If complete, mark article as read, save summary, and generate report
   if (isComplete) {
@@ -124,6 +128,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (reportMatch) {
       try {
         const report = JSON.parse(reportMatch[1]);
+
+        // Compute conversation analytics
+        const aiMessages = messages.filter(m => m.role === "assistant");
+        const studentMessages = messages.filter(m => m.role === "user");
+        const wordCount = (text: string) => text.split(/\s+/).filter(w => w.length > 0).length;
+        const aiAvgWords = aiMessages.length > 0 ? Math.round(aiMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / aiMessages.length) : 0;
+        const studentAvgWords = studentMessages.length > 0 ? Math.round(studentMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / studentMessages.length) : 0;
+        // Count redirections: "actually", "take a look", "take another look", "close, but", "not quite"
+        const redirectPatterns = /\b(actually|take a look|take another look|close,? but|not quite|if you look at the article)\b/gi;
+        const redirectCount = aiMessages.reduce((count, m) => count + (m.content.match(redirectPatterns) || []).length, 0);
+        const exchangeCount = studentMessages.length;
+
         await db.insert(schema.comprehensionReports).values({
           conversationId,
           score: report.score,
@@ -131,6 +147,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           understood: report.understood,
           missed: report.missed,
           engagementNote: report.engagement,
+          aiAvgWords,
+          studentAvgWords,
+          redirectCount,
+          exchangeCount,
         });
 
         // Calibrate reading level based on comprehension score

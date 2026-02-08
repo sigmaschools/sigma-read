@@ -98,13 +98,15 @@ export const readingSessions = pgTable("reading_sessions", {
   studentId: integer("student_id").references(() => students.id).notNull(),
   articleId: integer("article_id").references(() => articles.id).notNull(),
   startedAt: timestamp("started_at").defaultNow().notNull(),
+  readingCompletedAt: timestamp("reading_completed_at"), // when student clicked "I'm done reading"
   completedAt: timestamp("completed_at"),
 });
 
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   readingSessionId: integer("reading_session_id").references(() => readingSessions.id).notNull(),
-  messages: jsonb("messages").$type<{ role: string; content: string }[]>().default([]),
+  messages: jsonb("messages").$type<{ role: string; content: string; timestamp?: string }[]>().default([]),
+  conversationStyle: varchar("conversation_style", { length: 30 }), // which of 6 styles was used
   complete: boolean("complete").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -118,5 +120,9 @@ export const comprehensionReports = pgTable("comprehension_reports", {
   missed: text("missed").notNull(),
   engagementNote: text("engagement_note").notNull(),
   selfAssessment: varchar("self_assessment", { length: 20 }), // Student's self-rating: "really_well" | "pretty_well" | "not_sure" | "lost"
+  aiAvgWords: integer("ai_avg_words"), // average words per AI message
+  studentAvgWords: integer("student_avg_words"), // average words per student message
+  redirectCount: integer("redirect_count"), // times AI redirected/corrected student
+  exchangeCount: integer("exchange_count"), // total message exchanges
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
