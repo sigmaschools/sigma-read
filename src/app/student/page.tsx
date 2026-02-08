@@ -23,11 +23,18 @@ function categoryLabel(article: Article) {
   return "Explore";
 }
 
-function firstSentence(text: string): string {
-  // Strip markdown headings, get first real sentence
+function articleSummary(text: string, title: string): string {
+  // Strip markdown headings, split into sentences, take first 2-3
   const clean = text.replace(/^#+\s.*\n*/gm, "").trim();
-  const match = clean.match(/^[^.!?]+[.!?]/);
-  return match ? match[0].trim() : clean.slice(0, 120) + "…";
+  const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
+  // Skip first sentence if it's very similar to the title (redundant)
+  const titleWords = new Set(title.toLowerCase().split(/\s+/));
+  const firstWords = sentences[0] ? new Set(sentences[0].toLowerCase().split(/\s+/)) : new Set();
+  const overlap = [...titleWords].filter(w => firstWords.has(w) && w.length > 3).length;
+  const skipFirst = overlap > titleWords.size * 0.5;
+  const start = skipFirst ? 1 : 0;
+  const picked = sentences.slice(start, start + 2).join(" ").trim();
+  return picked || clean.slice(0, 200) + "…";
 }
 
 function categoryStyle(article: Article) {
@@ -163,7 +170,7 @@ export default function StudentHome() {
             >
               <div>
                 <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
-                <p className="text-sm text-[var(--muted)] mt-1.5 line-clamp-2">{firstSentence(article.bodyText)}</p>
+                <p className="text-sm text-[var(--muted)] mt-1.5 line-clamp-3">{articleSummary(article.bodyText, article.title)}</p>
                 <p className="text-xs text-[var(--muted)] mt-1.5">
                   <span className={`font-medium ${categoryStyle(article)}`}>{categoryLabel(article)}</span>
                   {article.category !== "news" && article.topic ? ` · ${article.topic}` : ""}
@@ -196,35 +203,37 @@ export default function StudentHome() {
           </div>
         )}
 
-        {/* Daily Goal Slots */}
-        <div className="mt-8">
-          <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">
-            Today&apos;s Reading Goal · {completedToday.length}/{dailyGoal}
-            {completedToday.length >= dailyGoal && " 🎉"}
-          </h2>
-          <div className="space-y-2">
-            {Array.from({ length: Math.max(dailyGoal, completedToday.length) }).map((_, i) => {
-              const completed = completedToday[i];
-              return completed ? (
-                <div
-                  key={i}
-                  className="p-4 bg-[var(--surface)] border border-[var(--accent)]/30 rounded-xl flex items-center gap-3"
-                >
-                  <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-sm flex-shrink-0">
-                    ✓
+        {/* Daily Goal Slots — only show after first completion */}
+        {completedToday.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">
+              Today&apos;s Reading Goal · {completedToday.length}/{dailyGoal}
+              {completedToday.length >= dailyGoal && " 🎉"}
+            </h2>
+            <div className="space-y-2">
+              {Array.from({ length: Math.max(dailyGoal, completedToday.length) }).map((_, i) => {
+                const completed = completedToday[i];
+                return completed ? (
+                  <div
+                    key={i}
+                    className="p-4 bg-[var(--surface)] border border-[var(--accent)]/30 rounded-xl flex items-center gap-3"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-sm flex-shrink-0">
+                      ✓
+                    </div>
+                    <p className="text-[15px] font-medium text-[var(--fg)]">{completed.title}</p>
                   </div>
-                  <p className="text-[15px] font-medium text-[var(--fg)]">{completed.title}</p>
-                </div>
-              ) : (
-                <div
-                  key={i}
-                  className="p-4 border-2 border-dashed border-[var(--border)] rounded-xl"
-                >
-                </div>
-              );
-            })}
+                ) : (
+                  <div
+                    key={i}
+                    className="p-4 border-2 border-dashed border-[var(--border)] rounded-xl min-h-[72px]"
+                  >
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );
