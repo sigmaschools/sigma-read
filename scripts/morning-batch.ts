@@ -19,8 +19,8 @@ import { neon } from "@neondatabase/serverless";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
-const OPUS_MODEL = "claude-opus-4-6-20250219";
-const SONNET_MODEL = "claude-sonnet-4-5-20250514";
+const OPUS_MODEL = "claude-opus-4-6";
+const SONNET_MODEL = "claude-sonnet-4-5";
 const BUFFER_TARGET = 12; // unread articles per student
 const BASE_LEVEL = 4; // generate base articles at L4, adapt to others
 
@@ -57,29 +57,90 @@ const levelGuide: Record<number, { lexile: string; grade: string; words: string;
 };
 
 async function getNewsHeadlines(): Promise<{ topic: string; source: string }[]> {
-  console.log("📰 Fetching today's news headlines...");
+  console.log("📰 Fetching today's news headlines from kid-friendly sources...");
+  
+  // Fetch from multiple kid-friendly news sources
+  const sources = [
+    "https://newsforkids.net/",
+    "https://www.dogonews.com/",
+    "https://www.timeforkids.com/g34/",
+  ];
+  
+  let allHeadlines = "";
+  
+  for (const url of sources) {
+    try {
+      const res = await fetch(url);
+      const html = await res.text();
+      // Extract text content (rough — get headlines from title tags and headings)
+      const titleMatches = html.match(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/gi) || [];
+      const titles = titleMatches.map(t => t.replace(/<[^>]*>/g, "").trim()).filter(t => t.length > 10 && t.length < 200);
+      if (titles.length > 0) {
+        allHeadlines += `\nFrom ${url}:\n${titles.slice(0, 8).map(t => `- ${t}`).join("\n")}\n`;
+      }
+    } catch (e) {
+      console.log(`  ⚠️  Could not fetch ${url}`);
+    }
+  }
+  
+  // Also search for recent kid-friendly news
+  try {
+    const searchQueries = [
+      "interesting science news today kids",
+      "sports news today kids",
+      "animals discovery news today",
+      "space NASA news today",
+    ];
+    for (const q of searchQueries) {
+      try {
+        const BRAVE_KEY = process.env.BRAVE_API_KEY || "";
+        if (BRAVE_KEY) {
+          const searchRes = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=3&freshness=pd`, {
+            headers: { "X-Subscription-Token": BRAVE_KEY, Accept: "application/json" },
+          });
+          const data = await searchRes.json();
+          if (data.web?.results) {
+            allHeadlines += `\nFrom search "${q}":\n${data.web.results.map((r: any) => `- ${r.title} (${r.url})`).join("\n")}\n`;
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  
+  if (!allHeadlines.trim()) {
+    console.log("  ⚠️  No headlines fetched, falling back to evergreen topics");
+    // Fallback: generate based on evergreen kid-friendly topics
+    return [
+      { topic: "A recent breakthrough in renewable energy technology", source: "Science News" },
+      { topic: "An unusual animal behavior discovered by researchers", source: "Nature" },
+      { topic: "A young person making a difference in their community", source: "Good News" },
+      { topic: "A new discovery about dinosaurs or prehistoric life", source: "Paleontology Today" },
+      { topic: "An innovation in space exploration or astronomy", source: "NASA" },
+      { topic: "A new technology that could change everyday life", source: "Tech News" },
+      { topic: "An incredible feat of engineering or construction", source: "Engineering" },
+      { topic: "A surprising fact about ocean life", source: "Marine Science" },
+    ];
+  }
+  
+  // Use Claude to select the best 8-10 kid-friendly topics from the scraped headlines
   const response = await anthropic.messages.create({
     model: OPUS_MODEL,
     max_tokens: 2000,
     messages: [{
       role: "user",
-      content: `Give me 10 news stories from today's headlines that a 10-year-old kid might be interested in reading. Focus on science, animals, sports, space, technology, and human interest stories.
+      content: `Here are recent news headlines from kid-friendly sources:\n\n${allHeadlines}\n\nSelect the 8-10 most interesting stories for a 10-year-old. Focus on science, animals, sports, space, technology, and human interest. Skip anything too adult, political, or boring.
 
-For each story, provide:
-1. A brief topic description (1 sentence)
-2. The source URL or publication name
+For each, provide a brief topic description and the source.
 
-Output as JSON array:
-[{"topic": "brief description of the news story", "source": "publication name or URL"}]
-
-Only include stories you are confident are real and current. Do not hallucinate or fabricate stories.`
+Output as JSON array ONLY — no other text:
+[{"topic": "brief description of the story", "source": "source name or URL"}]`
     }],
   });
 
   const text = response.content[0].type === "text" ? response.content[0].text : "";
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (!jsonMatch) {
-    console.error("Failed to parse headlines:", text);
+    console.error("Failed to parse curated headlines:", text.substring(0, 200));
     return [];
   }
   
