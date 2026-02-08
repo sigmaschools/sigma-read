@@ -8,6 +8,7 @@ interface SessionReport {
   articleId: number;
   startedAt: string;
   completedAt: string | null;
+  readingCompletedAt: string | null;
   articleTitle: string;
   articleTopic: string;
   articleLiked: boolean | null;
@@ -19,7 +20,12 @@ interface SessionReport {
   engagementNote: string | null;
   selfAssessment: string | null;
   conversationId: number | null;
-  messages: { role: string; content: string }[] | null;
+  conversationStyle: string | null;
+  messages: { role: string; content: string; timestamp?: string }[] | null;
+  aiAvgWords: number | null;
+  studentAvgWords: number | null;
+  redirectCount: number | null;
+  exchangeCount: number | null;
 }
 
 interface Student {
@@ -32,11 +38,26 @@ interface Student {
   onboardingComplete: boolean;
 }
 
+interface StudentInsights {
+  calibration: { pattern: string; detail: string } | null;
+  avgReadingTime: number | null;
+  avgDiscussionTime: number | null;
+  likedArticles: string[];
+  dislikedArticles: string[];
+  interestSuggestions: string[];
+  favorites: string[];
+  showDifferentCount: number;
+  levelHistory: { fromLevel: number; toLevel: number; changedAt: string }[];
+  conversationStyles: Record<string, number>;
+  avgEngagement: string | null;
+}
+
 export default function StudentDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [student, setStudent] = useState<Student | null>(null);
   const [sessions, setSessions] = useState<SessionReport[]>([]);
+  const [insights, setInsights] = useState<StudentInsights | null>(null);
   const [selectedSession, setSelectedSession] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,9 +72,14 @@ export default function StudentDetailPage() {
     if (!s) { router.push("/guide"); return; }
     setStudent(s);
 
-    const repRes = await fetch(`/api/reports?studentId=${id}`);
+    const [repRes, insightsRes] = await Promise.all([
+      fetch(`/api/reports?studentId=${id}`),
+      fetch(`/api/guide/student-insights?studentId=${id}`),
+    ]);
     const reps = await repRes.json();
     setSessions(reps);
+    const ins = await insightsRes.json();
+    if (!ins.error) setInsights(ins);
     setLoading(false);
   }
 
@@ -144,11 +170,24 @@ export default function StudentDetailPage() {
         <div className="max-w-3xl mx-auto p-8">
           {/* Article info */}
           <h1 className="text-xl font-semibold mb-1">{s.articleTitle}</h1>
-          <p className="text-sm text-[var(--muted)] mb-6">
+          <p className="text-sm text-[var(--muted)] mb-2">
             {s.articleTopic} · {s.completedAt ? new Date(s.completedAt).toLocaleDateString() : "In progress"}
             {s.articleLiked === true && " · 👍 Liked"}
             {s.articleLiked === false && " · 👎 Disliked"}
+            {s.conversationStyle && ` · Style: ${s.conversationStyle.toLowerCase().replace(/_/g, " ")}`}
           </p>
+          {/* Time + Quality insights */}
+          <div className="flex gap-4 text-xs text-[var(--muted)] mb-6">
+            {s.readingCompletedAt && s.startedAt && (
+              <span>📖 Read: {Math.round((new Date(s.readingCompletedAt).getTime() - new Date(s.startedAt).getTime()) / 1000 / 60 * 10) / 10}m</span>
+            )}
+            {s.readingCompletedAt && s.completedAt && (
+              <span>💬 Discussed: {Math.round((new Date(s.completedAt).getTime() - new Date(s.readingCompletedAt).getTime()) / 1000 / 60 * 10) / 10}m</span>
+            )}
+            {s.aiAvgWords !== null && <span>AI avg: {s.aiAvgWords}w</span>}
+            {s.studentAvgWords !== null && <span>Student avg: {s.studentAvgWords}w</span>}
+            {s.redirectCount !== null && s.redirectCount > 0 && <span className="text-amber-600">⟳ {s.redirectCount} redirect{s.redirectCount > 1 ? "s" : ""}</span>}
+          </div>
 
           {/* Score + Self Assessment */}
           {s.score !== null && (
@@ -250,6 +289,81 @@ export default function StudentDetailPage() {
             </p>
           </div>
         </div>
+
+        {/* Insights Row */}
+        {insights && (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {/* Calibration */}
+            {insights.calibration && (
+              <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Self-Assessment</p>
+                <p className="font-semibold text-sm">{insights.calibration.pattern}</p>
+                <p className="text-xs text-[var(--muted)] mt-1">{insights.calibration.detail}</p>
+              </div>
+            )}
+
+            {/* Time Insights */}
+            {(insights.avgReadingTime !== null || insights.avgDiscussionTime !== null) && (
+              <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Avg Session Time</p>
+                <p className="text-sm">
+                  {insights.avgReadingTime !== null && <span>📖 {insights.avgReadingTime < 60 ? `${insights.avgReadingTime}s` : `${Math.round(insights.avgReadingTime / 60 * 10) / 10}m`} reading</span>}
+                  {insights.avgReadingTime !== null && insights.avgDiscussionTime !== null && <span className="text-[var(--muted)]"> · </span>}
+                  {insights.avgDiscussionTime !== null && <span>💬 {Math.round(insights.avgDiscussionTime / 60 * 10) / 10}m discussing</span>}
+                </p>
+                {insights.avgReadingTime !== null && insights.avgReadingTime < 30 && (
+                  <p className="text-xs text-amber-600 mt-1">⚠️ Very fast reader — may be skimming</p>
+                )}
+              </div>
+            )}
+
+            {/* Engagement */}
+            {insights.avgEngagement && (
+              <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Engagement</p>
+                <p className="font-semibold text-sm">{insights.avgEngagement}</p>
+                {insights.conversationStyles && Object.keys(insights.conversationStyles).length > 0 && (
+                  <p className="text-xs text-[var(--muted)] mt-1">
+                    Styles: {Object.entries(insights.conversationStyles).map(([k, v]) => `${k.toLowerCase().replace(/_/g, " ")} (${v})`).join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Level History */}
+            {insights.levelHistory.length > 0 && (
+              <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Level Changes</p>
+                {insights.levelHistory.map((lh, i) => (
+                  <p key={i} className="text-sm">
+                    {lh.toLevel > lh.fromLevel ? "↑" : "↓"} L{lh.fromLevel} → L{lh.toLevel}
+                    <span className="text-xs text-[var(--muted)] ml-1">{new Date(lh.changedAt).toLocaleDateString()}</span>
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Article Preferences */}
+            {(insights.likedArticles.length > 0 || insights.dislikedArticles.length > 0) && (
+              <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Article Preferences</p>
+                {insights.likedArticles.length > 0 && <p className="text-xs text-green-600">👍 {insights.likedArticles.slice(0, 3).join(", ")}</p>}
+                {insights.dislikedArticles.length > 0 && <p className="text-xs text-red-500 mt-0.5">👎 {insights.dislikedArticles.slice(0, 3).join(", ")}</p>}
+                {insights.showDifferentCount > 0 && <p className="text-xs text-[var(--muted)] mt-0.5">Swapped articles {insights.showDifferentCount}×</p>}
+              </div>
+            )}
+
+            {/* Interest Suggestions */}
+            {insights.interestSuggestions.length > 0 && (
+              <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Student Requested</p>
+                {insights.interestSuggestions.map((s, i) => (
+                  <p key={i} className="text-sm">"{s}"</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Trendline */}
         <div className="mb-8">

@@ -15,6 +15,7 @@ interface DashboardStudent {
   avgScore: number | null;
   totalSessions: number;
   sessionsThisWeek: number;
+  weeklySessionTarget: number;
   status: "succeeding" | "on-track" | "struggling" | "inactive" | "new";
 }
 
@@ -37,12 +38,23 @@ interface WeeklySummary {
   }[];
 }
 
+interface ClassStats {
+  activeStudents: number;
+  totalStudents: number;
+  totalSessionsThisWeek: number;
+  classAvgScore: number | null;
+  needsAttention: number;
+}
+
 export default function GuideDashboard() {
   const [students, setStudents] = useState<DashboardStudent[]>([]);
   const [filtered, setFiltered] = useState<DashboardStudent[]>([]);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"status" | "name" | "score" | "sessions" | "active">("status");
   const [loading, setLoading] = useState(true);
   const [guideName, setGuideName] = useState("");
+  const [classStats, setClassStats] = useState<ClassStats | null>(null);
+  const [alerts, setAlerts] = useState<string[]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [summary, setSummary] = useState<WeeklySummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -53,13 +65,20 @@ export default function GuideDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!search.trim()) {
-      setFiltered(students);
-    } else {
+    let list = students;
+    if (search.trim()) {
       const q = search.toLowerCase();
-      setFiltered(students.filter((s) => s.name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q)));
+      list = list.filter((s) => s.name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q));
     }
-  }, [search, students]);
+    // Sort
+    const sorted = [...list];
+    if (sortBy === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortBy === "score") sorted.sort((a, b) => (b.avgScore ?? -1) - (a.avgScore ?? -1));
+    else if (sortBy === "sessions") sorted.sort((a, b) => b.sessionsThisWeek - a.sessionsThisWeek);
+    else if (sortBy === "active") sorted.sort((a, b) => b.totalSessions - a.totalSessions);
+    // default "status" keeps server sort
+    setFiltered(sorted);
+  }, [search, students, sortBy]);
 
   async function loadData() {
     const meRes = await fetch("/api/auth/me");
@@ -70,6 +89,8 @@ export default function GuideDashboard() {
     const dashRes = await fetch("/api/guide/dashboard");
     const data = await dashRes.json();
     setStudents(data.students);
+    if (data.classStats) setClassStats(data.classStats);
+    if (data.alerts) setAlerts(data.alerts);
     setLoading(false);
   }
 
@@ -159,9 +180,52 @@ export default function GuideDashboard() {
       </aside>
 
       <main className="flex-1 p-8 max-w-4xl">
+        {/* Class Stats */}
+        {classStats && (
+          <div className="grid grid-cols-4 gap-3 mb-6">
+            <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
+              <p className="text-2xl font-semibold">{classStats.activeStudents}/{classStats.totalStudents}</p>
+              <p className="text-xs text-[var(--muted)]">Active this week</p>
+            </div>
+            <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
+              <p className="text-2xl font-semibold">{classStats.totalSessionsThisWeek}</p>
+              <p className="text-xs text-[var(--muted)]">Sessions this week</p>
+            </div>
+            <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
+              <p className={`text-2xl font-semibold ${scoreColor(classStats.classAvgScore)}`}>{classStats.classAvgScore ?? "—"}</p>
+              <p className="text-xs text-[var(--muted)]">Class avg score</p>
+            </div>
+            <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
+              <p className={`text-2xl font-semibold ${classStats.needsAttention > 0 ? "text-amber-600" : "text-green-600"}`}>{classStats.needsAttention}</p>
+              <p className="text-xs text-[var(--muted)]">Need attention</p>
+            </div>
+          </div>
+        )}
+
+        {/* Alerts */}
+        {alerts.length > 0 && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <p className="text-sm font-medium text-amber-800 mb-1">Alerts</p>
+            {alerts.map((a, i) => (
+              <p key={i} className="text-sm text-amber-700">{a}</p>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Your Students</h2>
           <div className="flex items-center gap-3">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-2 py-1.5 text-sm border border-[var(--border)] rounded-lg outline-none focus:border-[var(--accent)] transition bg-white"
+            >
+              <option value="status">Sort: Status</option>
+              <option value="name">Sort: Name</option>
+              <option value="score">Sort: Score</option>
+              <option value="sessions">Sort: Sessions</option>
+              <option value="active">Sort: Total</option>
+            </select>
             <input
               type="text"
               value={search}
@@ -218,7 +282,12 @@ export default function GuideDashboard() {
                         {student.avgScore !== null ? student.avgScore : "—"}
                       </p>
                       <p className="text-xs text-[var(--muted)]">
-                        {student.sessionsThisWeek} this week · {student.totalSessions} total
+                        <span className={
+                          student.sessionsThisWeek >= Math.round(student.weeklySessionTarget * 0.8) ? "text-green-600" :
+                          student.sessionsThisWeek >= Math.round(student.weeklySessionTarget * 0.5) ? "text-yellow-600" :
+                          student.sessionsThisWeek > 0 ? "text-red-500" : ""
+                        }>{student.sessionsThisWeek}/{student.weeklySessionTarget}</span>
+                        {" this week · "}{student.totalSessions} total
                       </p>
                     </div>
                     {statusBadge(student.status)}

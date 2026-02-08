@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
     sessionId: schema.readingSessions.id,
     articleId: schema.readingSessions.articleId,
     startedAt: schema.readingSessions.startedAt,
+    readingCompletedAt: schema.readingSessions.readingCompletedAt,
     completedAt: schema.readingSessions.completedAt,
     articleTitle: schema.articles.title,
     articleTopic: schema.articles.topic,
@@ -27,7 +28,12 @@ export async function GET(req: NextRequest) {
     missed: schema.comprehensionReports.missed,
     engagementNote: schema.comprehensionReports.engagementNote,
     selfAssessment: schema.comprehensionReports.selfAssessment,
+    aiAvgWords: schema.comprehensionReports.aiAvgWords,
+    studentAvgWords: schema.comprehensionReports.studentAvgWords,
+    redirectCount: schema.comprehensionReports.redirectCount,
+    exchangeCount: schema.comprehensionReports.exchangeCount,
     conversationId: schema.conversations.id,
+    conversationStyle: schema.conversations.conversationStyle,
     messages: schema.conversations.messages,
   })
     .from(schema.readingSessions)

@@ -167,6 +167,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await db.update(schema.students)
             .set({ readingLevel: newLevel })
             .where(eq(schema.students.id, session.userId));
+
+          // Log level change to history
+          await db.insert(schema.levelHistory).values({
+            studentId: session.userId,
+            fromLevel: currentLevel,
+            toLevel: newLevel,
+            triggeredBySessionId: readingSession.id,
+          });
         }
       } catch (e) {
         console.error("Report parse error:", e);
