@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date } from "drizzle-orm/pg-core";
 
 export const guides = pgTable("guides", {
   id: serial("id").primaryKey(),
@@ -19,6 +19,8 @@ export const students = pgTable("students", {
   age: integer("age"), // student age
   interestProfile: jsonb("interest_profile"),
   onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
+  dailyArticleCap: integer("daily_article_cap").default(5),
+  totalSessionsCompleted: integer("total_sessions_completed").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -36,6 +38,7 @@ export const articles = pgTable("articles", {
   category: varchar("category", { length: 20 }).default("general"), // news, general, interest
   preReadingPrompt: text("pre_reading_prompt"), // AI-generated activation question
   summary: text("summary"), // Brief summary for cross-article connections
+  sourceCacheId: integer("source_cache_id"), // tracks which cache article this came from
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -49,6 +52,44 @@ export const articleCache = pgTable("article_cache", {
   sources: jsonb("sources").$type<string[]>().default([]),
   estimatedReadTime: integer("estimated_read_time").default(4),
   category: varchar("category", { length: 20 }).notNull().default("news"), // news, general
+  baseArticleId: integer("base_article_id"), // links level adaptations to their source
+  generatedDate: date("generated_date"), // which batch date this was generated for
+  headlineSource: text("headline_source"), // source URL for news articles
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tracks which cached articles each student has been served (prevents repeats)
+export const studentArticleHistory = pgTable("student_article_history", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  articleCacheId: integer("article_cache_id").notNull(),
+  articleTitle: text("article_title").notNull(),
+  servedAt: timestamp("served_at").defaultNow().notNull(),
+});
+
+// Feed events: "show_me_different" clicks, article impressions, etc.
+export const articleFeedEvents = pgTable("article_feed_events", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  eventType: varchar("event_type", { length: 30 }).notNull(),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Daily favorite article picks (at goal completion)
+export const articleFavorites = pgTable("article_favorites", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  articleId: integer("article_id").references(() => articles.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Periodic article quality ratings (every 20th session)
+export const articleRatings = pgTable("article_ratings", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  rating: varchar("rating", { length: 20 }).notNull(),
+  feedbackText: text("feedback_text"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
