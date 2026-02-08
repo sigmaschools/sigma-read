@@ -48,9 +48,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Create new reading session + conversation
+  // readingCompletedAt = now (student just clicked "I'm done reading")
   const [readingSession] = await db.insert(schema.readingSessions).values({
     studentId: session.userId,
     articleId,
+    readingCompletedAt: new Date(),
   }).returning();
 
   const [conversation] = await db.insert(schema.conversations).values({
