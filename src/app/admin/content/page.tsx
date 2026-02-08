@@ -179,41 +179,22 @@ export default function AdminContentPage() {
       <h1 className="text-2xl font-semibold mb-2">Articles</h1>
       <p className="text-sm text-[var(--muted)] mb-6">{groups.length} articles · {total} level versions</p>
 
-      {/* Distribution — derived from grouped articles, not raw versions */}
+      {/* Category breakdown */}
       {filteredGroups.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-            <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Level Coverage</p>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5, 6].map(l => {
-                const count = groups.filter(g => g.levels.some(a => a.readingLevel === l)).length;
-                return (
-                  <div key={l} className="flex-1 text-center">
-                    <p className="text-xs text-[var(--muted)]">L{l}</p>
-                    <p className={`font-semibold ${count === 0 ? "text-red-500" : "text-[var(--fg)]"}`}>
-                      {count}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-            <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">By Category</p>
-            <div className="flex gap-4">
-              {Object.entries(
-                groups.reduce((acc, g) => {
-                  const cat = g.category || "unknown";
-                  acc[cat] = (acc[cat] || 0) + 1;
-                  return acc;
-                }, {} as Record<string, number>)
-              ).map(([cat, count]) => (
-                <div key={cat} className="flex items-center gap-2">
-                  {categoryBadge(cat)}
-                  <span className="font-semibold text-sm">{count}</span>
-                </div>
-              ))}
-            </div>
+        <div className="mb-6">
+          <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl inline-flex gap-6">
+            {Object.entries(
+              groups.reduce((acc, g) => {
+                const cat = g.category || "unknown";
+                acc[cat] = (acc[cat] || 0) + 1;
+                return acc;
+              }, {} as Record<string, number>)
+            ).map(([cat, count]) => (
+              <div key={cat} className="flex items-center gap-2">
+                {categoryBadge(cat)}
+                <span className="font-semibold text-sm">{count}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
