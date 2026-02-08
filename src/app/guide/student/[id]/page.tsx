@@ -74,6 +74,15 @@ export default function StudentDetailPage() {
     return "text-red-500";
   };
 
+  const scoreLabel = (score: number | null) => {
+    if (score === null) return "";
+    if (score >= 85) return "Exceptional";
+    if (score >= 70) return "Strong";
+    if (score >= 55) return "Solid";
+    if (score >= 40) return "Developing";
+    return "Needs Support";
+  };
+
   const selfAssessLabel = (sa: string | null) => {
     if (!sa) return null;
     const labels: Record<string, string> = {
@@ -156,9 +165,8 @@ export default function StudentDetailPage() {
               <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
                 <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Score</p>
                 <p className={`text-2xl font-semibold ${scoreColor(s.score)}`}>
-                  {s.score}<span className="text-sm font-normal text-[var(--muted)]">/100</span>
+                  {s.score} <span className="text-sm font-normal text-[var(--muted)]">{s.rating}</span>
                 </p>
-                <p className="text-sm text-[var(--muted)] mt-1">{s.rating}</p>
               </div>
               <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
                 <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Student Self-Assessment</p>
@@ -282,7 +290,7 @@ export default function StudentDetailPage() {
                   {s.score !== null && (
                     <div className="text-right">
                       <span className={`text-lg font-semibold ${scoreColor(s.score)}`}>{s.score}</span>
-                      <span className="text-xs text-[var(--muted)]">/100</span>
+                      <span className="text-xs text-[var(--muted)]"> {scoreLabel(s.score)}</span>
                     </div>
                   )}
                   <span className="text-[var(--muted)]">→</span>
