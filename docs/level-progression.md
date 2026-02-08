@@ -1,91 +1,188 @@
 # Reading Level Progression Rules
 
-## Research Foundation
+## Research: How Commercial EdTech Products Handle Level Progression
 
-### Key Principles from Learning Science
+### 1. Khan Academy — Mastery Levels
+Khan Academy uses a 4-tier skill mastery system: **Attempted → Familiar → Proficient → Mastered**.
 
-**1. The Lexile Framework's 75% Comprehension Target**
-MetaMetrics research establishes that when a reader and text are appropriately matched, the reader achieves ~75% comprehension. This is the "sweet spot" — challenging enough to grow, accessible enough to succeed. In SigmaRead terms, a student consistently scoring 70-80 is *correctly placed* — not struggling.
+**Level up mechanics:**
+- **Attempted → Familiar**: Score 70-85% on an exercise, OR answer correctly on a mixed-skill quiz
+- **Familiar → Proficient**: Score 100% on an exercise, OR answer correctly on a mixed-skill assessment while at Familiar
+- **Proficient → Mastered**: Answer correctly on a **Unit Test** while at Proficient — this is the key gate
 
-**2. Betts' Reading Levels (updated by Shanahan)**
-Traditional reading science defines three zones:
-- **Independent level**: 90%+ comprehension — too easy, limited growth
-- **Instructional level**: 60-89% comprehension — optimal learning zone (with support)
-- **Frustration level**: <60% comprehension — too hard, disengagement risk
+**Level down mechanics:**
+- Mastered → Proficient: Score 70-99% on an exercise
+- Mastered → Familiar: Score **below 70%** on an exercise (drops TWO levels)
+- Any level → lower: Miss questions on assessments
 
-Shanahan's more recent work suggests the instructional sweet spot is actually broader than Betts claimed, and that students learn effectively from more challenging text than traditionally assumed — especially with scaffolding (which our AI discussion provides).
+**Key design choice**: Khan requires **multiple contexts** to reach full mastery (exercise → quiz → unit test). A single exercise can get you to Proficient, but you need a unit test to reach Mastered. This ensures demonstrated skill transfer, not just familiarity with one problem set.
 
-**3. Zone of Proximal Development (Vygotsky)**
-Optimal learning occurs in the space between what a student can do independently and what they can achieve with guidance. SigmaRead's AI discussion *is* the scaffolding — students discuss the article with support. This means we can target slightly harder text than a pure independent-reading system would.
+**Relevance to SigmaRead**: Khan's insight is that moving up should require demonstration in multiple contexts. For us, that maps to multiple articles across different topics — one great conversation about a topic the student already knows shouldn't trigger a level change.
 
-**4. Younger vs. Older Students Have Different Stability**
-Research consistently shows younger students' reading performance is more variable:
-- Younger readers (grades 2-4) are still developing foundational skills. Performance fluctuates based on topic familiarity, mood, time of day, fatigue.
-- Older readers (grades 5-8) have more stable decoding skills. Comprehension variation is more likely to reflect genuine ability differences.
-- Adaptive systems that use younger students' data need more observations before making confident decisions (the "guesswork" problem noted in K-12 adaptive learning research).
+### 2. IXL — SmartScore
+IXL uses a continuous 0-100 "SmartScore" that adapts within a single practice session.
 
-**5. Achieve3000's Approach**
-Achieve3000 (the closest commercial analog to SigmaRead) uses a formal LevelSet assessment administered 3 times/year, with ongoing embedded assessments adjusting Lexile between formal assessments. They explicitly gate level changes behind accumulated evidence, not single-session performance.
+**Progression zones:**
+- **0-69**: Learning zone — large gains for correct answers, small penalties for incorrect
+- **70-79**: Approaching proficiency — balanced gains/penalties
+- **80** = **Proficient** (the primary teacher-facing target)
+- **80-89**: Above proficiency — smaller gains, larger penalties
+- **90-100**: **Challenge Zone** — questions get harder, only 1-2 points per correct answer, 3-8 point penalties for mistakes. Must answer ~10 consecutive correctly to reach 100.
+- **100** = **Mastered**
 
-**6. The Cost of Wrong Placement**
-- **Placed too high**: Frustration → disengagement → avoidance. For reluctant readers (our Marcus archetype), this is catastrophic. Recovery is harder than prevention.
-- **Placed too low**: Boredom → disengagement, but less damaging. A strong reader given slightly easy text still learns (just less efficiently). And they demonstrate mastery quickly, triggering an upgrade.
+**Key design choice**: IXL makes the path from 80→100 deliberately hard. The questions get harder AND the scoring tightens. This prevents "coasting" — you can't mastery-farm by answering easy questions. Penalties escalate as you get higher, so a student can't stay at a level they don't genuinely belong at.
 
-This asymmetry means **we should be more cautious about leveling up than about staying put, and faster about leveling down than about leveling up.**
+**Relevance to SigmaRead**: The asymmetric penalty structure is directly applicable. When a student is performing well, wrong answers should weigh more heavily than when they're still finding their footing. For us: once a student has leveled up, a poor score should carry more weight in the evaluation window than when they're establishing themselves at a level.
+
+### 3. Newsela — Adaptive Article Levels
+Newsela is the closest commercial product to SigmaRead (articles at multiple reading levels with comprehension quizzes).
+
+**Level adjustment mechanics:**
+- Default starting level: **grade level minus one** (or grade 5 if no grade set)
+- Adaptive adjustment begins after **at least 1 quiz**, with confidence growing over more quizzes
+- Earlier documentation references needing **8 completed quizzes** before the system has high confidence in its level recommendation
+- Level is **continuously recalculated** based on weighted factors: prior quiz performance (heaviest weight), Check for Understanding activities, Guided Highlighting, grade level, and optional NWEA/MAP scores
+- Teachers can override and lock student levels at any time
+
+**Key design choice**: Newsela starts conservative (grade level minus one) and builds confidence gradually. It doesn't wait for 8 quizzes to make ANY adjustment — it starts adjusting after 1, but its confidence in the recommendation grows with more data. This is a Bayesian approach: strong prior (grade level), updated by evidence.
+
+**Relevance to SigmaRead**: This is the strongest model for us. Start with a reasonable default, begin adjusting early but cautiously, increase confidence (and willingness to make bigger moves) as data accumulates. The "grade minus one" default is smart — slightly easy is better than slightly hard for first impressions.
+
+### 4. Lexia Core5 — Placement and Advancement
+Lexia Core5 (K-5 reading) uses an auto-placement assessment followed by continuous in-program advancement.
+
+**Placement mechanics:**
+- Students complete activities at a level
+- If they demonstrate **≥90% accuracy** on **both** activities at a level, they advance to the next level
+- If accuracy drops, they drop levels until placement is found
+- Teachers can see if a student has "High Accuracy and Fast Rate" across all 5 activities, suggesting they might belong higher
+
+**Advancement during regular use:**
+- Students advance through units by demonstrating mastery
+- If they struggle, the system branches to additional instruction before allowing progression
+- 3-step branching: initial instruction → targeted practice on errors → reassessment
+
+**Key design choice**: Lexia requires proficiency on **two different activities** at the same level — not just one. This guards against topic-specific flukes. The 90% threshold is high, ensuring clear mastery before advancement.
+
+**Relevance to SigmaRead**: The "two different activities" requirement maps well to our context — we should require strong performance across multiple articles/topics, not just one subject the student happens to know well.
+
+### 5. Math Academy — Knowledge Graph and Spaced Repetition
+Math Academy's approach is fundamentally different (topic-by-topic mastery, not a single "level"), but their principles are highly relevant.
+
+**Mastery mechanics:**
+- Each topic requires demonstrated mastery before unlocking dependent topics
+- Mastery is tracked through spaced repetition — a student's "knowledge" of a topic decays over time
+- If a student goes too long without review, their mastery degrades
+- The diagnostic algorithm finds the student's "knowledge frontier" — the boundary between what they know and don't know
+- **Student ability is estimated from accuracy on prerequisites and updated with each answer**
+
+**Key design choices:**
+- Mastery is not binary — it's a continuous measure that decays
+- The system estimates **student learning speed** as ratio of student ability to topic difficulty
+- Answers on advanced topics give partial credit to prerequisite topics ("implicit repetition"), but discounted based on timing
+- Failed reviews on prerequisites penalize dependent topics too
+
+**Relevance to SigmaRead**: Math Academy's core insight is that mastery should be based on accumulated evidence over time, not single-point measurements. Their spaced repetition approach means a topic isn't "done" after one success — the student must demonstrate retained understanding. For us: even after a student levels up, their continued performance should validate that decision. If they start struggling at the new level, the system should respond quickly.
+
+### 6. Achieve3000 — LevelSet
+Achieve3000 (closest to SigmaRead in product design — adaptive news articles with comprehension activities).
+
+**Level mechanics:**
+- Formal diagnostic (LevelSet) administered **3 times per year** (beginning, middle, end)
+- Between diagnostics, Lexile is adjusted monthly based on completed activities
+- Only activities completed during **official school hours** count toward adjustment
+- Teachers can manually adjust within 3 weeks of the last LevelSet
+- 12 difficulty levels available
+
+**Key design choice**: Achieve3000 uses a **dual system**: formal diagnostics for major placement, embedded assessment for fine-tuning. The monthly adjustment cadence (not per-session) means they're looking at trends, not individual data points.
+
+**Relevance to SigmaRead**: The monthly cadence isn't right for us (our students do 3 articles/day, so we'd have 60-90 data points per month). But the principle of periodic evaluation windows rather than per-session reactions is sound.
+
+### 7. Duolingo — Birdbrain
+Duolingo's Birdbrain model uses machine learning to predict exercise difficulty for each learner.
+
+**Key mechanics:**
+- Continuous estimation of both **learner ability** and **exercise difficulty**
+- When a learner gets an exercise wrong, Birdbrain lowers the estimate of user ability AND raises the estimate of exercise difficulty
+- Exercise difficulty is adjusted **on the fly within a session**
+- Goal: keep exercises at ~80% success rate (the "desirable difficulty" zone)
+- Result: 14% improvement in learning outcomes in A/B tests
+
+**Key design choice**: Duolingo targets an **80% success rate** — not 100%, not 60%. This aligns with research on "desirable difficulty" — challenging enough to promote learning, achievable enough to maintain motivation.
+
+**Relevance to SigmaRead**: The 80% target maps to a score of ~80 in our system. Students scoring 75-85 consistently are ideally placed. This validates our intuition that 85+ means "ready for harder" rather than 70+ (which would be too aggressive).
+
+---
+
+## Synthesis: What the Best Products Have in Common
+
+1. **No single-session level changes**: Every product requires accumulated evidence. Khan needs exercises + quizzes + unit tests. IXL needs ~10 consecutive correct at the hard end. Newsela builds confidence over multiple quizzes. Lexia requires 90%+ on two different activities.
+
+2. **Conservative starting position**: Newsela starts at grade minus one. Lexia starts with a placement assessment. Achieve3000 uses a formal diagnostic. Nobody throws students into the deep end.
+
+3. **Asymmetric response**: Going up is harder than going down. IXL's penalty structure escalates at higher scores. Khan drops you two levels if you score below 70% at Mastered. The cost of being placed too high (frustration/disengagement) is universally recognized as worse than too low.
+
+4. **Multiple contexts required**: Khan requires success across exercises AND assessments. Lexia requires two different activities. This prevents topic-specific flukes from causing level changes.
+
+5. **~80% as the sweet spot**: Duolingo targets 80% success. IXL defines 80 as "proficient." The Lexile Framework targets 75% comprehension. Everybody converges on the same zone.
+
+6. **Teacher/guide override always available**: Every product lets educators override the algorithm. The human in the loop is a safety valve.
 
 ---
 
 ## Decision: SigmaRead Level Progression Rules
 
-### Design Principles
-1. **Require evidence, not luck** — no single session should change a student's level
-2. **Asymmetric caution** — leveling down should be faster than leveling up (wrong-high is worse than wrong-low)
-3. **Age-appropriate windows** — younger students need more data points before changes
-4. **SigmaRead's AI discussion is scaffolding** — our comprehension scores reflect supported performance, which should be higher than independent reading
+### Design Principles (informed by commercial product research)
+1. **Multiple articles, not one** — require evidence across different topics (Khan, Lexia pattern)
+2. **Asymmetric response** — harder to go up than down (IXL, Khan pattern)
+3. **~80 is "correctly placed"** — don't chase 100 (Duolingo, Lexile, IXL pattern)
+4. **Conservative start, build confidence** — trust the data more as it accumulates (Newsela pattern)
+5. **Age-appropriate windows** — younger readers need more data points (K-12 adaptive learning research)
+6. **Guide override** — algorithm is a recommendation, not a prison (universal pattern)
 
 ### Tier Definitions
 
 | Tier | Levels | Grades | Description |
 |------|--------|--------|-------------|
-| **Younger** | L1-L2 | 2-4 | Foundational readers. High variability. Need stability. |
-| **Older** | L3-L6 | 5-8 | Developing/proficient readers. More stable signals. |
+| **Younger** | L1-L2 | 2-4 | Foundational readers. High performance variability. Need stability. |
+| **Older** | L3-L6 | 5-8 | Developing/proficient readers. More stable, reliable signals. |
 
 ### Level Up Rules
 
 | Tier | Criteria | Rationale |
 |------|----------|-----------|
-| **Younger (L1-L2)** | 4 of last 5 sessions score ≥ 80 | Young readers need more evidence. Topic familiarity causes score spikes. 4/5 filters out lucky days while still being responsive (achievable in ~1 week of regular use). |
-| **Older (L3-L6)** | 3 of last 4 sessions score ≥ 85 | Older readers' scores are more stable. Higher threshold (85 vs 80) because these levels represent bigger complexity jumps. 3/4 is responsive but requires consistency. |
+| **Younger (L1-L2)** | 4 of last 5 sessions score ≥ 80 | Aligns with IXL's proficiency threshold of 80, requires evidence across multiple articles (like Lexia's two-activity requirement), and the 4/5 window accounts for younger readers' higher variability. Achievable in ~2 weeks of regular use. |
+| **Older (L3-L6)** | 3 of last 4 sessions score ≥ 85 | Higher threshold because level jumps at L3+ represent bigger complexity increases. 3/4 window is responsive but requires consistency across multiple topics. Achievable in ~1 week. |
 
 ### Level Down Rules
 
 | Tier | Criteria | Rationale |
 |------|----------|-----------|
-| **Younger (L1-L2)** | 3 of last 4 sessions score < 60 | Faster response to prevent frustration spiral. But still requires pattern, not a single bad day. L1 students can't go lower — trigger guide alert instead. |
-| **Older (L3-L6)** | 3 of last 5 sessions score < 55 | Lower threshold because older students should demonstrate comprehension more consistently. Slightly larger window because older students' bad days are less frequent. |
+| **Younger (L1-L2)** | 3 of last 4 sessions score < 60 | Faster than level-up (asymmetric, like IXL/Khan). 60 threshold is below instructional range — a pattern here means genuine misplacement. |
+| **Older (L3-L6)** | 3 of last 5 sessions score < 55 | Lower threshold and slightly larger window. Older students with stable skills shouldn't be scoring this low consistently unless misplaced. |
 
 ### Additional Rules
 
-1. **Cooldown period**: After any level change, wait 3 sessions before evaluating again. This prevents ping-ponging and gives the student time to adjust to new difficulty.
+1. **Cooldown period**: After any level change, wait **3 sessions** before evaluating again. Mirrors how Achieve3000 gates changes behind time windows. Prevents ping-ponging and gives students time to calibrate to new difficulty.
 
-2. **Maximum one level change at a time**: Never skip levels, even if scores are dramatically high/low. Gradual transitions are more stable.
+2. **Maximum one level change at a time**: Never skip levels. Khan's two-level drop on a bad score at Mastered is aggressive — we're gentler because our levels represent broader ranges.
 
-3. **L1 floor protection**: Students at L1 cannot level down. Instead, 3 consecutive sessions below 50 trigger a guide alert: "Marcus may need additional reading support beyond SigmaRead."
+3. **L1 floor protection**: Students at L1 cannot level down. If they have 3 of last 4 sessions below 50, trigger a guide alert: "[Name] may need additional reading support beyond SigmaRead." This mirrors how Lexia branches to additional instruction rather than abandoning the student.
 
-4. **New student grace period**: First 3 sessions after onboarding are "calibration" — no level changes. Initial placement (default L2, or set by guide) holds while we gather baseline data.
+4. **New student grace period**: First **3 sessions** after onboarding are calibration — no level changes. Aligns with Newsela's approach of starting conservative and building confidence. Initial placement (default L2, or set by guide) holds while we gather baseline data.
 
-5. **Guide override**: Guides can manually adjust levels at any time. Manual adjustments reset the evaluation window.
+5. **Guide override**: Guides can manually adjust levels at any time. Manual adjustments reset the evaluation window. Every product we studied provides this — the algorithm is a recommendation, not a prison.
 
-6. **Score weighting**: All sessions weighted equally. We considered recency weighting but it adds complexity without clear research support for reading comprehension (unlike skill-based systems like Math Academy where recent performance better predicts current ability).
+6. **Session weighting**: All sessions within the evaluation window weighted equally. Math Academy uses sophisticated decay functions, but they have hundreds of micro-assessments per topic. With 3 sessions/day, equal weighting is appropriate for our data density.
 
 ### Score Zones Reference
 
-| Zone | Score Range | Meaning |
-|------|-------------|---------|
-| **Mastery** | 85-100 | Student is excelling at this level — may be ready for more challenge |
-| **Instructional** | 65-84 | Student is appropriately placed — learning is happening |
-| **Approaching** | 50-64 | Student is struggling — watch for pattern |
-| **Frustration** | <50 | Student is overwhelmed — likely needs to level down |
+| Zone | Score Range | Interpretation | Action |
+|------|-------------|----------------|--------|
+| **Excelling** | 85-100 | Consistently above instructional range | Evaluate for level up |
+| **Instructional** | 65-84 | Optimally placed (aligns with Duolingo's 80% target, Lexile's 75% match) | Stay |
+| **Approaching** | 50-64 | Below instructional range | Watch for pattern |
+| **Frustration** | <50 | Well below instructional range | Evaluate for level down + guide alert |
 
 ### Comparison: Old vs New Rules
 
@@ -96,9 +193,17 @@ This asymmetry means **we should be more cautious about leveling up than about s
 | Cooldown | None | 3 sessions after any change |
 | Grace period | None | First 3 sessions |
 | Age differentiation | None | Younger vs older tiers |
+| Guide override | Not implemented | Available, resets window |
 
 ### Expected Impact
-- **Fewer false upgrades**: Students like Aisha won't jump from L3→L4 on a single 95. She'll need to sustain ~85+ across 3-4 sessions.
-- **Faster frustration detection**: Students like Marcus who consistently score <60 will get flagged, but a single rough session won't trigger a downgrade.
-- **More stable trajectories**: Level changes will be meaningful signals for guides, not noise.
-- **Age-appropriate sensitivity**: A 2nd grader who scores 85 once might have just known a lot about dogs. A 7th grader who scores 85 three times is genuinely ready for harder text.
+- **Fewer false upgrades**: Students like Aisha won't jump from L3→L4 on a single 95. She'll need to sustain ~85+ across 3-4 sessions across different articles and topics.
+- **Faster frustration detection**: Students like Marcus who consistently score <60 will be flagged, but a single rough session (bad day, unfamiliar topic) won't trigger a downgrade.
+- **More stable trajectories**: Level changes will be meaningful signals for guides, not noise. When a level change happens, it means something.
+- **Age-appropriate sensitivity**: A 2nd grader who scores 85 once might have just known a lot about dogs. A 7th grader who scores 85 three times across different topics is genuinely ready for harder text.
+
+### Confidence Assessment
+**High confidence** in the framework and principles — every commercial product we reviewed validates the core design choices (multiple observations, asymmetric response, ~80% target, conservative start).
+
+**Moderate-high confidence** in the specific numbers — our thresholds are calibrated to the convergence point across products (IXL's 80, Duolingo's 80%, Lexile's 75%), and our window sizes align with established patterns (Lexia's 2-activity requirement, Newsela's multi-quiz confidence building). The exact numbers (4/5 vs 3/4, 80 vs 85) are informed judgment that we should validate with real usage data over the first 1-2 months.
+
+**Plan to validate**: After 30 days of real student usage, analyze: (1) how many level changes occurred, (2) whether students performed appropriately after level changes, (3) whether any students appeared "stuck" at wrong levels. Adjust thresholds based on findings.
