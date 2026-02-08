@@ -111,7 +111,7 @@ export default function StudentHome() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-56 border-r border-[var(--border)] p-5 flex flex-col">
+      <aside className="w-56 border-r border-[var(--border)] p-5 flex flex-col sticky top-0 h-screen">
         <h1 className="text-lg font-semibold tracking-tight mb-1">SigmaRead</h1>
         <p className="text-sm text-[var(--muted)] mb-8">{userName}</p>
         <nav className="space-y-1 flex-1">
@@ -189,9 +189,11 @@ export default function StudentHome() {
 
         {readArticles.length > 0 && (
           <>
-            <h3 className="text-sm font-medium text-[var(--muted)] mt-8 mb-3 uppercase tracking-wider">Already Read</h3>
+            <h3 className="text-sm font-medium text-[var(--muted)] mt-8 mb-3 uppercase tracking-wider">
+              Already Read{readArticles.length > 5 ? ` · ${readArticles.length} total` : ""}
+            </h3>
             <div className="space-y-1">
-              {readArticles.map((article) => (
+              {readArticles.slice(0, 5).map((article) => (
                 <Link
                   key={article.id}
                   href={`/student/read/${article.id}`}
