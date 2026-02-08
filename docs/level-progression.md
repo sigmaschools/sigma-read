@@ -130,80 +130,154 @@ Duolingo's Birdbrain model uses machine learning to predict exercise difficulty 
 
 ---
 
-## Decision: SigmaRead Level Progression Rules
+## Critical Consideration: AI-as-Assessor Uncertainty
 
-### Design Principles (informed by commercial product research)
-1. **Multiple articles, not one** — require evidence across different topics (Khan, Lexia pattern)
-2. **Asymmetric response** — harder to go up than down (IXL, Khan pattern)
-3. **~80 is "correctly placed"** — don't chase 100 (Duolingo, Lexile, IXL pattern)
-4. **Conservative start, build confidence** — trust the data more as it accumulates (Newsela pattern)
-5. **Age-appropriate windows** — younger readers need more data points (K-12 adaptive learning research)
-6. **Guide override** — algorithm is a recommendation, not a prison (universal pattern)
+Unlike Khan Academy (math is right or wrong) or IXL (objective answers), SigmaRead's comprehension scores are AI-generated judgments. The AI runs the conversation AND grades comprehension. There is no external validator.
 
-### Tier Definitions
+A slightly different opening question, a different conversation style, or a student's phrasing being misinterpreted could swing a score by 10-15 points. This is inherent noise in our signal that objective-assessment products don't have.
 
-| Tier | Levels | Grades | Description |
-|------|--------|--------|-------------|
-| **Younger** | L1-L2 | 2-4 | Foundational readers. High performance variability. Need stability. |
-| **Older** | L3-L6 | 5-8 | Developing/proficient readers. More stable, reliable signals. |
+**Implications:**
+- Individual scores carry more uncertainty → need more evidence before acting
+- Level changes should be validated by actual performance on harder/easier content, not just scores at the current level
+- The scoring rubric must be extremely precise to minimize AI discretion
 
-### Level Up Rules
+This leads directly to the Gradual Mix model below.
 
-| Tier | Criteria | Rationale |
-|------|----------|-----------|
-| **Younger (L1-L2)** | 4 of last 5 sessions score ≥ 80 | Aligns with IXL's proficiency threshold of 80, requires evidence across multiple articles (like Lexia's two-activity requirement), and the 4/5 window accounts for younger readers' higher variability. Achievable in ~2 weeks of regular use. |
-| **Older (L3-L6)** | 3 of last 4 sessions score ≥ 85 | Higher threshold because level jumps at L3+ represent bigger complexity increases. 3/4 window is responsive but requires consistency across multiple topics. Achievable in ~1 week. |
+---
 
-### Level Down Rules
+## Decision: Gradual Mix Level Progression
 
-| Tier | Criteria | Rationale |
-|------|----------|-----------|
-| **Younger (L1-L2)** | 3 of last 4 sessions score < 60 | Faster than level-up (asymmetric, like IXL/Khan). 60 threshold is below instructional range — a pattern here means genuine misplacement. |
-| **Older (L3-L6)** | 3 of last 5 sessions score < 55 | Lower threshold and slightly larger window. Older students with stable skills shouldn't be scoring this low consistently unless misplaced. |
+### Core Insight
+
+Level changes should not be binary decisions. Instead of "you're at L3" → "now you're at L4," we gradually mix in content at adjacent levels and let the student's actual performance on that content be the proof. The student never knows they're being evaluated. Their feed just naturally adapts.
+
+### How It Works
+
+#### The Feed Mix
+
+Every student has a **base level** (their official reading level) and a **feed mix** that determines what they actually see. The feed mix is expressed as a ratio of articles at different levels.
+
+**Normal state (performing in instructional range):**
+- 3/3 articles at base level
+
+**Trending strong (potential level up):**
+- Phase 1: 2 at base level + **1 at base+1** (probe article)
+- Phase 2: 1 at base level + **2 at base+1**
+- Phase 3: **3 at base+1** → base level officially moves up
+
+**Struggling (potential level down — responds FASTER):**
+- Immediate: 2 at base level + **1 at base-1** (confidence boost)
+- If struggle continues: 1 at base level + **2 at base-1**
+- If sustained: **3 at base-1** → base level officially moves down
+
+#### Trigger Conditions
+
+**Start mixing UP (introduce probe articles):**
+
+| Tier | Trigger | Rationale |
+|------|---------|-----------|
+| **Younger (L1-L2)** | 4 of last 5 sessions score ≥ 85 | High bar because AI scores carry uncertainty. Must demonstrate clear, consistent mastery across multiple topics. |
+| **Older (L3-L6)** | 3 of last 4 sessions score ≥ 90 | Higher threshold for older students — level jumps at L3+ represent bigger complexity increases. |
+
+**Start mixing DOWN (introduce confidence boost articles):**
+
+| Tier | Trigger | Rationale |
+|------|---------|-----------|
+| **Younger (L1-L2)** | 2 consecutive sessions score < 60 | Fast response. A struggling young reader needs a win quickly — don't wait for a pattern to become a spiral. This doesn't change their level; it just gives them something accessible. |
+| **Older (L3-L6)** | 2 of last 3 sessions score < 55 | Slightly more evidence needed for older students, but still fast. |
+
+#### Progression Through Mix Phases
+
+**Upward progression:**
+- **Phase 1 → Phase 2**: Student scores ≥ 80 on 2 of their first 3 probe articles at base+1
+- **Phase 2 → Phase 3 (level change)**: Student scores ≥ 80 on 3 of their first 4 articles at base+1
+- **Abort**: If student scores < 65 on 2 probe articles at base+1 at any phase, revert to 3/3 at base level. No penalty, no notification. Just quietly stop probing.
+
+**Downward progression:**
+- **Immediate mix**: 1 article at base-1 mixed into next feed. No waiting.
+- **If base-1 articles score ≥ 75 AND base articles still < 60**: Increase mix to 2 at base-1
+- **Level change**: If student consistently performs better at base-1 (3 of 4 sessions), officially move base level down
+- **Recovery**: If student starts scoring ≥ 70 at base level again, quietly remove the base-1 articles. The struggle was temporary.
+
+**Key asymmetry: Mixing down is NOT a demotion.** The student's base level doesn't change just because they got an easier article. Mixing down is a motivational tool — give the kid a win. Only sustained poor performance at base level combined with sustained success at base-1 triggers an actual level change.
 
 ### Additional Rules
 
-1. **Cooldown period**: After any level change, wait **3 sessions** before evaluating again. Mirrors how Achieve3000 gates changes behind time windows. Prevents ping-ponging and gives students time to calibrate to new difficulty.
+1. **Cooldown after level change**: After base level officially changes (up or down), wait **3 sessions** of all-same-level content before any new mixing begins. Let the student settle.
 
-2. **Maximum one level change at a time**: Never skip levels. Khan's two-level drop on a bad score at Mastered is aggressive — we're gentler because our levels represent broader ranges.
+2. **Maximum one level change at a time**: Never skip levels. Probe articles are always exactly one level above or below.
 
-3. **L1 floor protection**: Students at L1 cannot level down. If they have 3 of last 4 sessions below 50, trigger a guide alert: "[Name] may need additional reading support beyond SigmaRead." This mirrors how Lexia branches to additional instruction rather than abandoning the student.
+3. **L1 floor protection**: Students at L1 cannot go lower. If they have 3 of last 4 sessions below 50 at L1, trigger a guide alert: "[Name] may need additional reading support beyond SigmaRead." Continue serving L1 content.
 
-4. **New student grace period**: First **3 sessions** after onboarding are calibration — no level changes. Aligns with Newsela's approach of starting conservative and building confidence. Initial placement (default L2, or set by guide) holds while we gather baseline data.
+4. **New student grace period**: First **3 sessions** after onboarding are calibration — no mixing, no level evaluation. Initial placement holds while we gather baseline data.
 
-5. **Guide override**: Guides can manually adjust levels at any time. Manual adjustments reset the evaluation window. Every product we studied provides this — the algorithm is a recommendation, not a prison.
+5. **Guide override**: Guides can manually set base level at any time. This resets the mix to 3/3 at the new level and restarts the evaluation window.
 
-6. **Session weighting**: All sessions within the evaluation window weighted equally. Math Academy uses sophisticated decay functions, but they have hundreds of micro-assessments per topic. With 3 sessions/day, equal weighting is appropriate for our data density.
+6. **Probe articles are not labeled**: Students never see "this is a harder article" or "this is an easier article." The feed looks the same regardless of mix. Category labels (News/Interest/Explore) stay; level information is never exposed to students.
+
+7. **L6 ceiling**: Students at L6 cannot go higher. Sustained high scores at L6 trigger a guide notification: "[Name] is excelling at our highest level." This is a positive signal for the guide, not a problem to solve.
 
 ### Score Zones Reference
 
-| Zone | Score Range | Interpretation | Action |
-|------|-------------|----------------|--------|
-| **Excelling** | 85-100 | Consistently above instructional range | Evaluate for level up |
-| **Instructional** | 65-84 | Optimally placed (aligns with Duolingo's 80% target, Lexile's 75% match) | Stay |
-| **Approaching** | 50-64 | Below instructional range | Watch for pattern |
-| **Frustration** | <50 | Well below instructional range | Evaluate for level down + guide alert |
+| Zone | Score Range | System Response |
+|------|-------------|-----------------|
+| **Excelling** | 85-100 | Consistent scores here trigger upward mix probing |
+| **Instructional** | 65-84 | Optimally placed — no mixing, no changes |
+| **Struggling** | 50-64 | Triggers downward mix (confidence boost articles) |
+| **Frustration** | <50 | Immediate confidence boost + guide alert if sustained |
 
-### Comparison: Old vs New Rules
+### Example Scenarios
 
-| | Old | New |
+**Emma (L2, age 8, strong reader):**
+1. Sessions 1-5: Scores 82, 88, 91, 85, 90 → triggers upward mix
+2. Session 6: Gets 2 L2 articles + 1 L3 probe article. Scores: L2=85, L2=80, L3=78
+3. Session 7: Another probe. L2=88, L2=82, L3=83 → Phase 1 passing (2 of 3 probes ≥ 80)
+4. Session 8: Phase 2. 1 L2 + 2 L3. Scores: L2=85, L3=80, L3=82
+5. After a few more sessions of strong L3 performance → base level moves to L3
+
+**Marcus (L1, age 9, reluctant reader):**
+1. Sessions 1-3: Scores 68, 58, 52 → 2 consecutive below 60, triggers downward mix
+2. But he's already at L1 — can't mix lower. Instead: guide alert + system serves easiest L1 articles (shortest, highest-interest topics)
+3. Session 4: Scores 72 on a topic he likes. No level change needed — just needed the right article.
+
+**Jayden (L3, age 11, inconsistent):**
+1. Sessions 1-4: Scores 75, 82, 55, 78 → one bad session, but overall in instructional range. No action.
+2. Sessions 5-7: Scores 52, 58, 61 → 2 of last 3 below 55, triggers downward mix
+3. Session 8: 2 L3 + 1 L2 confidence boost. Scores: L3=60, L3=55, L2=82 (nails the easier one)
+4. Session 9: L3=71, L3=68 → recovering at base level. Quietly remove L2 mix. The struggle was temporary.
+
+### Comparison: Old vs New System
+
+| | Old (Binary) | New (Gradual Mix) |
 |---|---|---|
-| Level up | Single score ≥ 85 | 3-4 of last 4-5 scores ≥ 80-85 (tier-dependent) |
-| Level down | Single score < 55 | 3 of last 4-5 scores < 55-60 (tier-dependent) |
-| Cooldown | None | 3 sessions after any change |
-| Grace period | None | First 3 sessions |
-| Age differentiation | None | Younger vs older tiers |
-| Guide override | Not implemented | Available, resets window |
-
-### Expected Impact
-- **Fewer false upgrades**: Students like Aisha won't jump from L3→L4 on a single 95. She'll need to sustain ~85+ across 3-4 sessions across different articles and topics.
-- **Faster frustration detection**: Students like Marcus who consistently score <60 will be flagged, but a single rough session (bad day, unfamiliar topic) won't trigger a downgrade.
-- **More stable trajectories**: Level changes will be meaningful signals for guides, not noise. When a level change happens, it means something.
-- **Age-appropriate sensitivity**: A 2nd grader who scores 85 once might have just known a lot about dogs. A 7th grader who scores 85 three times across different topics is genuinely ready for harder text.
+| Level up | Single score ≥ 85 → instant jump | Sustained high scores → probe articles at next level → prove performance → gradual transition |
+| Level down | Single score < 55 → instant drop | 2 low scores → mix in easier article for a win → only change level if struggle is sustained AND easier content is clearly better |
+| Student experience | Abrupt difficulty changes | Smooth, invisible transitions |
+| False positives | High (one lucky/unlucky session) | Low (requires sustained evidence on actual harder/easier content) |
+| Motivation | Risk of frustration spiral after premature promotion | Confidence boosts when struggling; challenge when ready |
+| AI score uncertainty | Fully trusted | Mitigated — actual performance on different-level content validates scores |
 
 ### Confidence Assessment
-**High confidence** in the framework and principles — every commercial product we reviewed validates the core design choices (multiple observations, asymmetric response, ~80% target, conservative start).
 
-**Moderate-high confidence** in the specific numbers — our thresholds are calibrated to the convergence point across products (IXL's 80, Duolingo's 80%, Lexile's 75%), and our window sizes align with established patterns (Lexia's 2-activity requirement, Newsela's multi-quiz confidence building). The exact numbers (4/5 vs 3/4, 80 vs 85) are informed judgment that we should validate with real usage data over the first 1-2 months.
+**High confidence** in the gradual mix approach — this directly addresses the AI-as-assessor uncertainty problem by using actual performance on harder/easier content as validation rather than relying solely on AI-generated scores at the current level.
 
-**Plan to validate**: After 30 days of real student usage, analyze: (1) how many level changes occurred, (2) whether students performed appropriately after level changes, (3) whether any students appeared "stuck" at wrong levels. Adjust thresholds based on findings.
+**High confidence** in the asymmetric response — every commercial product validates that responding faster to struggle than to success is correct. Our "give them a win" approach for struggling students is even better than a binary demotion.
+
+**Moderate-high confidence** in specific thresholds — these should be validated with real usage data. After 30 days: (1) how often did probing trigger? (2) what % of probes led to actual level changes? (3) did confidence boost articles actually improve subsequent performance? Adjust based on findings.
+
+### Implementation Notes
+
+**Database changes needed:**
+- Add `feed_mix` column to students (JSON: `{probeDirection: "up"|"down"|null, probePhase: 1|2|3, probeStartDate: date}`)
+- Track which articles were served as probes vs base level (add `served_as_level` to articles table)
+
+**Serve-cached route changes:**
+- Check student's feed mix state when selecting articles
+- If probing up: select N articles at base+1 level based on phase
+- If probing down: select N articles at base-1 level based on phase
+- Record served level on each article
+
+**Post-conversation evaluation:**
+- After each comprehension report, evaluate recent scores against trigger conditions
+- Update feed mix state accordingly
+- If phase transition conditions met, advance phase or revert
