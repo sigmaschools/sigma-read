@@ -1,5 +1,21 @@
 import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date } from "drizzle-orm/pg-core";
 
+export const generatedTopics = pgTable("generated_topics", {
+  id: serial("id").primaryKey(),
+  topic: text("topic").notNull(),
+  category: varchar("category", { length: 20 }).notNull(),
+  generatedDate: date("generated_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const blockedTopics = pgTable("blocked_topics", {
+  id: serial("id").primaryKey(),
+  topic: text("topic").notNull(),
+  reason: text("reason"),
+  blockedBy: integer("blocked_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const admins = pgTable("admins", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
