@@ -107,7 +107,7 @@ export default function ConversationPage() {
             ← Back
           </button>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">Let&apos;s talk about it</h1>
+            <h1 className="text-lg font-semibold tracking-tight">Let&apos;s discuss</h1>
           </div>
         </div>
       </header>
