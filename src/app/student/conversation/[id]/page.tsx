@@ -23,7 +23,7 @@ export default function ConversationPage() {
   const [complete, setComplete] = useState(false);
   const [selfAssessment, setSelfAssessment] = useState<string | null>(null);
   const [studentTurnCount, setStudentTurnCount] = useState(0);
-  const [showArticle, setShowArticle] = useState(false);
+  const [showArticle, setShowArticle] = useState(true);
   const [article, setArticle] = useState<ArticleData | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const maxTurns = 3;
