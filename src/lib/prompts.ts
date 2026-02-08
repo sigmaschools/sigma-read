@@ -181,7 +181,19 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
 
   const style = styles[Math.floor(Math.random() * styles.length)];
 
+  const levelContext: Record<number, string> = {
+    1: "STUDENT CONTEXT: Grade 2-3 reader. Expect short, concrete answers (1-2 sentences). \"It was about a pink penguin\" is a GOOD answer at this level. Keep your prompts very simple and specific. Use everyday vocabulary. Don't ask for inferences or abstract reasoning — ask what happened, who did it, what was interesting.",
+    2: "STUDENT CONTEXT: Grade 3-4 reader. Expect short answers with basic details. Simple connections are developing. Keep prompts concrete and direct. One idea at a time.",
+    3: "STUDENT CONTEXT: Grade 5-6 reader. Can handle \"why\" and \"how\" questions. Basic cause-and-effect is appropriate. Keep prompts focused on what the article clearly explains.",
+    4: "STUDENT CONTEXT: Grade 7 reader. Can discuss relationships between ideas and make basic inferences. Can explain why something matters. More sophisticated reasoning is emerging.",
+    5: "STUDENT CONTEXT: Grade 8 reader. Can analyze, infer, and evaluate. Can discuss what the article implies, not just what it states. Complex reasoning is appropriate.",
+    6: "STUDENT CONTEXT: Grade 8+ advanced reader. Can handle nuance, competing perspectives, and abstract reasoning. Sophisticated analytical discussion is appropriate.",
+  };
+
+  const studentContext = levelContext[level] || levelContext[3];
+
   return "You are a guide who just read the same article as this student. The student can see the article while you discuss it — they have it open right next to the conversation. Have a short, real discussion about it.\n\n" +
+    studentContext + "\n\n" +
     likedSection +
     "Article:\n---\n" + articleText + "\n---\n\n" +
     "Student reading level: " + level + "\n" +
@@ -211,21 +223,34 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
 }
 
 export function comprehensionReportPrompt(articleText: string, transcript: string, level: number) {
+  const levelExpectations: Record<number, string> = {
+    1: "GRADE 2-3 EXPECTATIONS: Students at this level communicate in short, concrete sentences. A strong answer is identifying the main topic and 1-2 key facts (\"It was about a pink penguin that scientists found\"). Do NOT expect inferences, abstract reasoning, cause-and-effect analysis, or connections between ideas. Vocabulary is basic. Answers may be grammatically rough — evaluate meaning, not expression. A student who can retell the main idea in their own words is performing well.",
+    2: "GRADE 3-4 EXPECTATIONS: Students can identify the main idea and several supporting details. They may begin to make simple connections (\"the robot helps because doctors can't be everywhere\"). Don't expect sophisticated inference or critical evaluation. Short, direct answers are normal and appropriate. A student who gets the main point and a few details is performing well.",
+    3: "GRADE 5-6 EXPECTATIONS: Students can summarize the article's main idea and explain how key details support it. Basic cause-and-effect reasoning is developing. They may offer simple opinions backed by article evidence. Don't expect nuanced analysis or evaluation of author's purpose. A student who can explain what happened and why is performing well.",
+    4: "GRADE 7 EXPECTATIONS: Students can identify main ideas, explain relationships between concepts, and make basic inferences. They should be able to connect evidence to conclusions the article draws. Some evaluative thinking is emerging. A student who can explain the 'so what' of the article is performing well.",
+    5: "GRADE 8 EXPECTATIONS: Students can analyze relationships between ideas, draw inferences, and evaluate claims with evidence. They can discuss author's perspective and identify what's left unsaid. Complex reasoning is developing. A student who engages critically with the article's argument is performing well.",
+    6: "GRADE 8+ EXPECTATIONS: Students can synthesize multiple ideas, evaluate arguments, identify assumptions, and reason abstractly about implications. They can discuss nuance and competing perspectives. A student who demonstrates sophisticated analytical thinking is performing well.",
+  };
+
+  const expectations = levelExpectations[level] || levelExpectations[3];
+
   return "Generate a comprehension report for a guide based on a student's conversation about an article.\n\n" +
     "Article:\n---\n" + articleText + "\n---\n\n" +
     "Transcript:\n---\n" + transcript + "\n---\n\n" +
     "Student reading level: " + level + "\n\n" +
-    "Scoring (1-100):\n" +
-    "- 85-100: Exceptional — deep understanding, inferences, critical engagement\n" +
-    "- 70-84: Strong — main idea + most key details, some inferential thinking\n" +
-    "- 55-69: Solid — basics grasped but missed nuance or had vocabulary gaps\n" +
-    "- 40-54: Developing — fragments but missed main idea or significant portions\n" +
+    "CRITICAL — CALIBRATE TO THE STUDENT'S LEVEL:\n" +
+    expectations + "\n\n" +
+    "Scoring (1-100) — calibrated to the expectations above, NOT to adult comprehension:\n" +
+    "- 85-100: Exceptional for their level — demonstrates understanding beyond what's typical for this grade\n" +
+    "- 70-84: Strong for their level — meets grade-level expectations with good detail\n" +
+    "- 55-69: Solid for their level — grasps the basics but missed some grade-appropriate details\n" +
+    "- 40-54: Developing — below grade-level expectations, missed key ideas\n" +
     "- Below 40: Struggled — could not articulate what the article was about\n\n" +
-    "Note: The conversation includes a metacognitive question (asking the student about confusion or surprises). Factor their self-awareness into the engagement note — a student who accurately identifies what confused them shows stronger metacognition than one who claims everything was clear but missed key concepts.\n\n" +
+    "A Level 1 student who says \"it was about a penguin that was pink and scientists were surprised\" should score 75-85. That's a strong, concrete retelling for a Grade 2-3 student. Do NOT penalize young students for lacking inferential or analytical skills they haven't developed yet.\n\n" +
     "Output format:\n\n" +
     "[REPORT]\n" +
-    '{\n  "score": 74,\n  "rating": "Solid",\n  "understood": "2-3 sentences about what they understood.",\n  "missed": "2-3 sentences about what they missed.",\n  "engagement": "1-2 sentences on engagement level and metacognitive awareness."\n}\n\n' +
-    "No preamble. No softening. The guide needs honest signal.";
+    '{\n  "score": 74,\n  "rating": "Solid",\n  "understood": "2-3 sentences about what they understood.",\n  "missed": "2-3 sentences about what they missed or could improve on — calibrated to grade-level expectations.",\n  "engagement": "1-2 sentences on engagement level and effort."\n}\n\n' +
+    "No preamble. No softening. The guide needs honest signal — but honest means age-appropriate, not adult-appropriate.";
 }
 
 export function batchPlannerPrompt(level: number, interests: string, existingTitles: string[], count: number) {
