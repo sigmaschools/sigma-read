@@ -316,37 +316,49 @@ export default function AdminContentPage() {
         )}
       </div>
 
-      {/* Article Preview Modal */}
+      {/* Article Preview Modal — matches student reader layout */}
       {(preview || previewLoading) && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setPreview(null); setPreviewLoading(false); }}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-[700px] w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
             {previewLoading ? (
               <div className="flex items-center justify-center py-20">
                 <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : preview && (
               <>
-                <div className="sticky top-0 bg-white border-b border-[var(--border)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
-                  <div>
-                    <h2 className="text-lg font-semibold">{preview.title}</h2>
-                    <p className="text-xs text-[var(--muted)]">
-                      Level {preview.level} · {preview.topic}
-                    </p>
-                  </div>
-                  <button onClick={() => setPreview(null)} className="text-[var(--muted)] hover:text-[var(--fg)] text-xl">×</button>
+                {/* Top bar — mirrors student reader */}
+                <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-[var(--border)] px-6 py-3 flex items-center justify-between rounded-t-2xl z-10">
+                  <button onClick={() => setPreview(null)} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
+                    ← Back
+                  </button>
+                  <span className="text-xs text-[var(--muted)] bg-gray-100 px-2 py-0.5 rounded">Level {preview.level}</span>
                 </div>
-                <div className="px-6 py-5">
-                  <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] text-gray-800 whitespace-pre-wrap">
-                    {preview.body}
-                  </div>
-                  {preview.sources.length > 0 && (
-                    <div className="mt-6 pt-4 border-t border-[var(--border)]">
-                      <p className="text-xs text-[var(--muted)] font-medium mb-1">Sources</p>
-                      {preview.sources.map((s, i) => (
-                        <a key={i} href={s} target="_blank" rel="noopener" className="block text-xs text-blue-600 hover:underline truncate">{s}</a>
-                      ))}
+
+                {/* Article body — same max-width, font, spacing as student reader */}
+                <div className="flex-1 overflow-y-auto">
+                  <article className="max-w-[640px] mx-auto px-6 py-10">
+                    <h1 className="text-3xl font-semibold tracking-tight mb-2">{preview.title}</h1>
+                    <p className="text-sm text-[var(--muted)] mb-8">{preview.topic}</p>
+                    <div style={{ fontSize: "18px", lineHeight: "1.75" }}>
+                      {preview.body.split("\n\n").map((para, i) => {
+                        if (para.startsWith("# ") && !para.startsWith("## ")) return null;
+                        if (para.startsWith("## ") || para.startsWith("### ")) {
+                          const content = para.replace(/^#{2,3}\s/, "");
+                          return <h2 key={i} className="font-semibold text-lg mt-6 mb-2">{content}</h2>;
+                        }
+                        return <p key={i} className="mb-5">{para}</p>;
+                      })}
                     </div>
-                  )}
+
+                    {preview.sources.length > 0 && (
+                      <div className="mt-8 pt-4 border-t border-[var(--border)]">
+                        <p className="text-xs text-[var(--muted)] mb-2">Sources</p>
+                        {preview.sources.map((s, i) => (
+                          <a key={i} href={s} target="_blank" rel="noopener" className="block text-xs text-blue-600 hover:underline truncate">{s}</a>
+                        ))}
+                      </div>
+                    )}
+                  </article>
                 </div>
               </>
             )}
