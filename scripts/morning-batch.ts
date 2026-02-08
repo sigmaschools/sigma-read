@@ -128,7 +128,19 @@ async function getNewsHeadlines(): Promise<{ topic: string; source: string }[]> 
     max_tokens: 2000,
     messages: [{
       role: "user",
-      content: `Here are recent news headlines from kid-friendly sources:\n\n${allHeadlines}\n\nSelect the 8-10 most interesting stories for a 10-year-old. Focus on science, animals, sports, space, technology, and human interest. Skip anything too adult, political, or boring.
+      content: `Here are recent news headlines from kid-friendly sources:\n\n${allHeadlines}\n\nSelect 8-10 stories for a 10-year-old using this framework:
+
+CONTENT BUCKETS:
+- Bucket 1 (aim for 7-8): Universally safe — science, animals, sports, space, technology, weather, human interest, gaming. This is the majority. Almost no parent objects.
+- Bucket 2 (aim for 1-2): Factual current events with civic relevance — "Congress passed a law about X" or "the economy grew/shrank." Report the WHAT, skip the WHY. No editorializing. These build civic literacy.
+- Bucket 3 (AVOID): Genuinely polarizing topics where story selection itself signals a political stance. Skip these entirely.
+
+RULES:
+- Age-appropriate content only
+- Factual framing — no editorializing, no presenting contested claims as settled
+- For any civic/world events: neutral language, multiple perspectives welcome
+- Skip anything too adult, scary, or ideologically charged
+- Prioritize stories that spark curiosity, not anxiety
 
 For each, provide a brief topic description and the source.
 
@@ -182,6 +194,7 @@ Requirements:
 - Make it genuinely interesting. Strong opening that hooks the reader.
 - Short paragraphs (2-4 sentences each).
 - Age-appropriate content.
+- EDITORIAL NEUTRALITY: Report facts, not opinions. For any topic with political adjacency, present the what without editorializing the why. Never present contested claims as settled. If multiple perspectives exist, acknowledge them neutrally. The goal is to inform and spark curiosity, not to prescribe a position.
 
 Output format:
 [ARTICLE]
