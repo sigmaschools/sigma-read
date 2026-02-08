@@ -149,11 +149,8 @@ export default function StudentHome() {
 
   // Get initials for avatar
   const initials = userName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+    ? userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "";
 
   return (
     <div className="min-h-screen">
