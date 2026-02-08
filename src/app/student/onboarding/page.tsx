@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Message {
   role: "user" | "assistant";
@@ -26,7 +26,15 @@ const walkthroughSteps = [
   },
 ];
 
-export default function OnboardingPage() {
+export default function OnboardingPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" /></div>}>
+      <OnboardingPage />
+    </Suspense>
+  );
+}
+
+function OnboardingPage() {
   const [walkthroughStep, setWalkthroughStep] = useState(0);
   const [walkthroughDone, setWalkthroughDone] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,6 +43,8 @@ export default function OnboardingPage() {
   const [started, setStarted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -60,6 +70,9 @@ export default function OnboardingPage() {
   function advanceWalkthrough() {
     if (walkthroughStep < walkthroughSteps.length - 1) {
       setWalkthroughStep(walkthroughStep + 1);
+    } else if (isDemo) {
+      // Demo mode: just go back to student home
+      router.push("/student");
     } else {
       setWalkthroughDone(true);
     }
