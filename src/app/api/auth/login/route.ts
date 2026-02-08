@@ -7,6 +7,15 @@ import { eq } from "drizzle-orm";
 export async function POST(req: NextRequest) {
   const { username, password } = await req.json();
 
+  // Try admin (email-based)
+  const [admin] = await db.select().from(schema.admins).where(eq(schema.admins.email, username)).limit(1);
+  if (admin && await verifyPassword(password, admin.passwordHash)) {
+    const token = createToken({ userId: admin.id, role: "admin" });
+    const res = NextResponse.json({ role: "admin", userId: admin.id, name: admin.name });
+    res.cookies.set("session", token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
+    return res;
+  }
+
   // Try guide (email-based)
   const [guide] = await db.select().from(schema.guides).where(eq(schema.guides.email, username)).limit(1);
   if (guide && await verifyPassword(password, guide.passwordHash)) {

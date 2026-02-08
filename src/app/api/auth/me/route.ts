@@ -8,6 +8,12 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
+  if (session.role === "admin") {
+    const [admin] = await db.select().from(schema.admins).where(eq(schema.admins.id, session.userId)).limit(1);
+    if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ role: "admin", userId: admin.id, name: admin.name, email: admin.email });
+  }
+
   if (session.role === "guide") {
     const [guide] = await db.select().from(schema.guides).where(eq(schema.guides.id, session.userId)).limit(1);
     if (!guide) return NextResponse.json({ error: "Not found" }, { status: 404 });
