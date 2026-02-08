@@ -155,26 +155,25 @@ export default function AdminContentPage() {
                 style={{ borderLeft: `3px solid ${catColor(topic.category)}` }}
                 onClick={() => setExpandedTopic(expandedTopic === topic.id ? null : topic.id)}
               >
-                <div className="flex-1 px-4 py-3 min-w-0">
-                  <span className="font-medium text-[15px]">{topic.topic}</span>
+                <div className="flex-1 px-5 py-4 min-w-0">
+                  <span className="font-medium text-base">{topic.topic}</span>
                 </div>
-                <div className="flex items-center gap-2 pr-4 shrink-0">
-                  {topic.flagged && <span className="text-[11px] text-red-400">blocked</span>}
+                <div className="flex items-center gap-3 pr-5 shrink-0">
+                  {topic.flagged && <span className="text-xs text-red-400">blocked</span>}
                   <button
                     onClick={(e) => { e.stopPropagation(); flagTopic(topic.id, !topic.flagged); }}
-                    className={`p-1 transition ${topic.flagged ? "text-green-600 hover:text-green-800" : "text-[var(--muted)] hover:text-red-500"}`}
+                    className={`p-1.5 transition ${topic.flagged ? "text-green-600 hover:text-green-800" : "text-[var(--muted)] hover:text-red-500"}`}
                     title={topic.flagged ? "Unblock topic" : "Block topic"}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />
                     </svg>
                   </button>
-                  <span className="text-[var(--muted)] text-xs">{expandedTopic === topic.id ? "▾" : "›"}</span>
                 </div>
               </div>
 
               {expandedTopic === topic.id && (
-                <div className="bg-gray-50/70 px-4 py-2.5" style={{ borderLeft: `3px solid ${catColor(topic.category)}` }}>
+                <div className="bg-gray-50/70 px-5 py-3" style={{ borderLeft: `3px solid ${catColor(topic.category)}` }}>
                   <div className="flex gap-1.5">
                     {topic.versions.map(v => (
                       <button
