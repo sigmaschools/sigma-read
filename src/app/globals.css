@@ -1,53 +1,46 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #FAFAF8;
-  --fg: #1A1A1A;
-  --muted: #6B7280;
-  --border: #F0F0EC;
-  --accent: #4F6BED;
-  --accent-hover: #3D56D4;
-  --surface: #FFFFFF;
-  --surface-hover: #F5F5F3;
-  --danger: #DC4A4A;
-  --success: #3B9B6D;
-  --warning: #D97706;
-  --radius: 12px;
-  --radius-sm: 10px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-  --font-student: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-guide: 'Inter', system-ui, sans-serif;
+  --bg: #fafafa;
+  --fg: #111;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --surface: #fff;
+  --surface-hover: #f9fafb;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #ca8a04;
 }
 
 * { box-sizing: border-box; }
 
 body {
-  font-family: var(--font-student);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--fg);
   -webkit-font-smoothing: antialiased;
-  line-height: 1.6;
 }
 
-/* Reader typography */
+/* Typography */
 .reader-body {
-  font-size: 1rem;
-  line-height: 1.75;
-  color: #2D2D2D;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: #1a1a1a;
+  max-width: 640px;
 }
 
 .reader-body h2, .reader-body h3 {
-  font-family: var(--font-student);
-  font-weight: 600;
-  margin-top: 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  margin-top: 2rem;
   margin-bottom: 0.75rem;
 }
 
-.reader-body p { margin-bottom: 1rem; }
+.reader-body p { margin-bottom: 1.25rem; }
 
-/* Animations */
+/* Transition animations */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -59,14 +52,9 @@ body {
 }
 
 .animate-fade-in {
-  animation: fade-in 0.35s ease-out;
+  animation: fade-in 0.4s ease-out;
 }
 
 .animate-scale-in {
-  animation: scale-in 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-/* Guide pages use Inter */
-.guide-font {
-  font-family: var(--font-guide);
+  animation: scale-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

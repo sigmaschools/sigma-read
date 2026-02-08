@@ -100,13 +100,15 @@ export default function ConversationPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Header */}
-      <header className="px-6 py-3.5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface)]">
+      {/* Full-width header */}
+      <header className="px-6 py-3 border-b border-[var(--border)] flex items-center justify-between bg-white">
         <div className="flex items-center gap-3">
           <button onClick={() => router.push("/student")} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
             ← Back
           </button>
-          <h1 className="text-base font-semibold tracking-tight">Let&apos;s discuss</h1>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">Let&apos;s discuss</h1>
+          </div>
         </div>
       </header>
 
@@ -116,10 +118,10 @@ export default function ConversationPage() {
         {article && (
           <>
             {/* Desktop: side panel */}
-            <div className="hidden lg:flex w-[440px] border-r border-[var(--border)] flex-col bg-[var(--bg)] flex-shrink-0">
-              <div className="flex-1 overflow-y-auto px-7 py-8">
-                <h2 className="text-xl font-bold tracking-tight mb-2 leading-snug">{article.title}</h2>
-                <p className="text-xs text-[var(--muted)] mb-6">{article.topic}</p>
+            <div className="hidden lg:flex w-[440px] border-r border-[var(--border)] flex-col bg-[#fafafa] flex-shrink-0">
+              <div className="flex-1 overflow-y-auto px-8 py-8">
+                <h2 className="text-xl font-semibold mb-1 leading-snug">{article.title}</h2>
+                <p className="text-xs text-[var(--muted)] mb-6 uppercase tracking-wider">{article.topic}</p>
                 {renderArticleBody(article.bodyText)}
               </div>
             </div>
@@ -134,10 +136,10 @@ export default function ConversationPage() {
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[85%] px-4 py-3 rounded-2xl text-[15px] leading-relaxed ${
+                  className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-[var(--accent)] text-white rounded-br-sm"
-                      : "bg-[var(--bg)] border border-[var(--border)] text-[var(--fg)] rounded-bl-sm"
+                      ? "bg-[var(--accent)] text-white rounded-br-md"
+                      : "bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] rounded-bl-md"
                   }`}
                 >
                   {msg.content}
@@ -197,14 +199,14 @@ export default function ConversationPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   placeholder="Type your response…"
-                  className="flex-1 px-4 py-3 border-[1.5px] border-[var(--border)] rounded-[var(--radius-sm)] text-[15px] outline-none focus:border-[var(--accent)] transition bg-[var(--surface)]"
+                  className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
                   disabled={loading}
                   autoFocus
                 />
                 <button
                   onClick={handleSend}
                   disabled={loading || !input.trim()}
-                  className="px-5 py-3 bg-[var(--accent)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
+                  className="px-5 py-2.5 bg-[var(--accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
                 >
                   Send
                 </button>

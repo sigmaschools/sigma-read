@@ -45,28 +45,28 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-6">
+    <div className="flex items-center justify-center min-h-screen px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-8 tracking-tight">SigmaRead</h1>
+        <h1 className="text-2xl font-semibold text-center mb-8 tracking-tight">SigmaRead</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Username or Email</label>
+            <label className="block text-sm font-medium text-[var(--muted)] mb-1">Username or Email</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 border-[1.5px] border-[var(--border)] rounded-[var(--radius-sm)] text-[15px] outline-none focus:border-[var(--accent)] transition bg-[var(--surface)]"
+              className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-[15px] outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition"
               required
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-[var(--muted)] mb-1">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border-[1.5px] border-[var(--border)] rounded-[var(--radius-sm)] text-[15px] outline-none focus:border-[var(--accent)] transition bg-[var(--surface)]"
+              className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-[15px] outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition"
               required
             />
           </div>
@@ -74,7 +74,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[var(--accent)] text-white text-[15px] font-semibold rounded-[var(--radius-sm)] hover:bg-[var(--accent-hover)] transition disabled:opacity-50 mt-2"
+            className="w-full py-2.5 bg-[var(--accent)] text-white text-[15px] font-medium rounded-lg hover:bg-[var(--accent-hover)] transition disabled:opacity-50"
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>
