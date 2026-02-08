@@ -87,6 +87,8 @@ export async function GET() {
       status = "inactive";
     }
 
+    const weeklySessionTarget = s.weeklySessionTarget || (s.dailyArticleCap || 5) * 5;
+
     return {
       id: s.id,
       name: s.name,
@@ -98,6 +100,7 @@ export async function GET() {
       avgScore,
       totalSessions,
       sessionsThisWeek,
+      weeklySessionTarget,
       status,
     };
   });
@@ -113,11 +116,56 @@ export async function GET() {
   dashboardStudents.sort((a, b) => {
     const orderDiff = statusOrder[a.status] - statusOrder[b.status];
     if (orderDiff !== 0) return orderDiff;
-    // Within same status, sort by score ascending (lowest first)
     if (a.avgScore !== null && b.avgScore !== null) return a.avgScore - b.avgScore;
     if (a.avgScore === null) return 1;
     return -1;
   });
 
-  return NextResponse.json({ students: dashboardStudents });
+  // Class-level analytics
+  const activeStudents = dashboardStudents.filter(s => s.sessionsThisWeek > 0).length;
+  const totalStudents = dashboardStudents.length;
+  const totalSessionsThisWeek = dashboardStudents.reduce((a, s) => a + s.sessionsThisWeek, 0);
+  const studentsWithScores = dashboardStudents.filter(s => s.avgScore !== null);
+  const classAvgScore = studentsWithScores.length > 0
+    ? Math.round(studentsWithScores.reduce((a, s) => a + (s.avgScore || 0), 0) / studentsWithScores.length)
+    : null;
+  const needsAttention = dashboardStudents.filter(s => s.status === "struggling" || s.status === "inactive").length;
+
+  // Generate alerts
+  const alerts: string[] = [];
+  const inactiveStudents = dashboardStudents.filter(s => s.status === "inactive" && s.onboardingComplete);
+  if (inactiveStudents.length > 0) {
+    alerts.push(`${inactiveStudents.length} student${inactiveStudents.length > 1 ? "s haven't" : " hasn't"} read this week`);
+  }
+
+  // Check for level changes this week
+  const levelChanges = await db.select({
+    studentId: schema.levelHistory.studentId,
+    fromLevel: schema.levelHistory.fromLevel,
+    toLevel: schema.levelHistory.toLevel,
+  }).from(schema.levelHistory).where(gte(schema.levelHistory.changedAt, weekAgo));
+  
+  for (const lc of levelChanges) {
+    const student = students.find(s => s.id === lc.studentId);
+    if (student && lc.toLevel > lc.fromLevel) {
+      alerts.push(`${student.name.split(" ")[0]} moved up to Level ${lc.toLevel}! 🎉`);
+    } else if (student && lc.toLevel < lc.fromLevel) {
+      alerts.push(`${student.name.split(" ")[0]} dropped to Level ${lc.toLevel}`);
+    }
+  }
+
+  // Check for consecutive low scores
+  for (const s of students) {
+    const reports = reportsByStudent[s.id] || [];
+    const recent = reports.slice(0, 2);
+    if (recent.length >= 2 && recent.every(r => (r.score || 100) < 40)) {
+      alerts.push(`${s.name.split(" ")[0]} scored below 40 on 2 consecutive sessions`);
+    }
+  }
+
+  return NextResponse.json({
+    students: dashboardStudents,
+    classStats: { activeStudents, totalStudents, totalSessionsThisWeek, classAvgScore, needsAttention },
+    alerts,
+  });
 }
