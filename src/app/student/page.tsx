@@ -26,8 +26,6 @@ function articleSummary(text: string, title: string): string {
   const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
   if (sentences.length === 0) return clean.slice(0, 180);
 
-  // Always skip sentence 1 — it almost always restates the title.
-  // Start from sentence 2 (index 1) and grab enough to fill 140-180 chars.
   const start = sentences.length > 2 ? 1 : 0;
   let result = "";
   for (let i = start; i < sentences.length; i++) {
@@ -37,7 +35,6 @@ function articleSummary(text: string, title: string): string {
     if (result.length >= 140) break;
   }
 
-  // If we didn't get enough from skipping, fall back to including sentence 1
   if (result.trim().length < 80 && start === 1) {
     result = "";
     for (let i = 0; i < sentences.length; i++) {
@@ -51,10 +48,10 @@ function articleSummary(text: string, title: string): string {
   return result.trim() || clean.slice(0, 180);
 }
 
-function categoryStyle(article: Article) {
-  if (article.category === "news") return "text-blue-600";
-  if (article.category === "interest") return "text-violet-600";
-  return "text-emerald-600";
+function badgeClass(article: Article) {
+  if (article.category === "news") return "bg-[#EEF2FF] text-[#4F6BED]";
+  if (article.category === "interest") return "bg-[#F3E8FF] text-[#7C3AED]";
+  return "bg-[#ECFDF5] text-[#059669]";
 }
 
 export default function StudentHome() {
@@ -86,7 +83,6 @@ export default function StudentHome() {
     let arts = await artRes.json();
     const unread = arts.filter((a: Article) => !a.read);
 
-    // If fewer than 3 unread, auto-serve from cache
     if (unread.length < 3) {
       await fetch("/api/articles/serve-cached", { method: "POST" });
       const refreshRes = await fetch("/api/articles");
@@ -119,7 +115,6 @@ export default function StudentHome() {
     router.push("/login");
   }
 
-  // Always show the 3 most recent unread articles
   const unread = articles.filter((a) => !a.read);
   const visible = unread.slice(-3);
   const readArticles = articles.filter((a) => a.read);
@@ -136,86 +131,93 @@ export default function StudentHome() {
   return (
     <div className="min-h-screen">
       {/* Top bar */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur border-b border-[var(--border)] px-6 py-3 flex items-center justify-between z-10">
-        <h1 className="text-lg font-semibold tracking-tight">SigmaRead</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-[var(--muted)]">{userName}</span>
-          <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
+      <header className="sticky top-0 z-10 bg-[var(--bg)]/85 backdrop-blur-xl border-b border-[var(--border)] px-6 py-3.5 flex items-center justify-between">
+        <span className="text-base font-semibold tracking-tight">SigmaRead</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-[var(--muted)] font-medium">{userName}</span>
+          <button
+            onClick={handleLogout}
+            className="text-xs text-[var(--muted)] px-2.5 py-1 rounded-md hover:bg-[var(--border)] hover:text-[var(--danger)] transition"
+          >
             Sign out
           </button>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-[640px] mx-auto px-6 py-8">
+        {/* Welcome */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold">Hey {userName} 👋</h2>
+          <h1 className="text-2xl font-bold tracking-tight">Hey {userName} 👋</h1>
           {totalRead === 0 && (
-            <p className="text-sm text-[var(--muted)] mt-1">Pick an article below to get started.</p>
+            <p className="text-[15px] text-[var(--muted)] mt-1">Choose an article to start reading</p>
           )}
         </div>
 
-        {/* Available Articles */}
-        <div className="mb-3">
-          <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Choose an Article</h2>
+        {/* Section label */}
+        <div className="mb-4">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">Choose an Article</h2>
         </div>
 
-        <div className="space-y-2">
+        {/* Article cards */}
+        <div className="flex flex-col gap-3 mb-6">
           {visible.map((article) => (
             <Link
               key={article.id}
               href={`/student/read/${article.id}`}
-              className="block p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition group min-h-[120px]"
+              className="block bg-[var(--surface)] rounded-xl p-5 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:-translate-y-px transition-all min-h-[110px]"
             >
-              <div>
-                <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition line-clamp-1">{article.title}</h3>
-                <p className="text-sm text-[var(--muted)] mt-1.5 line-clamp-2">{articleSummary(article.bodyText, article.title)}</p>
-                <p className="text-xs text-[var(--muted)] mt-1.5">
-                  <span className={`font-medium ${categoryStyle(article)}`}>{categoryLabel(article)}</span>
-                  {article.category !== "news" && article.topic ? ` · ${article.topic}` : ""}
-                  {" · "}{article.estimatedReadTime} min read
-                </p>
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${badgeClass(article)}`}>
+                  {categoryLabel(article)}
+                </span>
+                <span className="text-xs text-[var(--muted)]">{article.estimatedReadTime} min</span>
               </div>
+              <h3 className="text-base font-semibold leading-snug line-clamp-1 mb-1.5">{article.title}</h3>
+              <p className="text-sm text-[var(--muted)] leading-relaxed line-clamp-2">{articleSummary(article.bodyText, article.title)}</p>
             </Link>
           ))}
         </div>
 
-        {/* Get new articles */}
-        <div className="mt-4 text-center">
+        {/* Show different articles */}
+        <div className="mb-10">
           {generating ? (
-            <span className="text-sm text-[var(--muted)] inline-flex items-center gap-2">
-              <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-              Loading new articles…
-            </span>
+            <div className="text-center">
+              <span className="text-sm text-[var(--muted)] inline-flex items-center gap-2">
+                <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                Loading new articles…
+              </span>
+            </div>
           ) : (
             <button
               onClick={getNewArticles}
-              className="text-sm px-4 py-2 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
+              className="w-full py-3.5 border-[1.5px] border-[var(--border)] rounded-[var(--radius-sm)] text-sm font-medium text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition"
             >
               Show me different articles
             </button>
           )}
           {noMore && (
-            <p className="text-sm text-[var(--muted)] mt-2">You&apos;ve seen all available articles! Check back later for new ones.</p>
+            <p className="text-sm text-[var(--muted)] text-center mt-3">You&apos;ve seen all available articles! Check back later for new ones.</p>
           )}
         </div>
 
-        {/* Completed today — only show after first completion */}
+        {/* Completed today */}
         {completedToday.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">
-              Today&apos;s Reading Goal · {completedToday.length}/{dailyGoal}
-              {completedToday.length >= dailyGoal && " 🎉"}
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)] mb-4">
+              Today&apos;s Reading
             </h2>
             <div className="space-y-2">
               {completedToday.map((completed, i) => (
                 <div
                   key={i}
-                  className="p-4 bg-[var(--surface)] border border-[var(--accent)]/30 rounded-xl flex items-center gap-3"
+                  className="flex items-center gap-3 py-3 border-b border-[var(--border)] last:border-b-0"
                 >
-                  <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-sm flex-shrink-0">
-                    ✓
+                  <div className="w-[22px] h-[22px] rounded-full bg-[var(--success)] flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M10 3L4.5 8.5 2 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                   </div>
-                  <p className="text-[15px] font-medium text-[var(--fg)]">{completed.title}</p>
+                  <span className="text-sm font-medium">{completed.title}</span>
                 </div>
               ))}
             </div>

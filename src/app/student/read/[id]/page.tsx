@@ -118,9 +118,9 @@ export default function ReaderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[var(--surface)]">
       {/* Top bar */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur border-b border-[var(--border)] px-6 py-3 flex items-center justify-between z-10">
+      <header className="sticky top-0 z-10 bg-white/85 backdrop-blur-xl border-b border-[var(--border)] px-6 py-3.5 flex items-center justify-between">
         <button onClick={() => router.push("/student")} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
           ← Back
         </button>
@@ -145,7 +145,7 @@ export default function ReaderPage() {
 
       {/* Article */}
       <article className="max-w-[640px] mx-auto px-6 py-10" onClick={handleWordClick}>
-        <h1 className="text-3xl font-semibold tracking-tight mb-2">{article.title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-2">{article.title}</h1>
         <p className="text-sm text-[var(--muted)] mb-8">{article.topic}</p>
         <div className="reader-body" style={{ fontSize: `${fontSize}px` }}>
           {renderBody(article.bodyText)}
@@ -171,7 +171,7 @@ export default function ReaderPage() {
         <div className="mt-12 flex flex-col items-center gap-4 pb-4">
           <button
             onClick={() => setShowFeedbackModal(true)}
-            className="px-10 py-3.5 rounded-xl text-[15px] font-medium transition bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm"
+            className="px-10 py-3.5 rounded-[var(--radius-sm)] text-[15px] font-semibold transition bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-[var(--shadow-sm)]"
           >
             I&apos;m done reading
           </button>
@@ -181,7 +181,7 @@ export default function ReaderPage() {
       {/* Feedback modal — no escape, must click Yes or No → transitions to conversation */}
       {showFeedbackModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center animate-scale-in">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-xl p-8 max-w-sm w-full text-center animate-scale-in">
             {transitioning ? (
               <div className="flex flex-col items-center gap-4 py-4 animate-fade-in">
                 <div className="w-14 h-14 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-2xl animate-scale-in">
@@ -200,13 +200,13 @@ export default function ReaderPage() {
                 <div className="flex gap-4 justify-center">
                   <button
                     onClick={() => handleFeedback(true)}
-                    className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-green-500 text-white hover:bg-green-600 shadow-sm"
+                    className="px-8 py-3 rounded-[var(--radius-sm)] text-[15px] font-semibold transition bg-[var(--success)] text-white hover:opacity-90 shadow-[var(--shadow-sm)]"
                   >
                     Yes
                   </button>
                   <button
                     onClick={() => handleFeedback(false)}
-                    className="px-8 py-3 rounded-xl text-[15px] font-medium transition bg-red-400 text-white hover:bg-red-500 shadow-sm"
+                    className="px-8 py-3 rounded-[var(--radius-sm)] text-[15px] font-semibold transition bg-[var(--danger)] text-white hover:opacity-90 shadow-[var(--shadow-sm)]"
                   >
                     No
                   </button>
