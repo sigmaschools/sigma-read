@@ -166,11 +166,11 @@ export default function StudentHome() {
             <Link
               key={article.id}
               href={`/student/read/${article.id}`}
-              className="block p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition group"
+              className="block p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition group min-h-[120px]"
             >
               <div>
-                <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
-                <p className="text-sm text-[var(--muted)] mt-1.5 line-clamp-3">{articleSummary(article.bodyText, article.title)}</p>
+                <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition line-clamp-1">{article.title}</h3>
+                <p className="text-sm text-[var(--muted)] mt-1.5 line-clamp-2">{articleSummary(article.bodyText, article.title)}</p>
                 <p className="text-xs text-[var(--muted)] mt-1.5">
                   <span className={`font-medium ${categoryStyle(article)}`}>{categoryLabel(article)}</span>
                   {article.category !== "news" && article.topic ? ` · ${article.topic}` : ""}
@@ -226,7 +226,7 @@ export default function StudentHome() {
                 ) : (
                   <div
                     key={i}
-                    className="p-4 border-2 border-dashed border-[var(--border)] rounded-xl min-h-[72px]"
+                    className="p-4 border-2 border-dashed border-[var(--border)] rounded-xl min-h-[120px]"
                   >
                   </div>
                 );
