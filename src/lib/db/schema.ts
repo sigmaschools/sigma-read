@@ -64,6 +64,7 @@ export const articleCache = pgTable("article_cache", {
   baseArticleId: integer("base_article_id"), // links level adaptations to their source
   generatedDate: date("generated_date"), // which batch date this was generated for
   headlineSource: text("headline_source"), // source URL for news articles
+  flagged: boolean("flagged").default(false).notNull(), // flagged = won't be served to new students
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

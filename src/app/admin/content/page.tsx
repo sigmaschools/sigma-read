@@ -12,6 +12,7 @@ interface CacheArticle {
   generatedDate: string | null;
   headlineSource: string | null;
   baseArticleId: number | null;
+  flagged: boolean;
   createdAt: string;
 }
 
@@ -50,18 +51,33 @@ export default function AdminContentPage() {
     setLoading(false);
   }
 
-  async function deleteArticle(id: number) {
-    if (!confirm("Delete this article from cache?")) return;
+  async function toggleFlag(id: number, currentlyFlagged: boolean) {
     await fetch("/api/admin/content", {
-      method: "DELETE",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, flagged: !currentlyFlagged }),
     });
     loadContent();
   }
 
+  async function flagGroup(group: ArticleGroup, flag: boolean) {
+    for (const a of group.levels) {
+      await fetch("/api/admin/content", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: a.id, flagged: flag }),
+      });
+    }
+    loadContent();
+  }
+
+  interface ArticleGroupWithFlag extends ArticleGroup {
+    allFlagged: boolean;
+    someFlagged: boolean;
+  }
+
   // Group articles by base article
-  function groupArticles(articles: CacheArticle[]): ArticleGroup[] {
+  function groupArticles(articles: CacheArticle[]): ArticleGroupWithFlag[] {
     const groups: Map<number, ArticleGroup> = new Map();
 
     // First pass: find base articles (no baseArticleId) or create groups
@@ -97,7 +113,13 @@ export default function AdminContentPage() {
       group.title = base.topic;
     }
 
-    return Array.from(groups.values()).sort((a, b) => {
+    const result: ArticleGroupWithFlag[] = Array.from(groups.values()).map(g => ({
+      ...g,
+      allFlagged: g.levels.every(l => l.flagged),
+      someFlagged: g.levels.some(l => l.flagged),
+    }));
+
+    return result.sort((a, b) => {
       // Sort by date descending, then title
       if (a.generatedDate && b.generatedDate) return b.generatedDate.localeCompare(a.generatedDate);
       return a.title.localeCompare(b.title);
@@ -187,14 +209,17 @@ export default function AdminContentPage() {
         {filteredGroups.map(group => (
           <div key={group.baseId} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
             {/* Group Header */}
-            <button
-              onClick={() => toggleExpand(group.baseId)}
-              className="w-full text-left px-5 py-4 hover:bg-gray-50 transition flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3 min-w-0">
+            <div className={`flex items-center justify-between ${group.allFlagged ? "opacity-50" : ""}`}>
+              <button
+                onClick={() => toggleExpand(group.baseId)}
+                className="flex-1 text-left px-5 py-4 hover:bg-gray-50 transition flex items-center gap-3 min-w-0"
+              >
                 <span className="text-[var(--muted)] text-sm">{expanded.has(group.baseId) ? "▼" : "▸"}</span>
                 <div className="min-w-0">
-                  <h3 className="font-medium text-[15px] truncate">{group.title}</h3>
+                  <h3 className="font-medium text-[15px] truncate">
+                    {group.allFlagged && <span className="text-red-400 mr-1">⛔</span>}
+                    {group.title}
+                  </h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     {categoryBadge(group.category)}
                     <span className="text-xs text-[var(--muted)]">
@@ -208,17 +233,28 @@ export default function AdminContentPage() {
                     )}
                   </div>
                 </div>
-              </div>
-            </button>
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); flagGroup(group, !group.allFlagged); }}
+                className={`mr-4 text-xs px-3 py-1.5 rounded-lg border transition ${
+                  group.allFlagged
+                    ? "border-green-300 text-green-700 hover:bg-green-50"
+                    : "border-red-200 text-red-500 hover:bg-red-50"
+                }`}
+              >
+                {group.allFlagged ? "Unflag" : "Flag"}
+              </button>
+            </div>
 
             {/* Expanded Level Details */}
             {expanded.has(group.baseId) && (
               <div className="border-t border-[var(--border)]">
                 {group.levels.map(a => (
-                  <div key={a.id} className="px-5 py-3 flex items-center justify-between border-b border-[var(--border)] last:border-0 bg-gray-50/50">
+                  <div key={a.id} className={`px-5 py-3 flex items-center justify-between border-b border-[var(--border)] last:border-0 bg-gray-50/50 ${a.flagged ? "opacity-50" : ""}`}>
                     <div className="pl-6">
                       <p className="text-sm font-medium">
                         <span className="text-xs text-[var(--muted)] bg-gray-200 px-1.5 py-0.5 rounded mr-2">L{a.readingLevel}</span>
+                        {a.flagged && <span className="text-red-400 mr-1">⛔</span>}
                         {a.title}
                       </p>
                       <p className="text-xs text-[var(--muted)] mt-0.5">
@@ -226,8 +262,11 @@ export default function AdminContentPage() {
                         {a.baseArticleId ? " · Adapted" : " · Base article"}
                       </p>
                     </div>
-                    <button onClick={() => deleteArticle(a.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-1">
-                      Delete
+                    <button
+                      onClick={() => toggleFlag(a.id, a.flagged)}
+                      className={`text-xs px-2 py-1 rounded transition ${a.flagged ? "text-green-600 hover:text-green-800" : "text-red-400 hover:text-red-600"}`}
+                    >
+                      {a.flagged ? "Unflag" : "Flag"}
                     </button>
                   </div>
                 ))}

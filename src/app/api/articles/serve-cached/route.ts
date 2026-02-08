@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   // Get 3 articles from cache that this student hasn't seen
   const allCached = await db.select().from(schema.articleCache)
-    .where(eq(schema.articleCache.readingLevel, level))
+    .where(and(eq(schema.articleCache.readingLevel, level), eq(schema.articleCache.flagged, false)))
     .orderBy(sql`RANDOM()`)
     .limit(20);
   
