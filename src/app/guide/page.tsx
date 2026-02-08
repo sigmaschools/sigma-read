@@ -131,6 +131,15 @@ export default function GuideDashboard() {
     return "text-red-500";
   };
 
+  const scoreLabel = (score: number | null) => {
+    if (score === null) return "";
+    if (score >= 85) return "Exceptional";
+    if (score >= 70) return "Strong";
+    if (score >= 55) return "Solid";
+    if (score >= 40) return "Developing";
+    return "Needs Support";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -215,7 +224,7 @@ export default function GuideDashboard() {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className={`text-lg font-semibold ${scoreColor(student.avgScore)}`}>
-                        {student.avgScore !== null ? <>{student.avgScore}<span className="text-xs font-normal text-[var(--muted)]">/100</span></> : "—"}
+                        {student.avgScore !== null ? <>{student.avgScore} <span className="text-xs font-normal text-[var(--muted)]">{scoreLabel(student.avgScore)}</span></> : "—"}
                       </p>
                       <p className="text-xs text-[var(--muted)]">
                         {student.sessionsThisWeek} this week · {student.totalSessions} total
@@ -272,7 +281,7 @@ export default function GuideDashboard() {
                             )
                           : "—"}
                       </p>
-                      <p className="text-xs text-[var(--muted)]">Avg score /100</p>
+                      <p className="text-xs text-[var(--muted)]">Avg score</p>
                     </div>
                   </div>
 
@@ -314,7 +323,7 @@ export default function GuideDashboard() {
                               <div className="text-right">
                                 {s.avgScoreThisWeek !== null && (
                                   <span className={`text-lg font-semibold ${scoreColor(s.avgScoreThisWeek)}`}>
-                                    {s.avgScoreThisWeek}<span className="text-xs font-normal text-[var(--muted)]">/100</span>
+                                    {s.avgScoreThisWeek} <span className="text-xs font-normal text-[var(--muted)]">{scoreLabel(s.avgScoreThisWeek)}</span>
                                   </span>
                                 )}
                                 {s.scoreTrend === "up" && <span className="ml-1 text-green-600">↑</span>}
