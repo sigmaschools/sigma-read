@@ -426,18 +426,35 @@ async function run() {
   console.log(`💡 Got ${interestTopics.length} interest/horizon topics`);
 
   // Combine all topics
-  const allTopics: { topic: string; source: string; type: string }[] = [
+  const allTopicsRaw: { topic: string; source: string; type: string }[] = [
     ...headlines.map(h => ({ topic: h.topic, source: h.source, type: "news" })),
     ...interestTopics.map(t => ({ topic: t.topic, source: "Student interests", type: t.type })),
   ];
 
-  console.log(`\n📝 Generating ${allTopics.length} base articles...\n`);
+  // Filter out blocked topics
+  const blockedTopics = await sql`SELECT topic FROM blocked_topics`;
+  const blockedSet = new Set(blockedTopics.map(b => b.topic.toLowerCase()));
+  const allTopics = allTopicsRaw.filter(t => !blockedSet.has(t.topic.toLowerCase()));
+  if (allTopicsRaw.length !== allTopics.length) {
+    console.log(`🚫 Filtered out ${allTopicsRaw.length - allTopics.length} blocked topics`);
+  }
+
+  // Check for recent topic duplicates (last 14 days)
+  const recentTopics = await sql`SELECT topic FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
+  const recentSet = new Set(recentTopics.map(t => t.topic.toLowerCase()));
+  const dedupedTopics = allTopics.filter(t => !recentSet.has(t.topic.toLowerCase()));
+  if (allTopics.length !== dedupedTopics.length) {
+    console.log(`♻️ Skipped ${allTopics.length - dedupedTopics.length} recently covered topics`);
+  }
+  const finalTopics = dedupedTopics.length > 0 ? dedupedTopics : allTopics; // fallback if all are dupes
+
+  console.log(`\n📝 Generating ${finalTopics.length} base articles...\n`);
 
   // Step 4: Generate base articles
   const baseArticles: { id: number; title: string; topic: string; bodyText: string; sources: string[]; category: string }[] = [];
 
-  for (let i = 0; i < allTopics.length; i++) {
-    const t = allTopics[i];
+  for (let i = 0; i < finalTopics.length; i++) {
+    const t = finalTopics[i];
     console.log(`  ✍️  [${i + 1}/${allTopics.length}] ${t.type}: ${t.topic.substring(0, 55)}...`);
 
     const article = await generateBaseArticle(t.topic, t.source, t.type);
@@ -448,6 +465,8 @@ async function run() {
         RETURNING id
       `;
       baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
+      // Log topic for dedup
+      await sql`INSERT INTO generated_topics (topic, category, generated_date) VALUES (${article.topic}, ${article.category}, ${today})`;
       console.log(`     ✅ "${article.title}"`);
     } else {
       console.log(`     ❌ Failed`);
@@ -478,6 +497,18 @@ async function run() {
 
   // Step 6: Serve to students
   await serveToStudents(students);
+
+  // Step 7: Expire old cache
+  console.log("\n🧹 Expiring old articles...");
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const expiredNews = await sql`DELETE FROM article_cache WHERE category = 'news' AND generated_date < ${sevenDaysAgo} RETURNING id`;
+  const expiredOther = await sql`DELETE FROM article_cache WHERE category != 'news' AND generated_date < ${thirtyDaysAgo} RETURNING id`;
+  if (expiredNews.length + expiredOther.length > 0) {
+    console.log(`  🗑️ Expired ${expiredNews.length} news + ${expiredOther.length} other articles`);
+  } else {
+    console.log("  No expired articles.");
+  }
 
   console.log(`\n✅ Morning batch complete! Generated ${baseArticles.length} articles × ${levelsNeeded.size} levels\n`);
 }
