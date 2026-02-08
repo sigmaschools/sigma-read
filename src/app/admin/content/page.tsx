@@ -328,10 +328,10 @@ export default function AdminContentPage() {
               <>
                 {/* Top bar — mirrors student reader */}
                 <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-[var(--border)] px-6 py-3 flex items-center justify-between rounded-t-2xl z-10">
-                  <button onClick={() => setPreview(null)} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
-                    ← Back
-                  </button>
                   <span className="text-xs text-[var(--muted)] bg-gray-100 px-2 py-0.5 rounded">Level {preview.level}</span>
+                  <button onClick={() => setPreview(null)} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
+                    Close ×
+                  </button>
                 </div>
 
                 {/* Article body — same max-width, font, spacing as student reader */}
