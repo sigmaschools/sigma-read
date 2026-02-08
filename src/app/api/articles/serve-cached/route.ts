@@ -14,9 +14,10 @@ export async function POST(req: NextRequest) {
 
   const level = student.readingLevel || 2;
 
-  // Get existing article titles to avoid duplicates
+  // Only exclude unread articles to avoid duplicates in current feed
+  // Previously read articles can be served again on future days
   const existingArticles = await db.select({ title: schema.articles.title })
-    .from(schema.articles).where(eq(schema.articles.studentId, student.id));
+    .from(schema.articles).where(and(eq(schema.articles.studentId, student.id), eq(schema.articles.read, false)));
   const existingTitles = new Set(existingArticles.map(a => a.title));
 
   // Get 2 news + 1 general, excluding already-assigned articles
