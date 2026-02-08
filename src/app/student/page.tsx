@@ -34,6 +34,8 @@ export default function StudentHome() {
   const [generating, setGenerating] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [userName, setUserName] = useState("");
+  const [completedToday, setCompletedToday] = useState(0);
+  const dailyGoal = 3;
   const router = useRouter();
 
   useEffect(() => {
@@ -47,6 +49,10 @@ export default function StudentHome() {
     if (me.role !== "student") { router.push("/login"); return; }
     if (!me.onboardingComplete) { router.push("/student/onboarding"); return; }
     setUserName(me.name);
+
+    const progRes = await fetch("/api/student/daily-progress");
+    const prog = await progRes.json();
+    if (!prog.error) setCompletedToday(prog.completedToday);
 
     const artRes = await fetch("/api/articles");
     let arts = await artRes.json();
@@ -128,11 +134,33 @@ export default function StudentHome() {
       <main className="flex-1 p-8 max-w-3xl">
         <div className="mb-8">
           <h2 className="text-xl font-semibold">Hey {userName} 👋</h2>
-          <p className="text-sm text-[var(--muted)] mt-1">
-            {totalRead === 0
-              ? "Pick an article below to get started."
-              : `You've read ${totalRead} article${totalRead === 1 ? "" : "s"} so far. Keep it up!`}
-          </p>
+          {totalRead === 0 ? (
+            <p className="text-sm text-[var(--muted)] mt-1">Pick an article below to get started.</p>
+          ) : (
+            <div className="mt-3">
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  {Array.from({ length: dailyGoal }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                        i < completedToday
+                          ? "bg-[var(--accent)] text-white"
+                          : "bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]"
+                      }`}
+                    >
+                      {i < completedToday ? "✓" : i + 1}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-[var(--muted)]">
+                  {completedToday >= dailyGoal
+                    ? "You hit your goal for today! 🎉"
+                    : `${completedToday} of ${dailyGoal} articles today`}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mb-6">
