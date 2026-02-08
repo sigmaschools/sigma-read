@@ -155,26 +155,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           exchangeCount,
         });
 
-        // Calibrate reading level based on comprehension score
-        // Score 85+: move up, Score <40: move down, 40-55: move down one, otherwise stay
-        const currentLevel = student.readingLevel || 2;
-        let newLevel = currentLevel;
-        if (report.score >= 85 && currentLevel < 6) newLevel = currentLevel + 1;
-        else if (report.score < 40 && currentLevel > 1) newLevel = Math.max(1, currentLevel - 1);
-        else if (report.score < 55 && currentLevel > 1) newLevel = currentLevel - 1;
-
-        if (newLevel !== currentLevel) {
-          await db.update(schema.students)
-            .set({ readingLevel: newLevel })
-            .where(eq(schema.students.id, session.userId));
-
-          // Log level change to history
-          await db.insert(schema.levelHistory).values({
-            studentId: session.userId,
-            fromLevel: currentLevel,
-            toLevel: newLevel,
-            triggeredBySessionId: readingSession.id,
-          });
+        // Gradual Mix Level Progression — evaluate and apply
+        const { evaluateProgression, applyProgressionResult } = await import("@/lib/level-progression");
+        const progressionResult = await evaluateProgression(session.userId);
+        if (progressionResult.action !== "none") {
+          await applyProgressionResult(session.userId, progressionResult);
+          console.log(`Level progression [${student.name}]: ${progressionResult.action}`, 
+            progressionResult.newLevel ? `→ L${progressionResult.newLevel}` : "",
+            progressionResult.alertMessage || "");
         }
       } catch (e) {
         console.error("Report parse error:", e);

@@ -46,6 +46,12 @@ export const students = pgTable("students", {
   dailyArticleCap: integer("daily_article_cap").default(5),
   weeklySessionTarget: integer("weekly_session_target"), // null = auto-calculate from dailyArticleCap × 5
   totalSessionsCompleted: integer("total_sessions_completed").default(0),
+  feedMix: jsonb("feed_mix").$type<{
+    probeDirection: "up" | "down" | null;
+    probePhase: number; // 1, 2, or 3
+    probeStartDate: string | null;
+    probeScores: number[]; // scores on probe-level articles
+  }>().default({ probeDirection: null, probePhase: 0, probeStartDate: null, probeScores: [] }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -64,6 +70,7 @@ export const articles = pgTable("articles", {
   preReadingPrompt: text("pre_reading_prompt"), // AI-generated activation question
   summary: text("summary"), // Brief summary for cross-article connections
   sourceCacheId: integer("source_cache_id"), // tracks which cache article this came from
+  servedAsLevel: integer("served_as_level"), // the level this article was served as (may differ from readingLevel during probing)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
