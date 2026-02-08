@@ -158,14 +158,14 @@ export default function AdminContentPage() {
 
   return (
     <div className="p-8 max-w-5xl">
-      <h1 className="text-2xl font-semibold mb-2">Article Cache</h1>
-      <p className="text-sm text-[var(--muted)] mb-6">{groups.length} articles · {total} total versions across levels</p>
+      <h1 className="text-2xl font-semibold mb-2">Articles</h1>
+      <p className="text-sm text-[var(--muted)] mb-6">{groups.length} articles · {total} level versions</p>
 
       {/* Distribution */}
       {distribution && (
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-            <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Versions by Level</p>
+            <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Level Versions</p>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5, 6].map(l => (
                 <div key={l} className="flex-1 text-center">
