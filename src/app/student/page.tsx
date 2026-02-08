@@ -119,20 +119,6 @@ export default function StudentHome() {
     router.push("/login");
   }
 
-  // Always show the 3 most recent unread articles
-  const unread = articles.filter((a) => !a.read);
-  const visible = unread.slice(-3);
-  const readArticles = articles.filter((a) => a.read);
-  const totalRead = readArticles.length;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -147,10 +133,24 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
+  // Always show the 3 most recent unread articles
+  const unread = articles.filter((a) => !a.read);
+  const visible = unread.slice(-3);
+  const readArticles = articles.filter((a) => a.read);
+  const totalRead = readArticles.length;
+
   // Get initials for avatar
   const initials = userName
     ? userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
