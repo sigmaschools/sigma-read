@@ -24,17 +24,24 @@ function categoryLabel(article: Article) {
 }
 
 function articleSummary(text: string, title: string): string {
-  // Strip markdown headings, split into sentences, take first 2-3
+  // Strip markdown headings, split into sentences
   const clean = text.replace(/^#+\s.*\n*/gm, "").trim();
   const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
+  if (sentences.length === 0) return clean.slice(0, 180);
   // Skip first sentence if it's very similar to the title (redundant)
   const titleWords = new Set(title.toLowerCase().split(/\s+/));
-  const firstWords = sentences[0] ? new Set(sentences[0].toLowerCase().split(/\s+/)) : new Set();
+  const firstWords = new Set((sentences[0] || "").toLowerCase().split(/\s+/));
   const overlap = [...titleWords].filter(w => firstWords.has(w) && w.length > 3).length;
-  const skipFirst = overlap > titleWords.size * 0.5;
-  const start = skipFirst ? 1 : 0;
-  const picked = sentences.slice(start, start + 2).join(" ").trim();
-  return picked || clean.slice(0, 200) + "…";
+  const start = overlap > titleWords.size * 0.5 ? 1 : 0;
+  // Grab sentences until we reach ~160 chars (fills 2 lines)
+  let result = "";
+  for (let i = start; i < sentences.length; i++) {
+    const next = result + sentences[i].trim() + " ";
+    if (result.length > 0 && next.length > 180) break;
+    result = next;
+    if (result.length >= 140) break;
+  }
+  return result.trim() || clean.slice(0, 180);
 }
 
 function categoryStyle(article: Article) {
