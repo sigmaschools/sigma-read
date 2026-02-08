@@ -210,7 +210,7 @@ export default function StudentHome() {
           </div>
         )}
 
-        {/* Daily Goal Slots — only show after first completion */}
+        {/* Completed today — only show after first completion */}
         {completedToday.length > 0 && (
           <div className="mt-8">
             <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">
@@ -218,26 +218,17 @@ export default function StudentHome() {
               {completedToday.length >= dailyGoal && " 🎉"}
             </h2>
             <div className="space-y-2">
-              {Array.from({ length: Math.max(dailyGoal, completedToday.length) }).map((_, i) => {
-                const completed = completedToday[i];
-                return completed ? (
-                  <div
-                    key={i}
-                    className="p-4 bg-[var(--surface)] border border-[var(--accent)]/30 rounded-xl flex items-center gap-3"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-sm flex-shrink-0">
-                      ✓
-                    </div>
-                    <p className="text-[15px] font-medium text-[var(--fg)]">{completed.title}</p>
+              {completedToday.map((completed, i) => (
+                <div
+                  key={i}
+                  className="p-4 bg-[var(--surface)] border border-[var(--accent)]/30 rounded-xl flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-sm flex-shrink-0">
+                    ✓
                   </div>
-                ) : (
-                  <div
-                    key={i}
-                    className="p-4 border-2 border-dashed border-[var(--border)] rounded-xl min-h-[120px]"
-                  >
-                  </div>
-                );
-              })}
+                  <p className="text-[15px] font-medium text-[var(--fg)]">{completed.title}</p>
+                </div>
+              ))}
             </div>
           </div>
         )}
