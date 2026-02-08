@@ -165,7 +165,7 @@ export default function StudentDetailPage() {
               <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
                 <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Score</p>
                 <p className={`text-2xl font-semibold ${scoreColor(s.score)}`}>
-                  {s.score} <span className="text-sm font-normal text-[var(--muted)]">{s.rating}</span>
+                  {s.score}
                 </p>
               </div>
               <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
@@ -290,7 +290,6 @@ export default function StudentDetailPage() {
                   {s.score !== null && (
                     <div className="text-right">
                       <span className={`text-lg font-semibold ${scoreColor(s.score)}`}>{s.score}</span>
-                      <span className="text-xs text-[var(--muted)]"> {scoreLabel(s.score)}</span>
                     </div>
                   )}
                   <span className="text-[var(--muted)]">→</span>
