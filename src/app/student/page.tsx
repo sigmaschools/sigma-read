@@ -115,23 +115,19 @@ export default function StudentHome() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="w-56 border-r border-[var(--border)] p-5 flex flex-col sticky top-0 h-screen">
-        <h1 className="text-lg font-semibold tracking-tight mb-1">SigmaRead</h1>
-        <p className="text-sm text-[var(--muted)] mb-8">{userName}</p>
-        <nav className="space-y-1 flex-1">
-          <a className="block px-3 py-2 text-sm font-medium bg-[var(--surface-hover)] rounded-lg">Home</a>
-        </nav>
-        <div className="border-t border-[var(--border)] pt-3 mt-3">
-          <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] text-left">
+    <div className="min-h-screen">
+      {/* Top bar */}
+      <header className="sticky top-0 bg-white/95 backdrop-blur border-b border-[var(--border)] px-6 py-3 flex items-center justify-between z-10">
+        <h1 className="text-lg font-semibold tracking-tight">SigmaRead</h1>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-[var(--muted)]">{userName}</span>
+          <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
             Sign out
           </button>
         </div>
-      </aside>
+      </header>
 
-      {/* Main */}
-      <main className="flex-1 p-8 max-w-3xl">
+      <main className="max-w-2xl mx-auto px-6 py-8">
         <div className="mb-8">
           <h2 className="text-xl font-semibold">Hey {userName} 👋</h2>
           {totalRead === 0 && (
