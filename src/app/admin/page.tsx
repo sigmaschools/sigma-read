@@ -91,26 +91,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Level Versions */}
-      {stats && (
-        <>
-          <h2 className="text-lg font-semibold mb-3">Level Versions</h2>
-          <div className="flex gap-2 mb-8">
-            {[1, 2, 3, 4, 5, 6].map(level => {
-              const count = stats.cacheByLevel[level] || 0;
-              return (
-                <div key={level} className="flex-1 p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
-                  <p className="text-xs text-[var(--muted)]">L{level}</p>
-                  <p className={`text-xl font-semibold ${count === 0 ? "text-red-500" : "text-[var(--fg)]"}`}>
-                    {count}
-                  </p>
-                  <p className="text-[10px] text-[var(--muted)]">versions</p>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+      {/* spacer */}
     </div>
   );
 }
