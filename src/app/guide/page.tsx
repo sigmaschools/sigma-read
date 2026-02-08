@@ -283,10 +283,10 @@ export default function GuideDashboard() {
                       </p>
                       <p className="text-xs text-[var(--muted)]">
                         <span className={
-                          student.sessionsThisWeek >= Math.round(student.weeklySessionTarget * 0.8) ? "text-green-600" :
-                          student.sessionsThisWeek >= Math.round(student.weeklySessionTarget * 0.5) ? "text-yellow-600" :
+                          student.sessionsThisWeek >= Math.round((student.weeklySessionTarget || 25) * 0.8) ? "text-green-600" :
+                          student.sessionsThisWeek >= Math.round((student.weeklySessionTarget || 25) * 0.5) ? "text-yellow-600" :
                           student.sessionsThisWeek > 0 ? "text-red-500" : ""
-                        }>{student.sessionsThisWeek}/{student.weeklySessionTarget}</span>
+                        }>{student.sessionsThisWeek}/{student.weeklySessionTarget || 25}</span>
                         {" this week · "}{student.totalSessions} total
                       </p>
                     </div>

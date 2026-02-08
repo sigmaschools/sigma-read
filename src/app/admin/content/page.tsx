@@ -229,7 +229,7 @@ export default function AdminContentPage() {
                       <span className="text-xs text-[var(--muted)]">· {new Date(group.generatedDate).toLocaleDateString()}</span>
                     )}
                     {group.source && (
-                      <span className="text-xs text-[var(--muted)] truncate max-w-xs">· {new URL(group.source).hostname}</span>
+                      <span className="text-xs text-[var(--muted)] truncate max-w-xs">· {(() => { try { return new URL(group.source!).hostname; } catch { return group.source; } })()}</span>
                     )}
                   </div>
                 </div>

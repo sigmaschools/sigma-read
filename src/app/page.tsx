@@ -12,6 +12,8 @@ export default function Home() {
       .then((data) => {
         if (data.error) {
           router.replace("/login");
+        } else if (data.role === "admin") {
+          router.replace("/admin");
         } else if (data.role === "guide") {
           router.replace("/guide");
         } else if (data.role === "student") {
