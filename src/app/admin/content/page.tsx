@@ -39,6 +39,8 @@ export default function AdminContentPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [preview, setPreview] = useState<{ id: number; title: string; level: number; body: string; topic: string; sources: string[] } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => { loadContent(); }, []);
 
@@ -49,6 +51,22 @@ export default function AdminContentPage() {
     setDistribution(data.distribution);
     setTotal(data.total);
     setLoading(false);
+  }
+
+  async function openPreview(id: number) {
+    setPreviewLoading(true);
+    setPreview(null);
+    const res = await fetch(`/api/admin/content/${id}`);
+    const data = await res.json();
+    setPreview({
+      id: data.id,
+      title: data.title,
+      level: data.readingLevel,
+      body: data.bodyText,
+      topic: data.topic,
+      sources: data.sources || [],
+    });
+    setPreviewLoading(false);
   }
 
   async function toggleFlag(id: number, currentlyFlagged: boolean) {
@@ -255,7 +273,9 @@ export default function AdminContentPage() {
                       <p className="text-sm font-medium">
                         <span className="text-xs text-[var(--muted)] bg-gray-200 px-1.5 py-0.5 rounded mr-2">L{a.readingLevel}</span>
                         {a.flagged && <span className="text-red-400 mr-1">⛔</span>}
-                        {a.title}
+                        <button onClick={() => openPreview(a.id)} className="text-left hover:text-[var(--accent)] hover:underline transition">
+                          {a.title}
+                        </button>
                       </p>
                       <p className="text-xs text-[var(--muted)] mt-0.5">
                         {a.estimatedReadTime ? `${a.estimatedReadTime} min read` : ""}
@@ -286,6 +306,44 @@ export default function AdminContentPage() {
           <p className="text-center text-sm text-[var(--muted)] py-8">No articles matching filter.</p>
         )}
       </div>
+
+      {/* Article Preview Modal */}
+      {(preview || previewLoading) && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setPreview(null); setPreviewLoading(false); }}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {previewLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : preview && (
+              <>
+                <div className="sticky top-0 bg-white border-b border-[var(--border)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                  <div>
+                    <h2 className="text-lg font-semibold">{preview.title}</h2>
+                    <p className="text-xs text-[var(--muted)]">
+                      Level {preview.level} · {preview.topic}
+                    </p>
+                  </div>
+                  <button onClick={() => setPreview(null)} className="text-[var(--muted)] hover:text-[var(--fg)] text-xl">×</button>
+                </div>
+                <div className="px-6 py-5">
+                  <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] text-gray-800 whitespace-pre-wrap">
+                    {preview.body}
+                  </div>
+                  {preview.sources.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-[var(--border)]">
+                      <p className="text-xs text-[var(--muted)] font-medium mb-1">Sources</p>
+                      {preview.sources.map((s, i) => (
+                        <a key={i} href={s} target="_blank" rel="noopener" className="block text-xs text-blue-600 hover:underline truncate">{s}</a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
