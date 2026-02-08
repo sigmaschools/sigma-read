@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
   const batchFailed = batchRanToday && totalCached < 4;
 
   // Sort topics by category: news first, then interest, then general/explore
-  const catOrder: Record<string, number> = { news: 0, interest: 1, general: 2 };
+  const catOrder: Record<string, number> = { general: 0, news: 1, interest: 2 };
   todayTopics.sort((a, b) => (catOrder[a.category] ?? 9) - (catOrder[b.category] ?? 9));
 
   return NextResponse.json({
