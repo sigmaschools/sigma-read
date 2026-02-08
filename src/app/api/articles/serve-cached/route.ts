@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, and, sql } from "drizzle-orm";
+import { getServingLevels } from "@/lib/level-progression";
 
-// Serve pre-cached articles to a student based on their reading level.
-// Respects: no repeats (via student_article_history), daily cap, buffer management.
+// Serve pre-cached articles to a student based on their reading level and feed mix.
+// Respects: no repeats (via student_article_history), daily cap, buffer management, gradual mix.
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "student") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,14 +50,28 @@ export async function POST(req: NextRequest) {
     .where(and(eq(schema.articles.studentId, student.id), eq(schema.articles.read, false)));
   const currentTitles = new Set(currentArticles.map(a => a.title));
 
-  // Get 3 articles from cache that this student hasn't seen
-  const allCached = await db.select().from(schema.articleCache)
-    .where(and(eq(schema.articleCache.readingLevel, level), eq(schema.articleCache.flagged, false)))
-    .orderBy(sql`RANDOM()`)
-    .limit(20);
-  
-  const available = allCached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
-  const toServe = available.slice(0, 3);
+  // Determine serving levels based on feed mix (gradual progression)
+  const feedMix = student.feedMix as any;
+  const servingLevels = getServingLevels(level, feedMix, 3);
+
+  // Group levels needed and fetch articles for each
+  const toServe: (typeof schema.articleCache.$inferSelect & { _serveLevel: number })[] = [];
+  const levelCounts = new Map<number, number>();
+  for (const l of servingLevels) {
+    levelCounts.set(l, (levelCounts.get(l) || 0) + 1);
+  }
+
+  for (const [serveLevel, count] of levelCounts) {
+    const cached = await db.select().from(schema.articleCache)
+      .where(and(eq(schema.articleCache.readingLevel, serveLevel), eq(schema.articleCache.flagged, false)))
+      .orderBy(sql`RANDOM()`)
+      .limit(20);
+
+    const available = cached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
+    for (const a of available.slice(0, count)) {
+      toServe.push({ ...a, _serveLevel: serveLevel });
+    }
+  }
 
   if (toServe.length === 0) {
     return NextResponse.json({ message: "No new articles available", count: 0 });
@@ -70,11 +85,12 @@ export async function POST(req: NextRequest) {
       title: c.title,
       topic: c.topic,
       bodyText: c.bodyText,
-      readingLevel: level,
+      readingLevel: c._serveLevel,
       sources: c.sources || [],
       estimatedReadTime: c.estimatedReadTime || 4,
       category: c.category || "general",
       sourceCacheId: c.id,
+      servedAsLevel: c._serveLevel !== level ? c._serveLevel : null, // only set if different from base
     }).returning();
     inserted.push(article);
 
