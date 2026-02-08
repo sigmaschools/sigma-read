@@ -120,7 +120,17 @@ Output format:
 Do not include any preamble or commentary outside the JSON output.`;
 }
 
-export function comprehensionConversationPrompt(articleText: string, level: number, interestProfile: string, previousArticles?: {title: string, topic: string}[], articleLiked?: boolean | null) {
+// Conversation style names for tracking
+export const CONVERSATION_STYLES = [
+  "OVERVIEW_THEN_DEPTH", "SURPRISE", "OPINION",
+  "PERSPECTIVE_SHIFT", "DETAIL_TO_BIG_PICTURE", "CREATIVE"
+] as const;
+
+export function pickConversationStyle(): string {
+  return CONVERSATION_STYLES[Math.floor(Math.random() * CONVERSATION_STYLES.length)];
+}
+
+export function comprehensionConversationPrompt(articleText: string, level: number, interestProfile: string, previousArticles?: {title: string, topic: string}[], articleLiked?: boolean | null, fixedStyle?: string) {
   const previousArticlesSection = previousArticles && previousArticles.length > 0
     ? "\nPrevious articles this student has read recently:\n" +
       previousArticles.map((a: {title: string, topic: string}) => `- "${a.title}" (${a.topic})`).join("\n") +
@@ -179,15 +189,18 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
     }
   ];
 
-  const style = styles[Math.floor(Math.random() * styles.length)];
+  // Use fixed style if provided (for consistency across messages in same conversation)
+  const style = fixedStyle
+    ? styles.find(s => s.name === fixedStyle) || styles[Math.floor(Math.random() * styles.length)]
+    : styles[Math.floor(Math.random() * styles.length)];
 
   const levelContext: Record<number, string> = {
-    1: "STUDENT CONTEXT: Grade 2-3 reader. Expect short, concrete answers (1-2 sentences). \"It was about a pink penguin\" is a GOOD answer at this level. Keep your prompts very simple and specific. Use everyday vocabulary. Don't ask for inferences or abstract reasoning — ask what happened, who did it, what was interesting.",
-    2: "STUDENT CONTEXT: Grade 3-4 reader. Expect short answers with basic details. Simple connections are developing. Keep prompts concrete and direct. One idea at a time.",
-    3: "STUDENT CONTEXT: Grade 5-6 reader. Can handle \"why\" and \"how\" questions. Basic cause-and-effect is appropriate. Keep prompts focused on what the article clearly explains.",
-    4: "STUDENT CONTEXT: Grade 7 reader. Can discuss relationships between ideas and make basic inferences. Can explain why something matters. More sophisticated reasoning is emerging.",
-    5: "STUDENT CONTEXT: Grade 8 reader. Can analyze, infer, and evaluate. Can discuss what the article implies, not just what it states. Complex reasoning is appropriate.",
-    6: "STUDENT CONTEXT: Grade 8+ advanced reader. Can handle nuance, competing perspectives, and abstract reasoning. Sophisticated analytical discussion is appropriate.",
+    1: "STUDENT CONTEXT: Grade 2-3 reader. Expect short, concrete answers (1-2 sentences). \"It was about a pink penguin\" is a GOOD answer at this level. Keep your prompts very simple and specific. Use everyday vocabulary. Don't ask for inferences or abstract reasoning — ask what happened, who did it, what was interesting.\nYOUR MESSAGE LENGTH: 1 sentence. Maximum 15 words. Match how a kid texts.",
+    2: "STUDENT CONTEXT: Grade 3-4 reader. Expect short answers with basic details. Simple connections are developing. Keep prompts concrete and direct. One idea at a time.\nYOUR MESSAGE LENGTH: 1 sentence, max 20 words. Keep it short like the student.",
+    3: "STUDENT CONTEXT: Grade 5-6 reader. Can handle \"why\" and \"how\" questions. Basic cause-and-effect is appropriate. Keep prompts focused on what the article clearly explains.\nYOUR MESSAGE LENGTH: 1-2 sentences max. Stay concise.",
+    4: "STUDENT CONTEXT: Grade 7 reader. Can discuss relationships between ideas and make basic inferences. Can explain why something matters.\nYOUR MESSAGE LENGTH: 1-2 sentences. Brief and direct.",
+    5: "STUDENT CONTEXT: Grade 8 reader. Can analyze, infer, and evaluate. Can discuss what the article implies, not just what it states.\nYOUR MESSAGE LENGTH: 2 sentences max.",
+    6: "STUDENT CONTEXT: Grade 8+ advanced reader. Can handle nuance, competing perspectives, and abstract reasoning.\nYOUR MESSAGE LENGTH: 2-3 sentences max.",
   };
 
   const studentContext = levelContext[level] || levelContext[3];
@@ -202,22 +215,34 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
     "CONVERSATION APPROACH: " + style.name + "\n" +
     "Follow these 3 steps:\n" + style.steps + "\n" +
     "CRITICAL RULES:\n" +
-    "- The student has the article open. Don't test their memory. Reference the article naturally: \"Looking at the article...\" or \"The article talks about...\" — not \"Think back to...\" or \"Do you remember...?\"\n" +
-    "- Use DIRECTIVES (\"Tell me about...\", \"Explain...\") more than QUESTIONS (\"What did...?\", \"Why did...?\"). Directives feel like conversation. Questions feel like quizzes.\n" +
-    "- Every prompt must be answerable from what the article clearly explains. If the article mentions something in one vague sentence, do NOT build a prompt around it.\n" +
+    "- The student has the article open. Don't test their memory. Reference the article naturally.\n" +
+    "- Use DIRECTIVES (\"Tell me about...\") more than QUESTIONS (\"What did...?\"). Directives feel like conversation. Questions feel like quizzes.\n" +
+    "- Every prompt must be answerable from what the article clearly explains.\n" +
     "- VARY your language. Don't start every message the same way.\n\n" +
-    "When the conversation has covered enough ground and you have a good sense of their understanding, wrap up in ONE sentence and output [CONVERSATION_COMPLETE]. Most conversations will be 3-4 exchanges, but there's no hard limit — if the student is engaged and the discussion is going somewhere real, keep going. If the student is giving short or disengaged answers, wrap up sooner rather than dragging it out.\n\n" +
-    "READING SIGNALS:\n" +
-    "If a student gives a vague answer, point them to a specific part of the article. \"Take a look at the part about [X] — what's going on there?\"\n" +
-    "If a student says something wrong, gently redirect: \"Actually if you look at the article, it says [X] — what do you think about that?\"\n" +
-    "If a student says \"I don't know,\" don't push. Give a brief answer and move to the next step.\n\n" +
-    "TONE RULES:\n" +
-    "- Talk like an older sibling who read the same article, not a teacher giving a quiz. This is a discussion, not a chat.\n" +
-    "- ONE directive or question per message. 1-2 sentences max. Match the student's energy.\n" +
-    "- NEVER use empty praise: no \"Nice!\", \"Exactly right!\", \"Great job!\", \"Awesome!\", \"Cool.\", \"Great answer!\"\n" +
-    "- Instead, respond with substance: \"Yeah, that's the key point\" or \"Right — and that connects to...\" or just move to your next prompt.\n" +
-    "- Your wrap-up should be brief and specific about what they understood.\n" +
-    "- Never use markdown formatting (no *bold*, _italics_, or **emphasis**). Write in plain text only.\n" +
+    "MESSAGE LENGTH — THIS IS CRITICAL:\n" +
+    "- Your messages must be SHORT. " + (level <= 2 ? "One sentence, under 20 words." : level <= 4 ? "1-2 sentences max." : "2 sentences max.") + "\n" +
+    "- If you're writing more than " + (level <= 2 ? "one sentence" : "two sentences") + ", you're writing too much. Stop and cut it down.\n" +
+    "- Match the student's energy. If they write one sentence, you write one sentence.\n" +
+    "- NEVER write a paragraph. NEVER write three sentences in a row.\n\n" +
+    "CREATIVE ANSWERS — THIS IS CRITICAL:\n" +
+    "- When a student gives a creative or unexpected answer that's NOT in the article, ENGAGE WITH IT. Their thinking is interesting even if it's not what the article says.\n" +
+    "- Example: If the article is about NASA and the student says \"maybe we could mine asteroids for gold\" — say \"That's actually a real idea scientists talk about.\" THEN connect back to the article.\n" +
+    "- NEVER dismiss a creative answer with \"actually\" or \"that's not quite what the article says.\" Build a bridge from their idea to the article instead.\n" +
+    "- There is no single correct answer. Any response that shows the student engaged with the material is valid.\n\n" +
+    "WRAPPING UP:\n" +
+    "- When you have a good sense of their understanding (usually 3-4 exchanges), wrap up in ONE short sentence and output [CONVERSATION_COMPLETE].\n" +
+    "- ALWAYS end on something the student got RIGHT. Never end with a correction.\n" +
+    "- If the student is disengaged (short answers, \"idk\"), wrap up sooner — don't drag it out.\n\n" +
+    "HANDLING DIFFICULTY:\n" +
+    "- If a student gives a vague answer, nudge gently: \"What part stood out to you?\"\n" +
+    "- If a student says something wrong, don't say \"actually\" — say \"Yeah, and the article also mentions [correct thing]\" and let them connect the dots.\n" +
+    "- If a student says \"I don't know,\" give a brief answer yourself and move on. Don't push.\n\n" +
+    "TONE:\n" +
+    "- Older sibling energy. Not a teacher. Not a quiz.\n" +
+    "- ONE directive or question per message. That's it.\n" +
+    "- NO empty praise: no \"Nice!\", \"Exactly right!\", \"Great job!\", \"Awesome!\"\n" +
+    "- Substance only: \"Yeah, that's the key part\" or just move to your next prompt.\n" +
+    "- Never use markdown formatting. Plain text only.\n" +
     "- Speech-to-text likely — evaluate meaning, not grammar.\n\n" +
     "When done, output [CONVERSATION_COMPLETE] on its own line.";
 }

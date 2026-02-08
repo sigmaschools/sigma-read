@@ -47,6 +47,34 @@ export async function POST(req: NextRequest) {
           onboardingComplete: true,
         })
         .where(eq(schema.students.id, session.userId));
+
+      // Pre-fill articles immediately so there's no delay on first page load
+      const level = 2;
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const cached = await db.select().from(schema.articleCache)
+        .where(eq(schema.articleCache.readingLevel, level))
+        .orderBy(sqlTag`RANDOM()`)
+        .limit(12); // Buffer of 12
+
+      for (const c of cached) {
+        await db.insert(schema.articles).values({
+          studentId: session.userId,
+          title: c.title,
+          topic: c.topic,
+          bodyText: c.bodyText,
+          readingLevel: level,
+          sources: c.sources || [],
+          estimatedReadTime: c.estimatedReadTime || 4,
+          category: c.category || "general",
+          sourceCacheId: c.id,
+        });
+        await db.insert(schema.studentArticleHistory).values({
+          studentId: session.userId,
+          articleCacheId: c.id,
+          articleTitle: c.title,
+        });
+      }
+
       return NextResponse.json({
         message: assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim(),
         profileComplete: true,
