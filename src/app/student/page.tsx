@@ -218,12 +218,8 @@ export default function StudentHome() {
               ) : (
                 <div
                   key={i}
-                  className="p-4 border-2 border-dashed border-[var(--border)] rounded-xl flex items-center gap-3"
+                  className="p-4 border-2 border-dashed border-[var(--border)] rounded-xl"
                 >
-                  <div className="w-7 h-7 rounded-full border-2 border-dashed border-[var(--border)] flex items-center justify-center text-xs text-[var(--muted)] flex-shrink-0">
-                    {i + 1}
-                  </div>
-                  <p className="text-sm text-[var(--muted)]"></p>
                 </div>
               );
             })}
