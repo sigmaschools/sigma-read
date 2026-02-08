@@ -236,10 +236,10 @@ export default function AdminContentPage() {
         {filteredGroups.map(group => (
           <div key={group.baseId} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
             {/* Group Header */}
-            <div className={`flex items-center justify-between ${group.allFlagged ? "opacity-50" : ""}`}>
+            <div className={`flex items-center justify-between hover:bg-gray-50 transition ${group.allFlagged ? "opacity-50" : ""}`}>
               <button
                 onClick={() => toggleExpand(group.baseId)}
-                className="flex-1 text-left px-5 py-4 hover:bg-gray-50 transition flex items-center gap-3 min-w-0"
+                className="flex-1 text-left px-5 py-4 flex items-center gap-3 min-w-0"
               >
                 <span className="text-[var(--muted)] text-sm">{expanded.has(group.baseId) ? "▼" : "▸"}</span>
                 <div className="min-w-0">
