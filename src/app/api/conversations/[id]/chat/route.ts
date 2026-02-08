@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
-import { comprehensionConversationPrompt, comprehensionReportPrompt } from "@/lib/prompts";
+import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle } from "@/lib/prompts";
 
 const anthropic = new Anthropic();
 
@@ -62,13 +62,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .orderBy(desc(schema.articles.createdAt))
     .limit(5);
 
+  // Pick conversation style once per conversation, reuse on subsequent messages
+  const conversationStyle = conversation.conversationStyle || pickConversationStyle();
+
   // Get AI response
   const systemPrompt = comprehensionConversationPrompt(
     article.bodyText,
     student.readingLevel || 2,
     JSON.stringify(student.interestProfile || {}),
     previousArticles.length > 0 ? previousArticles : undefined,
-    article.liked
+    article.liked,
+    conversationStyle
   );
 
   // If we're at the hard limit, append instruction to force wrap-up
@@ -96,12 +100,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
 
-  // Save updated messages and conversation style (on first save)
+  // Save updated messages and conversation style
   const updateData: any = { messages, complete: isComplete };
   if (!conversation.conversationStyle) {
-    // Extract style name from the system prompt (it's set randomly each time)
-    const styleMatch = systemPrompt.match(/CONVERSATION APPROACH: (\w+)/);
-    if (styleMatch) updateData.conversationStyle = styleMatch[1];
+    updateData.conversationStyle = conversationStyle;
   }
   await db.update(schema.conversations).set(updateData).where(eq(schema.conversations.id, conversationId));
 
