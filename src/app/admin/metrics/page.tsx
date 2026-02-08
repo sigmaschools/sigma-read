@@ -49,9 +49,9 @@ export default function AdminMetricsPage() {
           <p className="text-xs text-[var(--muted)]">~${metrics.costs.reports.toFixed(2)}</p>
         </div>
         <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-          <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Cached Articles</p>
-          <p className="text-lg font-semibold">{metrics.counts.articles}</p>
-          <p className="text-xs text-[var(--muted)]">~${metrics.costs.articles.toFixed(2)}</p>
+          <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Articles</p>
+          <p className="text-lg font-semibold">{Math.ceil((metrics.counts.articles || 0) / 4)}</p>
+          <p className="text-xs text-[var(--muted)]">{metrics.counts.articles} versions · ~${metrics.costs.articles.toFixed(2)}</p>
         </div>
       </div>
 

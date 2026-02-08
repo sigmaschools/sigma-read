@@ -34,6 +34,10 @@ export async function GET() {
   }).from(schema.articleCache)
     .groupBy(schema.articleCache.readingLevel);
 
+  // Base articles (no baseArticleId = original)
+  const [baseCount] = await db.select({ count: count() }).from(schema.articleCache)
+    .where(sql`${schema.articleCache.baseArticleId} IS NULL`);
+
   // Recent batch run — check article_cache for latest generated_date
   const [latestBatch] = await db.select({ date: schema.articleCache.generatedDate })
     .from(schema.articleCache)
@@ -59,8 +63,11 @@ export async function GET() {
   cacheCounts.forEach(c => { if (c.level) cacheMap[c.level] = c.count; });
   for (let level = 1; level <= 6; level++) {
     if ((cacheMap[level] || 0) < 5) {
-      alerts.push(`Article cache low for L${level}: only ${cacheMap[level] || 0} articles`);
+      alerts.push(`Article cache low for L${level}: only ${cacheMap[level] || 0} versions`);
     }
+  }
+  if (baseCount.count < 8) {
+    alerts.push(`Only ${baseCount.count} base articles in cache`);
   }
 
   // Morning batch check
@@ -96,6 +103,8 @@ export async function GET() {
       sessionsThisWeek: sessionsThisWeek.count,
       sessionsTotal: sessionsTotal.count,
       cacheByLevel: cacheMap,
+      baseArticles: baseCount.count,
+      totalVersions: Object.values(cacheMap).reduce((a, b) => a + b, 0),
       lastBatchDate: latestBatch?.date || null,
     },
     guides: allGuides,

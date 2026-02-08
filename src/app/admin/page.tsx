@@ -10,6 +10,8 @@ interface Stats {
   sessionsThisWeek: number;
   sessionsTotal: number;
   cacheByLevel: Record<number, number>;
+  baseArticles: number;
+  totalVersions: number;
   lastBatchDate: string | null;
 }
 
@@ -44,7 +46,7 @@ export default function AdminDashboard() {
     );
   }
 
-  const totalCache = stats ? Object.values(stats.cacheByLevel).reduce((a, b) => a + b, 0) : 0;
+  const levelsWithVersions = stats ? Object.keys(stats.cacheByLevel).length : 0;
 
   return (
     <div className="p-8 max-w-6xl">
@@ -68,7 +70,7 @@ export default function AdminDashboard() {
           <Card label="Sessions Today" value={stats.sessionsToday} />
           <Card label="Sessions This Week" value={stats.sessionsThisWeek} />
           <Card label="Total Sessions" value={stats.sessionsTotal} />
-          <Card label="Article Cache" value={totalCache} sub={Object.entries(stats.cacheByLevel).map(([l, c]) => `L${l}: ${c}`).join(" · ")} />
+          <Card label="Articles" value={stats.baseArticles} sub={`${stats.totalVersions} versions across ${levelsWithVersions} levels`} />
           <Card
             label="Last Batch"
             value={stats.lastBatchDate ? new Date(stats.lastBatchDate).toLocaleDateString() : "Never"}
@@ -89,19 +91,20 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Cache Distribution */}
+      {/* Level Versions */}
       {stats && (
         <>
-          <h2 className="text-lg font-semibold mb-3">Cache Distribution</h2>
+          <h2 className="text-lg font-semibold mb-3">Level Versions</h2>
           <div className="flex gap-2 mb-8">
             {[1, 2, 3, 4, 5, 6].map(level => {
               const count = stats.cacheByLevel[level] || 0;
               return (
                 <div key={level} className="flex-1 p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
                   <p className="text-xs text-[var(--muted)]">L{level}</p>
-                  <p className={`text-xl font-semibold ${count < 5 ? "text-red-500" : count < 10 ? "text-yellow-600" : "text-green-600"}`}>
+                  <p className={`text-xl font-semibold ${count === 0 ? "text-red-500" : "text-[var(--fg)]"}`}>
                     {count}
                   </p>
+                  <p className="text-[10px] text-[var(--muted)]">versions</p>
                 </div>
               );
             })}
