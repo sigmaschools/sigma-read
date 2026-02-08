@@ -15,8 +15,6 @@ interface Article {
   createdAt: string;
 }
 
-const MAX_UNREAD = 5;
-
 function categoryLabel(article: Article) {
   if (article.category === "news") return "News";
   if (article.category === "interest") return "For You";
@@ -24,16 +22,13 @@ function categoryLabel(article: Article) {
 }
 
 function articleSummary(text: string, title: string): string {
-  // Strip markdown headings, split into sentences
   const clean = text.replace(/^#+\s.*\n*/gm, "").trim();
   const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
   if (sentences.length === 0) return clean.slice(0, 180);
-  // Skip first sentence if it's very similar to the title (redundant)
   const titleWords = new Set(title.toLowerCase().split(/\s+/));
   const firstWords = new Set((sentences[0] || "").toLowerCase().split(/\s+/));
   const overlap = [...titleWords].filter(w => firstWords.has(w) && w.length > 3).length;
   const start = overlap > titleWords.size * 0.5 ? 1 : 0;
-  // Grab sentences until we reach ~160 chars (fills 2 lines)
   let result = "";
   for (let i = start; i < sentences.length; i++) {
     const next = result + sentences[i].trim() + " ";
@@ -54,7 +49,6 @@ export default function StudentHome() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [feedback, setFeedback] = useState("");
   const [userName, setUserName] = useState("");
   const [completedToday, setCompletedToday] = useState<{title: string, id: number}[]>([]);
   const dailyGoal = 3;
@@ -78,44 +72,25 @@ export default function StudentHome() {
 
     const artRes = await fetch("/api/articles");
     let arts = await artRes.json();
+    const unread = arts.filter((a: Article) => !a.read);
 
-    if (arts.length === 0) {
-      setGenerating(true);
+    // If fewer than 3 unread, auto-serve from cache
+    if (unread.length < 3) {
       await fetch("/api/articles/serve-cached", { method: "POST" });
       const refreshRes = await fetch("/api/articles");
       arts = await refreshRes.json();
-      setGenerating(false);
     }
 
     setArticles(arts);
     setLoading(false);
   }
 
-  async function generateMore() {
+  async function getNewArticles() {
     setGenerating(true);
-    setFeedback("");
-    try {
-      const cacheRes = await fetch("/api/articles/serve-cached", { method: "POST" });
-      const cacheData = await cacheRes.json();
-      if (cacheData.count > 0) {
-        setFeedback(`${cacheData.count} new article${cacheData.count > 1 ? "s" : ""} added!`);
-      } else {
-        const genRes = await fetch("/api/articles/generate", { method: "POST" });
-        const genData = await genRes.json();
-        if (genData.generated > 0) {
-          setFeedback(`${genData.generated} new article${genData.generated > 1 ? "s" : ""} created for you!`);
-        } else {
-          setFeedback("No new articles available right now. Check back later!");
-        }
-      }
-      const artRes = await fetch("/api/articles");
-      setArticles(await artRes.json());
-    } catch (e) {
-      console.error(e);
-      setFeedback("Something went wrong. Try again in a moment.");
-    }
+    await fetch("/api/articles/serve-cached", { method: "POST" });
+    const artRes = await fetch("/api/articles");
+    setArticles(await artRes.json());
     setGenerating(false);
-    setTimeout(() => setFeedback(""), 5000);
   }
 
   async function handleLogout() {
@@ -123,10 +98,11 @@ export default function StudentHome() {
     router.push("/login");
   }
 
+  // Always show the 3 most recent unread articles
   const unread = articles.filter((a) => !a.read);
+  const visible = unread.slice(-3);
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
-  const canLoadMore = unread.length < MAX_UNREAD;
 
   if (loading) {
     return (
@@ -162,14 +138,8 @@ export default function StudentHome() {
           <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Choose an Article</h2>
         </div>
 
-        {unread.length === 0 && !generating && (
-          <div className="text-center py-8 text-[var(--muted)]">
-            <p className="text-sm">No new articles right now. Load more below.</p>
-          </div>
-        )}
-
         <div className="space-y-2">
-          {unread.map((article) => (
+          {visible.map((article) => (
             <Link
               key={article.id}
               href={`/student/read/${article.id}`}
@@ -188,27 +158,22 @@ export default function StudentHome() {
           ))}
         </div>
 
-        {/* Load more */}
-        {canLoadMore && (
-          <div className="mt-4 text-center">
-            {generating ? (
-              <span className="text-sm text-[var(--muted)] inline-flex items-center gap-2">
-                <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-                Loading new articles…
-              </span>
-            ) : (
-              <button
-                onClick={generateMore}
-                className="text-sm px-4 py-2 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
-              >
-                Load more articles
-              </button>
-            )}
-            {feedback && (
-              <p className="text-sm text-green-600 mt-2 animate-pulse">{feedback}</p>
-            )}
-          </div>
-        )}
+        {/* Get new articles */}
+        <div className="mt-4 text-center">
+          {generating ? (
+            <span className="text-sm text-[var(--muted)] inline-flex items-center gap-2">
+              <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              Loading new articles…
+            </span>
+          ) : (
+            <button
+              onClick={getNewArticles}
+              className="text-sm px-4 py-2 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
+            >
+              Show me different articles
+            </button>
+          )}
+        </div>
 
         {/* Completed today — only show after first completion */}
         {completedToday.length > 0 && (
