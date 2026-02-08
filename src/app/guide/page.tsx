@@ -103,21 +103,21 @@ export default function GuideDashboard() {
 
   const statusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      succeeding: "bg-green-50 text-green-700 border-green-200",
-      "on-track": "bg-blue-50 text-blue-700 border-blue-200",
-      struggling: "bg-red-50 text-red-700 border-red-200",
-      inactive: "bg-gray-50 text-gray-500 border-gray-200",
-      new: "bg-purple-50 text-purple-700 border-purple-200",
+      succeeding: "bg-[#ECFDF5] text-[#059669]",
+      "on-track": "bg-[#EEF2FF] text-[#4F6BED]",
+      struggling: "bg-[#FEE2E2] text-[#DC2626]",
+      inactive: "bg-[#F5F5F3] text-[var(--muted)]",
+      new: "bg-[#F3E8FF] text-[#7C3AED]",
     };
     const labels: Record<string, string> = {
-      succeeding: "Succeeding",
+      succeeding: "Active",
       "on-track": "On Track",
       struggling: "Struggling",
       inactive: "Inactive",
       new: "New",
     };
     return (
-      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${styles[status] || styles.inactive}`}>
+      <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${styles[status] || styles.inactive}`}>
         {labels[status] || status}
       </span>
     );
@@ -140,38 +140,43 @@ export default function GuideDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-56 border-r border-[var(--border)] p-5 flex flex-col">
-        <h1 className="text-lg font-semibold tracking-tight mb-1">SigmaRead</h1>
-        <p className="text-sm text-[var(--muted)] mb-8">Guide</p>
+    <div className="flex min-h-screen guide-font">
+      {/* Sidebar */}
+      <aside className="w-60 bg-[var(--surface)] border-r border-[var(--border)] p-6 flex flex-col">
+        <h1 className="text-[17px] font-semibold tracking-tight px-2 mb-7">SigmaRead</h1>
         <nav className="space-y-1 flex-1">
-          <a className="block px-3 py-2 text-sm font-medium bg-[var(--surface-hover)] rounded-lg">Students</a>
-          <Link href="/guide/add-student" className="block px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--fg)] rounded-lg hover:bg-[var(--surface-hover)] transition">
+          <a className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium bg-[#EEF2FF] text-[var(--accent)] rounded-lg">
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+            Home
+          </a>
+          <Link href="/guide/add-student" className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-[var(--muted)] hover:text-[var(--fg)] rounded-lg hover:bg-[var(--surface-hover)] transition">
             + Add Student
           </Link>
         </nav>
-        <div className="border-t border-[var(--border)] pt-3 mt-3">
-          <p className="text-sm text-[var(--fg)] mb-2">{guideName}</p>
-          <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] text-left">
+        <div className="border-t border-[var(--border)] pt-4 mt-4">
+          <p className="text-sm font-medium">{guideName}</p>
+          <button onClick={handleLogout} className="text-xs text-[var(--muted)] hover:text-[var(--danger)] transition mt-1">
             Sign out
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 p-8 max-w-4xl">
+      {/* Main */}
+      <main className="flex-1 p-8 bg-[var(--bg)]">
+        <div className="max-w-5xl">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">Your Students</h2>
+          <h1 className="text-[22px] font-semibold tracking-tight">Your Students</h1>
           <div className="flex items-center gap-3">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search students…"
-              className="px-3 py-1.5 text-sm border border-[var(--border)] rounded-lg outline-none focus:border-[var(--accent)] transition w-48"
+              className="px-3 py-2 text-sm border-[1.5px] border-[var(--border)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] transition w-48 bg-[var(--surface)]"
             />
             <button
               onClick={openSummary}
-              className="text-sm px-3 py-1.5 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
+              className="text-sm px-3 py-2 border-[1.5px] border-[var(--border)] rounded-[var(--radius-sm)] text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition bg-[var(--surface)]"
             >
               📊 Weekly Summary
             </button>
@@ -189,41 +194,31 @@ export default function GuideDashboard() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="bg-[var(--surface)] rounded-[var(--radius)] shadow-[var(--shadow-sm)] overflow-hidden">
+            {/* Table header */}
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] px-5 py-3 text-xs font-semibold uppercase tracking-widest text-[var(--muted)] border-b border-[var(--border)]">
+              <span>Student</span>
+              <span>Level</span>
+              <span>Sessions</span>
+              <span>Avg Score</span>
+              <span>Status</span>
+            </div>
+            {/* Rows */}
             {filtered.map((student) => (
               <Link
                 key={student.id}
                 href={`/guide/student/${student.id}`}
-                className="block p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
+                className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] px-5 py-4 items-center border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)] transition cursor-pointer"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <h3 className="font-medium text-[15px]">{student.name}</h3>
-                      <p className="text-xs text-[var(--muted)] mt-0.5">
-                        {student.gradeLevel && student.readingLevel
-                          ? `Gr ${student.gradeLevel} · ${levelLabel(student.readingLevel, true)}`
-                          : student.gradeLevel
-                          ? `Gr ${student.gradeLevel}`
-                          : student.readingLevel
-                          ? levelLabel(student.readingLevel)
-                          : "No level set"}
-                        {!student.onboardingComplete && " · Needs onboarding"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className={`text-lg font-semibold ${scoreColor(student.avgScore)}`}>
-                        {student.avgScore !== null ? student.avgScore : "—"}
-                      </p>
-                      <p className="text-xs text-[var(--muted)]">
-                        {student.sessionsThisWeek} this week · {student.totalSessions} total
-                      </p>
-                    </div>
-                    {statusBadge(student.status)}
-                  </div>
-                </div>
+                <span className="text-sm font-medium">{student.name}</span>
+                <span className="text-sm">
+                  {student.readingLevel ? levelLabel(student.readingLevel, true) : "—"}
+                </span>
+                <span className="text-sm">{student.totalSessions}</span>
+                <span className={`text-sm font-medium ${scoreColor(student.avgScore)}`}>
+                  {student.avgScore !== null ? student.avgScore : "—"}
+                </span>
+                <span>{statusBadge(student.status)}</span>
               </Link>
             ))}
             {filtered.length === 0 && search && (
@@ -231,13 +226,15 @@ export default function GuideDashboard() {
             )}
           </div>
         )}
+
+        </div>
       </main>
 
       {/* Weekly Summary Modal */}
       {showSummary && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowSummary(false)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-[var(--border)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
               <div>
                 <h2 className="text-lg font-semibold">📊 Weekly Summary</h2>
                 {summary && <p className="text-xs text-[var(--muted)]">{summary.period}</p>}
