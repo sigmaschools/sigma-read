@@ -161,25 +161,25 @@ export default function GuideDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-56 border-r border-[var(--border)] p-5 flex flex-col">
-        <h1 className="text-lg font-semibold tracking-tight mb-1">SigmaRead</h1>
-        <p className="text-sm text-[var(--muted)] mb-8">Guide</p>
-        <nav className="space-y-1 flex-1">
-          <a className="block px-3 py-2 text-sm font-medium bg-[var(--surface-hover)] rounded-lg">Students</a>
-          <Link href="/guide/add-student" className="block px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--fg)] rounded-lg hover:bg-[var(--surface-hover)] transition">
+    <div className="min-h-screen">
+      {/* Top bar */}
+      <header className="border-b border-[var(--border)] px-8 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold tracking-tight">SigmaRead</h1>
+          <span className="text-xs text-[var(--muted)] bg-[var(--surface)] px-2 py-0.5 rounded">Guide</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/guide/add-student" className="text-sm text-[var(--accent)] hover:underline">
             + Add Student
           </Link>
-        </nav>
-        <div className="border-t border-[var(--border)] pt-3 mt-3">
-          <p className="text-sm text-[var(--fg)] mb-2">{guideName}</p>
-          <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] text-left">
+          <span className="text-sm text-[var(--fg)]">{guideName}</span>
+          <button onClick={handleLogout} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">
             Sign out
           </button>
         </div>
-      </aside>
+      </header>
 
-      <main className="flex-1 p-8 max-w-4xl">
+      <div className="p-8 max-w-5xl mx-auto">
         {/* Class Stats */}
         {classStats && (
           <div className="grid grid-cols-4 gap-3 mb-6">
@@ -300,7 +300,7 @@ export default function GuideDashboard() {
             )}
           </div>
         )}
-      </main>
+      </div>
 
       {/* Weekly Summary Modal */}
       {showSummary && (
