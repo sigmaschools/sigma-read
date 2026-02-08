@@ -97,18 +97,22 @@ export async function GET(req: NextRequest) {
     .groupBy(schema.articleCache.generatedDate)
     .orderBy(desc(schema.articleCache.generatedDate));
 
-  // Buffer health: how many onboarded students have 12+ unread articles
-  const allStudents = await db.select({ id: schema.students.id })
+  // Buffer health: which students need articles?
+  const allStudentsFull = await db.select({ id: schema.students.id, name: schema.students.name })
     .from(schema.students)
     .where(eq(schema.students.onboardingComplete, true));
 
-  let fullBuffers = 0;
-  for (const s of allStudents) {
+  const studentsNeedingArticles: string[] = [];
+  for (const s of allStudentsFull) {
     const [unread] = await db.select({ count: count() })
       .from(schema.articles)
       .where(and(eq(schema.articles.studentId, s.id), eq(schema.articles.read, false)));
-    if (unread.count >= 12) fullBuffers++;
+    if (unread.count < 12) studentsNeedingArticles.push(s.name.split(" ")[0]);
   }
+
+  // Sort topics by category: news first, then interest, then general/explore
+  const catOrder: Record<string, number> = { news: 0, interest: 1, general: 2 };
+  todayTopics.sort((a, b) => (catOrder[a.category] ?? 9) - (catOrder[b.category] ?? 9));
 
   return NextResponse.json({
     batchDate: latestBatchDate,
@@ -116,7 +120,7 @@ export async function GET(req: NextRequest) {
     topics: todayTopics,
     categoryMix: catMix,
     archive: archiveDates,
-    bufferHealth: { full: fullBuffers, total: allStudents.length },
+    studentsNeedingArticles,
   });
 }
 
