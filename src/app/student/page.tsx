@@ -25,17 +25,29 @@ function articleSummary(text: string, title: string): string {
   const clean = text.replace(/^#+\s.*\n*/gm, "").trim();
   const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
   if (sentences.length === 0) return clean.slice(0, 180);
-  const titleWords = new Set(title.toLowerCase().split(/\s+/));
-  const firstWords = new Set((sentences[0] || "").toLowerCase().split(/\s+/));
-  const overlap = [...titleWords].filter(w => firstWords.has(w) && w.length > 3).length;
-  const start = overlap > titleWords.size * 0.5 ? 1 : 0;
+
+  // Always skip sentence 1 — it almost always restates the title.
+  // Start from sentence 2 (index 1) and grab enough to fill 140-180 chars.
+  const start = sentences.length > 2 ? 1 : 0;
   let result = "";
   for (let i = start; i < sentences.length; i++) {
-    const next = result + sentences[i].trim() + " ";
-    if (result.length > 0 && next.length > 180) break;
-    result = next;
+    const candidate = result + sentences[i].trim() + " ";
+    if (result.length > 0 && candidate.length > 180) break;
+    result = candidate;
     if (result.length >= 140) break;
   }
+
+  // If we didn't get enough from skipping, fall back to including sentence 1
+  if (result.trim().length < 80 && start === 1) {
+    result = "";
+    for (let i = 0; i < sentences.length; i++) {
+      const candidate = result + sentences[i].trim() + " ";
+      if (result.length > 0 && candidate.length > 180) break;
+      result = candidate;
+      if (result.length >= 140) break;
+    }
+  }
+
   return result.trim() || clean.slice(0, 180);
 }
 
@@ -85,11 +97,20 @@ export default function StudentHome() {
     setLoading(false);
   }
 
+  const [noMore, setNoMore] = useState(false);
+
   async function getNewArticles() {
     setGenerating(true);
-    await fetch("/api/articles/serve-cached", { method: "POST" });
+    setNoMore(false);
+    const res = await fetch("/api/articles/serve-cached", { method: "POST" });
+    const data = await res.json();
     const artRes = await fetch("/api/articles");
-    setArticles(await artRes.json());
+    const newArts = await artRes.json();
+    setArticles(newArts);
+    if (!data.count || data.count === 0) {
+      setNoMore(true);
+      setTimeout(() => setNoMore(false), 5000);
+    }
     setGenerating(false);
   }
 
@@ -172,6 +193,9 @@ export default function StudentHome() {
             >
               Show me different articles
             </button>
+          )}
+          {noMore && (
+            <p className="text-sm text-[var(--muted)] mt-2">You&apos;ve seen all available articles! Check back later for new ones.</p>
           )}
         </div>
 
