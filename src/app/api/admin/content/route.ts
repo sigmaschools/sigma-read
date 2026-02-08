@@ -97,18 +97,10 @@ export async function GET(req: NextRequest) {
     .groupBy(schema.articleCache.generatedDate)
     .orderBy(desc(schema.articleCache.generatedDate));
 
-  // Buffer health: which students need articles?
-  const allStudentsFull = await db.select({ id: schema.students.id, name: schema.students.name })
-    .from(schema.students)
-    .where(eq(schema.students.onboardingComplete, true));
-
-  const studentsNeedingArticles: string[] = [];
-  for (const s of allStudentsFull) {
-    const [unread] = await db.select({ count: count() })
-      .from(schema.articles)
-      .where(and(eq(schema.articles.studentId, s.id), eq(schema.articles.read, false)));
-    if (unread.count < 12) studentsNeedingArticles.push(s.name.split(" ")[0]);
-  }
+  // Batch failure: only alert if batch ran today but cache is critically low
+  const batchRanToday = latestBatchDate === today;
+  const totalCached = Object.values(catMix).reduce((a, b) => a + b, 0);
+  const batchFailed = batchRanToday && totalCached < 4;
 
   // Sort topics by category: news first, then interest, then general/explore
   const catOrder: Record<string, number> = { news: 0, interest: 1, general: 2 };
@@ -120,7 +112,7 @@ export async function GET(req: NextRequest) {
     topics: todayTopics,
     categoryMix: catMix,
     archive: archiveDates,
-    studentsNeedingArticles,
+    batchFailed,
   });
 }
 

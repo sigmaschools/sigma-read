@@ -46,7 +46,7 @@ export default function AdminContentPage() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [categoryMix, setCategoryMix] = useState<Record<string, number>>({});
   const [archive, setArchive] = useState<ArchiveDate[]>([]);
-  const [studentsNeedingArticles, setStudentsNeedingArticles] = useState<string[]>([]);
+  const [batchFailed, setBatchFailed] = useState(false);
   const [expandedTopic, setExpandedTopic] = useState<number | null>(null);
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
   const [archiveArticles, setArchiveArticles] = useState<Record<string, ArchiveArticle[]>>({});
@@ -63,7 +63,7 @@ export default function AdminContentPage() {
     setTopics(data.topics);
     setCategoryMix(data.categoryMix);
     setArchive(data.archive);
-    setStudentsNeedingArticles(data.studentsNeedingArticles || []);
+    setBatchFailed(data.batchFailed || false);
     setLoading(false);
   }
 
@@ -122,9 +122,9 @@ export default function AdminContentPage() {
         <h1 className="text-2xl font-semibold mb-1">
           {isToday ? "Today's Articles" : `Articles · ${new Date(batchDate + "T12:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" })}`}
         </h1>
-        {studentsNeedingArticles.length > 0 && (
+        {batchFailed && (
           <p className="text-sm text-amber-600">
-            ⚠️ {studentsNeedingArticles.join(", ")} {studentsNeedingArticles.length === 1 ? "needs" : "need"} articles
+            ⚠️ Morning batch failed — some students may not have fresh articles
           </p>
         )}
       </div>
