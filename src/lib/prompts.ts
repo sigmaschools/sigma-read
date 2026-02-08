@@ -194,8 +194,7 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
     "- Use DIRECTIVES (\"Tell me about...\", \"Explain...\") more than QUESTIONS (\"What did...?\", \"Why did...?\"). Directives feel like conversation. Questions feel like quizzes.\n" +
     "- Every prompt must be answerable from what the article clearly explains. If the article mentions something in one vague sentence, do NOT build a prompt around it.\n" +
     "- VARY your language. Don't start every message the same way.\n\n" +
-    "After the student answers step 3, wrap up in ONE sentence and output [CONVERSATION_COMPLETE].\n\n" +
-    "HARD LIMIT: 3 student responses. After the 3rd response, wrap up immediately. If a student needed scaffolding, you may go to 4 responses max, then wrap up no matter what.\n\n" +
+    "When the conversation has covered enough ground and you have a good sense of their understanding, wrap up in ONE sentence and output [CONVERSATION_COMPLETE]. Most conversations will be 3-4 exchanges, but there's no hard limit — if the student is engaged and the discussion is going somewhere real, keep going. If the student is giving short or disengaged answers, wrap up sooner rather than dragging it out.\n\n" +
     "READING SIGNALS:\n" +
     "If a student gives a vague answer, point them to a specific part of the article. \"Take a look at the part about [X] — what's going on there?\"\n" +
     "If a student says something wrong, gently redirect: \"Actually if you look at the article, it says [X] — what do you think about that?\"\n" +

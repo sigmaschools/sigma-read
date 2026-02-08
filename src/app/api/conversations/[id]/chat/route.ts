@@ -46,9 +46,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     messages.push({ role: "user", content: "I just finished reading the article." });
   }
 
-  // Count student messages — hard backstop at 4 (allows 3 normal turns + 1 buffer for scaffolding)
+  // Safety backstop — force wrap-up after 8 student messages (generous limit, AI should wrap up naturally well before this)
   const studentMessageCount = messages.filter(m => m.role === "user").length;
-  const forceComplete = studentMessageCount >= 4;
+  const forceComplete = studentMessageCount >= 8;
 
   // Fetch previous articles for cross-article connections (last 5 read articles, excluding current)
   const previousArticles = await db.select({ title: schema.articles.title, topic: schema.articles.topic })
