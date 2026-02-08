@@ -184,26 +184,68 @@ async function planInterestTopics(
 
   const recentList = [...recentDomains.entries()].map(([d, c]) => `${d} (${c} articles)`).join(", ");
 
+  // Feedback loop: get recent favorites (last 7 days) — what students loved
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const favorites = await sql`
+    SELECT a.title, a.topic, a.category FROM article_favorites af
+    JOIN articles a ON a.id = af.article_id
+    WHERE af.created_at >= ${weekAgo}
+    ORDER BY af.created_at DESC LIMIT 10
+  `;
+  const favoriteTopics = favorites.map((f: any) => `"${f.title}" (${f.topic})`);
+
+  // Feedback loop: get recent interest suggestions — what students asked for
+  const suggestions = await sql`
+    SELECT metadata FROM article_feed_events
+    WHERE event_type = 'interest_suggestion' AND created_at >= ${weekAgo}
+    ORDER BY created_at DESC LIMIT 10
+  `;
+  const interestSuggestions = suggestions
+    .map((s: any) => {
+      try { return (typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata)?.text; }
+      catch { return null; }
+    })
+    .filter(Boolean);
+
+  // Feedback loop: get recent ratings — overall satisfaction signal
+  const [ratingAvg] = await sql`
+    SELECT AVG(CASE rating WHEN 'love' THEN 4 WHEN 'okay' THEN 3 WHEN 'not_great' THEN 2 WHEN 'bad' THEN 1 END) as avg_rating,
+           COUNT(*) as count
+    FROM article_ratings WHERE created_at >= ${weekAgo}
+  `;
+
+  const feedbackSection = [
+    favoriteTopics.length > 0 ? `\nSTUDENT FAVORITES (articles they loved this week):\n${favoriteTopics.join("\n")}` : "",
+    interestSuggestions.length > 0 ? `\nSTUDENT REQUESTS (topics students explicitly asked for):\n${interestSuggestions.map((s: string) => `- "${s}"`).join("\n")}\nPrioritize these — students asked for them directly.` : "",
+    ratingAvg?.count > 0 ? `\nOVERALL SATISFACTION: ${parseFloat(ratingAvg.avg_rating).toFixed(1)}/4.0 (${ratingAvg.count} ratings this week)` : "",
+  ].filter(Boolean).join("\n");
+
+  console.log(`  📊 Feedback: ${favoriteTopics.length} favorites, ${interestSuggestions.length} suggestions, ${ratingAvg?.count || 0} ratings`);
+
   const response = await anthropic.messages.create({
     model: OPUS_MODEL,
     max_tokens: 2000,
     messages: [{
       role: "user",
-      content: `You're planning articles for students at a reading app. Generate topic ideas based on their interests.
+      content: `You're planning articles for students at a reading app. Generate topic ideas based on their interests and feedback.
 
 STUDENT INTERESTS (aggregated, most popular first):
 ${commonInterests.map((i, idx) => `${idx + 1}. ${i}`).join("\n")}
 
 RECENTLY COVERED DOMAINS (last 7 days):
 ${recentList || "None — fresh start"}
+${feedbackSection}
 
 Generate exactly 6 article topics:
-- 4 INTEREST-MATCHED: directly connected to student interests listed above
+- 4 INTEREST-MATCHED: directly connected to student interests listed above. If students explicitly requested topics, include at least one.
 - 2 HORIZON-EXPANDING: adjacent to their interests but in a NEW domain they haven't read about recently
 
 Rules:
 - Topics must be engaging for ages 8-14
 - Avoid topics already heavily covered recently
+- If students loved certain topics (favorites), lean into similar territory
+- If students asked for specific topics, honor those requests
 - Each topic should be specific enough to write a focused article (not just "science" — give a specific angle)
 - All topics must be age-appropriate and factual
 
