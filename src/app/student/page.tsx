@@ -34,7 +34,7 @@ export default function StudentHome() {
   const [generating, setGenerating] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [userName, setUserName] = useState("");
-  const [completedToday, setCompletedToday] = useState(0);
+  const [completedToday, setCompletedToday] = useState<{title: string, id: number}[]>([]);
   const dailyGoal = 3;
   const router = useRouter();
 
@@ -52,7 +52,7 @@ export default function StudentHome() {
 
     const progRes = await fetch("/api/student/daily-progress");
     const prog = await progRes.json();
-    if (!prog.error) setCompletedToday(prog.completedToday);
+    if (!prog.error) setCompletedToday(prog.completedToday || []);
 
     const artRes = await fetch("/api/articles");
     let arts = await artRes.json();
@@ -134,43 +134,55 @@ export default function StudentHome() {
       <main className="flex-1 p-8 max-w-3xl">
         <div className="mb-8">
           <h2 className="text-xl font-semibold">Hey {userName} 👋</h2>
-          {totalRead === 0 ? (
+          {totalRead === 0 && (
             <p className="text-sm text-[var(--muted)] mt-1">Pick an article below to get started.</p>
-          ) : (
-            <div className="mt-3">
-              <div className="flex items-center gap-3">
-                <div className="flex gap-1.5">
-                  {Array.from({ length: dailyGoal }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
-                        i < completedToday
-                          ? "bg-[var(--accent)] text-white"
-                          : "bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]"
-                      }`}
-                    >
-                      {i < completedToday ? "✓" : i + 1}
-                    </div>
-                  ))}
-                </div>
-                <p className="text-sm text-[var(--muted)]">
-                  {completedToday >= dailyGoal
-                    ? "You hit your goal for today! 🎉"
-                    : `${completedToday} of ${dailyGoal} articles today`}
-                </p>
-              </div>
-            </div>
           )}
         </div>
 
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold">Up Next</h2>
+        {/* Daily Goal Slots */}
+        <div className="mb-8">
+          <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">
+            Today&apos;s Reading
+            {completedToday.length >= dailyGoal && " · Goal complete! 🎉"}
+          </h2>
+          <div className="space-y-2">
+            {Array.from({ length: Math.max(dailyGoal, completedToday.length) }).map((_, i) => {
+              const completed = completedToday[i];
+              return completed ? (
+                <div
+                  key={i}
+                  className="p-4 bg-[var(--surface)] border border-[var(--accent)]/30 rounded-xl flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-sm flex-shrink-0">
+                    ✓
+                  </div>
+                  <p className="text-[15px] font-medium text-[var(--fg)]">{completed.title}</p>
+                </div>
+              ) : (
+                <div
+                  key={i}
+                  className="p-4 border-2 border-dashed border-[var(--border)] rounded-xl flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 rounded-full border-2 border-dashed border-[var(--border)] flex items-center justify-center text-xs text-[var(--muted)] flex-shrink-0">
+                    {i + 1}
+                  </div>
+                  <p className="text-sm text-[var(--muted)]">Pick an article below</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
+        {/* Available Articles */}
+        {unread.length > 0 && (
+          <div className="mb-4">
+            <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">Choose an Article</h2>
+          </div>
+        )}
+
         {unread.length === 0 && !generating && (
-          <div className="text-center py-12 text-[var(--muted)]">
-            <p className="text-lg mb-2">You&apos;ve read everything! 🎉</p>
-            <p className="text-sm">Load more articles below.</p>
+          <div className="text-center py-8 text-[var(--muted)]">
+            <p className="text-sm">No new articles right now. Load more below.</p>
           </div>
         )}
 
@@ -193,7 +205,7 @@ export default function StudentHome() {
           ))}
         </div>
 
-        {/* More articles button — below the list */}
+        {/* Load more */}
         {canLoadMore && (
           <div className="mt-4 text-center">
             {generating ? (
@@ -213,25 +225,6 @@ export default function StudentHome() {
               <p className="text-sm text-green-600 mt-2 animate-pulse">{feedback}</p>
             )}
           </div>
-        )}
-
-        {readArticles.length > 0 && (
-          <>
-            <h3 className="text-sm font-medium text-[var(--muted)] mt-8 mb-3 uppercase tracking-wider">
-              Already Read{readArticles.length > 5 ? ` · ${readArticles.length} total` : ""}
-            </h3>
-            <div className="space-y-1">
-              {readArticles.slice(0, 5).map((article) => (
-                <Link
-                  key={article.id}
-                  href={`/student/read/${article.id}`}
-                  className="block p-3 text-sm text-[var(--muted)] hover:text-[var(--fg)] rounded-lg hover:bg-[var(--surface-hover)] transition"
-                >
-                  {article.title}
-                </Link>
-              ))}
-            </div>
-          </>
         )}
       </main>
     </div>
