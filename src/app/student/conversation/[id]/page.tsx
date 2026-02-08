@@ -23,10 +23,8 @@ export default function ConversationPage() {
   const [complete, setComplete] = useState(false);
   const [selfAssessment, setSelfAssessment] = useState<string | null>(null);
   const [studentTurnCount, setStudentTurnCount] = useState(0);
-  const [showArticle, setShowArticle] = useState(true);
   const [article, setArticle] = useState<ArticleData | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const maxTurns = 3;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -96,185 +94,162 @@ export default function ConversationPage() {
 
   function renderArticleBody(text: string) {
     return text.replace(/^#+\s.*\n*/gm, "").trim().split("\n\n").map((para, i) => (
-      <p key={i} className="mb-4 text-[15px] leading-relaxed">{para}</p>
+      <p key={i} className="mb-5 text-[16px] leading-[1.75] text-[var(--fg)]">{para}</p>
     ));
   }
 
   return (
-    <div className="flex h-screen relative">
-      {/* Article Panel — side panel on desktop, bottom drawer on tablet/mobile */}
-      {showArticle && article && (
-        <>
-          {/* Desktop: side panel */}
-          <div className="hidden lg:flex w-[420px] border-r border-[var(--border)] flex-col bg-white flex-shrink-0">
-            <div className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Article</h2>
-              <button
-                onClick={() => setShowArticle(false)}
-                className="text-[var(--muted)] hover:text-[var(--fg)] text-lg transition"
-              >
-                ×
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-5">
-              <h3 className="text-lg font-semibold mb-1">{article.title}</h3>
-              <p className="text-xs text-[var(--muted)] mb-5">{article.topic}</p>
-              {renderArticleBody(article.bodyText)}
-            </div>
+    <div className="flex flex-col h-screen">
+      {/* Full-width header */}
+      <header className="px-6 py-3 border-b border-[var(--border)] flex items-center justify-between bg-white">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push("/student")} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
+            ← Back
+          </button>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">Let&apos;s talk about it</h1>
           </div>
-          {/* Tablet/mobile: bottom drawer overlay */}
-          <div className="lg:hidden fixed inset-0 z-50 flex flex-col">
-            <div className="flex-1 bg-black/30" onClick={() => setShowArticle(false)} />
-            <div className="bg-white rounded-t-2xl shadow-lg flex flex-col" style={{ height: "65vh" }}>
-              <div className="flex justify-center pt-2 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-300" />
-              </div>
-              <div className="px-5 py-2 border-b border-[var(--border)] flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Article</h2>
-                <button
-                  onClick={() => setShowArticle(false)}
-                  className="text-[var(--muted)] hover:text-[var(--fg)] text-lg transition"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto px-5 py-4">
-                <h3 className="text-lg font-semibold mb-1">{article.title}</h3>
-                <p className="text-xs text-[var(--muted)] mb-5">{article.topic}</p>
+        </div>
+      </header>
+
+      {/* Two-column layout */}
+      <div className="flex flex-1 min-h-0">
+        {/* Article Panel — always visible */}
+        {article && (
+          <>
+            {/* Desktop: side panel */}
+            <div className="hidden lg:flex w-[440px] border-r border-[var(--border)] flex-col bg-[#fafafa] flex-shrink-0">
+              <div className="flex-1 overflow-y-auto px-8 py-8">
+                <h2 className="text-xl font-semibold mb-1 leading-snug">{article.title}</h2>
+                <p className="text-xs text-[var(--muted)] mb-6 uppercase tracking-wider">{article.topic}</p>
                 {renderArticleBody(article.bodyText)}
               </div>
             </div>
-          </div>
-        </>
-      )}
+            {/* Tablet/mobile: toggle button + bottom drawer */}
+            <MobileArticleDrawer article={article} renderBody={renderArticleBody} />
+          </>
+        )}
 
-      {/* Chat */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/student")} className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition">
-              ← Back
-            </button>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">Let&apos;s talk about it</h1>
-              <p className="text-sm text-[var(--muted)]">Tell me what you thought of the article</p>
-            </div>
+        {/* Chat column */}
+        <div className="flex-1 flex flex-col min-w-0 max-w-2xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-[var(--accent)] text-white rounded-br-md"
+                      : "bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] rounded-bl-md"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {loading && !complete && (
+              <div className="flex justify-start">
+                <div className="px-4 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-2xl rounded-bl-md">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
           </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowArticle(!showArticle)}
-              className={`text-sm px-3 py-1.5 rounded-lg border transition ${
-                showArticle
-                  ? "border-[var(--accent)] text-[var(--accent)] bg-blue-50"
-                  : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)]"
-              }`}
-            >
-              📖 Article
-            </button>
-            {!complete && (
-              <div className="flex items-center gap-2">
-                {[1, 2, 3].map((step) => (
-                  <div
-                    key={step}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      studentTurnCount >= step
-                        ? "bg-[var(--accent)]"
-                        : studentTurnCount === step - 1
-                        ? "bg-[var(--accent)] opacity-40"
-                        : "bg-[var(--border)]"
-                    }`}
-                  />
-                ))}
-                <span className="text-xs text-[var(--muted)] ml-1">
-                  {studentTurnCount < maxTurns ? `${studentTurnCount}/${maxTurns}` : "Done!"}
-                </span>
+
+          <div className="px-6 py-4 border-t border-[var(--border)]">
+            {complete ? (
+              <div className="space-y-4">
+                {!selfAssessment ? (
+                  <div className="text-center">
+                    <p className="text-[15px] font-medium text-[var(--fg)] mb-4">How well do you think you understood this article?</p>
+                    <div className="flex gap-3 justify-center flex-wrap">
+                      {[
+                        { value: "really_well", label: "Really well", bg: "bg-green-500 hover:bg-green-600" },
+                        { value: "pretty_well", label: "Pretty well", bg: "bg-blue-500 hover:bg-blue-600" },
+                        { value: "not_sure", label: "Not sure", bg: "bg-amber-500 hover:bg-amber-600" },
+                        { value: "lost", label: "I was lost", bg: "bg-red-400 hover:bg-red-500" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => handleSelfAssess(opt.value)}
+                          className={`px-5 py-2.5 text-sm font-medium text-white rounded-xl shadow-sm transition ${opt.bg}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-[var(--muted)] mt-3">Click to finish</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-sm font-medium text-[var(--fg)]">Thanks! 👍</p>
+                    <p className="text-xs text-[var(--muted)] mt-1">Taking you back…</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                  placeholder="Type your response…"
+                  className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
+                  disabled={loading}
+                  autoFocus
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={loading || !input.trim()}
+                  className="px-5 py-2.5 bg-[var(--accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
+                >
+                  Send
+                </button>
               </div>
             )}
           </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-[var(--accent)] text-white rounded-br-md"
-                    : "bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] rounded-bl-md"
-                }`}
-              >
-                {msg.content}
-              </div>
-            </div>
-          ))}
-          {loading && !complete && (
-            <div className="flex justify-start">
-              <div className="px-4 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-2xl rounded-bl-md">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
-
-        <div className="px-6 py-4 border-t border-[var(--border)]">
-          {complete ? (
-            <div className="space-y-4">
-              {!selfAssessment ? (
-                <div className="text-center">
-                  <p className="text-[15px] font-medium text-[var(--fg)] mb-4">How well do you think you understood this article?</p>
-                  <div className="flex gap-3 justify-center">
-                    {[
-                      { value: "really_well", label: "Really well", bg: "bg-green-500 hover:bg-green-600" },
-                      { value: "pretty_well", label: "Pretty well", bg: "bg-blue-500 hover:bg-blue-600" },
-                      { value: "not_sure", label: "Not sure", bg: "bg-amber-500 hover:bg-amber-600" },
-                      { value: "lost", label: "I was lost", bg: "bg-red-400 hover:bg-red-500" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => handleSelfAssess(opt.value)}
-                        className={`px-5 py-2.5 text-sm font-medium text-white rounded-xl shadow-sm transition ${opt.bg}`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-[var(--muted)] mt-3">Click to finish</p>
-                </div>
-              ) : (
-                <div className="text-center py-2">
-                  <p className="text-sm font-medium text-[var(--fg)]">Thanks! 👍</p>
-                  <p className="text-xs text-[var(--muted)] mt-1">Taking you back…</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="Type your response…"
-                className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
-                disabled={loading}
-                autoFocus
-              />
-              <button
-                onClick={handleSend}
-                disabled={loading || !input.trim()}
-                className="px-5 py-2.5 bg-[var(--accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
-              >
-                Send
-              </button>
-            </div>
-          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Mobile/tablet article drawer
+function MobileArticleDrawer({ article, renderBody }: { article: ArticleData; renderBody: (text: string) => React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="lg:hidden">
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed bottom-20 left-4 z-40 px-3 py-2 bg-white border border-[var(--border)] rounded-xl shadow-md text-sm text-[var(--muted)] hover:text-[var(--fg)] transition"
+      >
+        📖 Article
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="flex-1 bg-black/30" onClick={() => setOpen(false)} />
+          <div className="bg-white rounded-t-2xl shadow-lg flex flex-col" style={{ height: "65vh" }}>
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            </div>
+            <div className="px-5 py-2 border-b border-[var(--border)] flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Article</h2>
+              <button onClick={() => setOpen(false)} className="text-[var(--muted)] hover:text-[var(--fg)] text-lg transition">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <h3 className="text-lg font-semibold mb-1">{article.title}</h3>
+              <p className="text-xs text-[var(--muted)] mb-5">{article.topic}</p>
+              {renderBody(article.bodyText)}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
