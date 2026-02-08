@@ -228,85 +228,67 @@ export default function AdminContentPage() {
         </select>
       </div>
 
-      {/* Grouped Articles */}
-      <div className="space-y-2">
-        {filteredGroups.map(group => (
-          <div key={group.baseId} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
-            {/* Group Header */}
-            <div className={`flex items-center justify-between hover:bg-gray-50 transition ${group.allFlagged ? "opacity-50" : ""}`}>
-              <button
+      {/* Article List */}
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
+        {filteredGroups.map((group, i) => {
+          const catColor = group.category === "news" ? "#3b82f6" : group.category === "interest" ? "#7c3aed" : "#22c55e";
+          const sourceDomain = group.source ? (() => { try { return new URL(group.source!).hostname.replace("www.", ""); } catch { return null; } })() : null;
+
+          return (
+            <div key={group.baseId} className={i < filteredGroups.length - 1 ? "border-b border-[var(--border)]" : ""}>
+              {/* Row */}
+              <div
+                className={`flex items-center hover:bg-gray-50 transition cursor-pointer ${group.allFlagged ? "opacity-40" : ""}`}
+                style={{ borderLeft: `3px solid ${catColor}` }}
                 onClick={() => toggleExpand(group.baseId)}
-                className="flex-1 text-left px-5 py-4 flex items-center gap-3 min-w-0"
               >
-                <span className="text-[var(--muted)] text-sm">{expanded.has(group.baseId) ? "▼" : "▸"}</span>
-                <div className="min-w-0">
-                  <h3 className="font-medium text-[15px] truncate">
-                    {group.allFlagged && <span className="text-red-400 mr-1">⛔</span>}
-                    {group.title}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {categoryBadge(group.category)}
-                    <span className="text-xs text-[var(--muted)]">
-                      {group.levels.length} level{group.levels.length !== 1 ? "s" : ""}: {group.levels.map(l => `L${l.readingLevel}`).join(", ")}
-                    </span>
-                    {group.generatedDate && (
-                      <span className="text-xs text-[var(--muted)]">· {new Date(group.generatedDate).toLocaleDateString()}</span>
-                    )}
-                    {group.source && (
-                      <span className="text-xs text-[var(--muted)] truncate max-w-xs">· {(() => { try { return new URL(group.source!).hostname; } catch { return group.source; } })()}</span>
-                    )}
+                <div className="flex-1 px-4 py-3 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium text-[15px] truncate">{group.title}</h3>
+                    {sourceDomain && <span className="text-[11px] text-[var(--muted)] shrink-0">{sourceDomain}</span>}
                   </div>
                 </div>
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); flagGroup(group, !group.allFlagged); }}
-                className={`mr-4 text-xs px-3 py-1.5 rounded-lg border transition ${
-                  group.allFlagged
-                    ? "border-green-300 text-green-700 hover:bg-green-50"
-                    : "border-red-200 text-red-500 hover:bg-red-50"
-                }`}
-              >
-                {group.allFlagged ? "Unflag" : "Flag"}
-              </button>
-            </div>
-
-            {/* Expanded Level Details */}
-            {expanded.has(group.baseId) && (
-              <div className="border-t border-[var(--border)]">
-                {group.levels.map(a => (
-                  <div key={a.id} className={`px-5 py-3 flex items-center justify-between border-b border-[var(--border)] last:border-0 bg-gray-50/50 ${a.flagged ? "opacity-50" : ""}`}>
-                    <div className="pl-6">
-                      <p className="text-sm font-medium">
-                        <span className="text-xs text-[var(--muted)] bg-gray-200 px-1.5 py-0.5 rounded mr-2">L{a.readingLevel}</span>
-                        {a.flagged && <span className="text-red-400 mr-1">⛔</span>}
-                        <button onClick={() => openPreview(a.id)} className="text-left hover:text-[var(--accent)] hover:underline transition">
-                          {a.title}
-                        </button>
-                      </p>
-                      <p className="text-xs text-[var(--muted)] mt-0.5">
-                        {a.estimatedReadTime ? `${a.estimatedReadTime} min read` : ""}
-                        {a.baseArticleId ? " · Adapted" : " · Base article"}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => toggleFlag(a.id, a.flagged)}
-                      className={`text-xs px-2 py-1 rounded transition ${a.flagged ? "text-green-600 hover:text-green-800" : "text-red-400 hover:text-red-600"}`}
-                    >
-                      {a.flagged ? "Unflag" : "Flag"}
-                    </button>
-                  </div>
-                ))}
-                {group.source && (
-                  <div className="px-5 py-2 bg-gray-50/80">
-                    <a href={group.source} target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline truncate block pl-6">
-                      Source: {group.source}
-                    </a>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 pr-4 shrink-0">
+                  {group.allFlagged && <span className="text-[11px] text-red-400">flagged</span>}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); flagGroup(group, !group.allFlagged); }}
+                    className="text-[var(--muted)] hover:text-red-500 transition p-1"
+                    title={group.allFlagged ? "Unflag" : "Flag"}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />
+                    </svg>
+                  </button>
+                  <span className="text-[var(--muted)] text-xs">{expanded.has(group.baseId) ? "▾" : "›"}</span>
+                </div>
               </div>
-            )}
-          </div>
-        ))}
+
+              {/* Expanded */}
+              {expanded.has(group.baseId) && (
+                <div className="bg-gray-50/70" style={{ borderLeft: `3px solid ${catColor}` }}>
+                  <div className="flex gap-1 px-4 py-2.5">
+                    {group.levels.map(a => (
+                      <button
+                        key={a.id}
+                        onClick={() => openPreview(a.id)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition hover:border-[var(--accent)] hover:text-[var(--accent)] ${
+                          a.flagged ? "opacity-40 border-red-200 text-red-400" : "border-[var(--border)] text-[var(--fg)] bg-white"
+                        }`}
+                      >
+                        L{a.readingLevel}
+                      </button>
+                    ))}
+                  </div>
+                  {group.source && (
+                    <a href={group.source} target="_blank" rel="noopener" className="block px-4 pb-2.5 text-[11px] text-blue-500 hover:underline truncate">
+                      {group.source}
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {filteredGroups.length === 0 && (
           <p className="text-center text-sm text-[var(--muted)] py-8">No articles matching filter.</p>
