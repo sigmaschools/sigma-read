@@ -224,7 +224,7 @@ export default function GuideDashboard() {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className={`text-lg font-semibold ${scoreColor(student.avgScore)}`}>
-                        {student.avgScore !== null ? <>{student.avgScore} <span className="text-xs font-normal text-[var(--muted)]">{scoreLabel(student.avgScore)}</span></> : "—"}
+                        {student.avgScore !== null ? student.avgScore : "—"}
                       </p>
                       <p className="text-xs text-[var(--muted)]">
                         {student.sessionsThisWeek} this week · {student.totalSessions} total
@@ -323,7 +323,7 @@ export default function GuideDashboard() {
                               <div className="text-right">
                                 {s.avgScoreThisWeek !== null && (
                                   <span className={`text-lg font-semibold ${scoreColor(s.avgScoreThisWeek)}`}>
-                                    {s.avgScoreThisWeek} <span className="text-xs font-normal text-[var(--muted)]">{scoreLabel(s.avgScoreThisWeek)}</span>
+                                    {s.avgScoreThisWeek}
                                   </span>
                                 )}
                                 {s.scoreTrend === "up" && <span className="ml-1 text-green-600">↑</span>}
