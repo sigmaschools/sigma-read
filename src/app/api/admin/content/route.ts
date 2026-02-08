@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     generatedDate: schema.articleCache.generatedDate,
     headlineSource: schema.articleCache.headlineSource,
     baseArticleId: schema.articleCache.baseArticleId,
+    flagged: schema.articleCache.flagged,
     createdAt: schema.articleCache.createdAt,
   }).from(schema.articleCache)
     .orderBy(desc(schema.articleCache.createdAt))
@@ -49,13 +50,13 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ articles, distribution: { byLevel, byCategory }, total: all.length });
 }
 
-export async function DELETE(req: NextRequest) {
+export async function PATCH(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await req.json();
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const { id, flagged } = await req.json();
+  if (!id || typeof flagged !== "boolean") return NextResponse.json({ error: "Missing id or flagged" }, { status: 400 });
 
-  await db.delete(schema.articleCache).where(eq(schema.articleCache.id, id));
-  return NextResponse.json({ ok: true });
+  await db.update(schema.articleCache).set({ flagged }).where(eq(schema.articleCache.id, id));
+  return NextResponse.json({ ok: true, flagged });
 }
