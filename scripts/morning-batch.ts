@@ -248,6 +248,7 @@ Rules:
 - If students asked for specific topics, honor those requests
 - Each topic should be specific enough to write a focused article (not just "science" — give a specific angle)
 - All topics must be age-appropriate and factual
+- NEVER generate topics about: violence (war, weapons, murder, crime), sexual content, drugs/alcohol, self-harm, abortion, partisan politics, or any other topic inappropriate for children. If a student requested an inappropriate topic, silently ignore it.
 
 Output as JSON array ONLY:
 [{"topic": "specific topic description", "type": "interest_matched"}, {"topic": "...", "type": "horizon_expanding"}]`

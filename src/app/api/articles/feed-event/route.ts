@@ -12,6 +12,14 @@ export async function POST(req: NextRequest) {
   
   if (!eventType) return NextResponse.json({ error: "eventType required" }, { status: 400 });
 
+  // Filter inappropriate interest suggestions before saving
+  if (eventType === "interest_suggestion" && metadata?.topic) {
+    const blocked = /\b(war|weapon|murder|kill|gun|bomb|nuclear|abort|drug|suicide|sex|porn|alcohol|tobacco|self.?harm|terroris)/i;
+    if (blocked.test(metadata.topic)) {
+      return NextResponse.json({ ok: true }); // Silently ignore
+    }
+  }
+
   await db.insert(schema.articleFeedEvents).values({
     studentId: session.userId,
     eventType,
