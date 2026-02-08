@@ -131,15 +131,6 @@ export default function GuideDashboard() {
     return "text-red-500";
   };
 
-  const scoreLabel = (score: number | null) => {
-    if (score === null) return "";
-    if (score >= 85) return "Exceptional";
-    if (score >= 70) return "Strong";
-    if (score >= 55) return "Solid";
-    if (score >= 40) return "Developing";
-    return "Needs Support";
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
