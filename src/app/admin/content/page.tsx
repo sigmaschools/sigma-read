@@ -52,6 +52,7 @@ export default function AdminContentPage() {
   const [archiveArticles, setArchiveArticles] = useState<Record<string, ArchiveArticle[]>>({});
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [catModal, setCatModal] = useState<string | null>(null);
 
   useEffect(() => { loadContent(); }, []);
 
@@ -108,6 +109,11 @@ export default function AdminContentPage() {
     cat === "news" ? "#3b82f6" : cat === "interest" ? "#7c3aed" : "#22c55e";
   const catLabel = (cat: string) =>
     cat === "general" ? "Explore" : cat.charAt(0).toUpperCase() + cat.slice(1);
+  const catDescription = (cat: string) => {
+    if (cat === "news") return "News articles are sourced from kid-friendly news sites each morning. The batch scrapes headlines, then Claude curates the most interesting and age-appropriate stories. These expose students to current events and build civic literacy. Every news article must pass the \"why did we pick this?\" test — the answer is always \"factually significant event that teaches critical reading.\"";
+    if (cat === "interest") return "Interest articles are matched to each student's personal interests, collected during onboarding and refined over time through favorites, topic suggestions, and ratings. The morning batch analyzes aggregated student interests and generates articles on topics students care about. The answer to \"why did we pick this?\" is always \"student's interest.\"";
+    return "Explore articles broaden students' horizons beyond their stated interests. These cover fascinating topics students might not seek out on their own — science, history, culture, nature — chosen to spark curiosity. They ensure students aren't trapped in a filter bubble of only what they already like.";
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" /></div>;
@@ -132,16 +138,33 @@ export default function AdminContentPage() {
       {/* Category mix bar */}
       {totalTopics > 0 && (
         <div className="flex rounded-lg overflow-hidden h-8 mb-6">
-          {Object.entries(categoryMix).filter(([, c]) => c > 0).map(([cat, count]) => (
-            <div
+          {Object.entries(categoryMix).filter(([, c]) => c > 0).map(([cat, cnt]) => (
+            <button
               key={cat}
-              className="flex items-center justify-center gap-1.5 text-xs font-medium"
-              style={{ width: `${(count / totalTopics) * 100}%`, backgroundColor: catColor(cat), color: "white" }}
+              className="flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer hover:brightness-110 transition"
+              style={{ width: `${(cnt / totalTopics) * 100}%`, backgroundColor: catColor(cat), color: "white" }}
+              onClick={() => setCatModal(cat)}
             >
               <span>{catLabel(cat)}</span>
-              <span className="opacity-75">{count}</span>
-            </div>
+              <span className="opacity-75">{cnt}</span>
+            </button>
           ))}
+        </div>
+      )}
+
+      {/* Category explanation modal */}
+      {catModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setCatModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: catColor(catModal) }} />
+                <h2 className="text-lg font-semibold">{catLabel(catModal)}</h2>
+              </div>
+              <button onClick={() => setCatModal(null)} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">Close ×</button>
+            </div>
+            <p className="text-sm text-[var(--fg)] leading-relaxed">{catDescription(catModal)}</p>
+          </div>
         </div>
       )}
 
