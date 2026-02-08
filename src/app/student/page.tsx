@@ -8,6 +8,7 @@ interface Article {
   id: number;
   title: string;
   topic: string;
+  bodyText: string;
   estimatedReadTime: number;
   read: boolean;
   category: string | null;
@@ -20,6 +21,13 @@ function categoryLabel(article: Article) {
   if (article.category === "news") return "News";
   if (article.category === "interest") return "For You";
   return "Explore";
+}
+
+function firstSentence(text: string): string {
+  // Strip markdown headings, get first real sentence
+  const clean = text.replace(/^#+\s.*\n*/gm, "").trim();
+  const match = clean.match(/^[^.!?]+[.!?]/);
+  return match ? match[0].trim() : clean.slice(0, 120) + "…";
 }
 
 function categoryStyle(article: Article) {
@@ -155,7 +163,8 @@ export default function StudentHome() {
             >
               <div>
                 <h3 className="font-medium text-[15px] group-hover:text-[var(--accent)] transition">{article.title}</h3>
-                <p className="text-sm text-[var(--muted)] mt-1">
+                <p className="text-sm text-[var(--muted)] mt-1.5 line-clamp-2">{firstSentence(article.bodyText)}</p>
+                <p className="text-xs text-[var(--muted)] mt-1.5">
                   <span className={`font-medium ${categoryStyle(article)}`}>{categoryLabel(article)}</span>
                   {article.category !== "news" && article.topic ? ` · ${article.topic}` : ""}
                   {" · "}{article.estimatedReadTime} min read
