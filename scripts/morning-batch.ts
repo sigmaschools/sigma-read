@@ -404,6 +404,21 @@ async function serveToStudents(students: Student[]) {
   }
 }
 
+// ─── Step 7: Flag Expired Articles ──────────────────────────────────────────
+
+async function flagExpiredArticles() {
+  console.log("\n🧹 Flagging expired articles...");
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const expiredNews = await sql`UPDATE article_cache SET flagged = true WHERE category = 'news' AND generated_date < ${sevenDaysAgo} AND flagged = false RETURNING id`;
+  const expiredOther = await sql`UPDATE article_cache SET flagged = true WHERE category != 'news' AND generated_date < ${thirtyDaysAgo} AND flagged = false RETURNING id`;
+  if (expiredNews.length + expiredOther.length > 0) {
+    console.log(`  🚩 Flagged ${expiredNews.length} expired news + ${expiredOther.length} expired other articles`);
+  } else {
+    console.log("  No newly expired articles.");
+  }
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function run() {
@@ -417,6 +432,28 @@ async function run() {
   console.log(`🎯 Top interests: ${commonInterests.slice(0, 8).join(", ")}`);
 
   if (students.length === 0) { console.log("No active students. Skipping."); return; }
+
+  // Check if we already have base articles from a partial run today
+  const TARGET_BASE_ARTICLES = 12;
+  const [existingToday] = await sql`
+    SELECT COUNT(*) as c FROM article_cache
+    WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false
+  `;
+  const existingBaseCount = parseInt(existingToday.c as string);
+
+  if (existingBaseCount >= TARGET_BASE_ARTICLES) {
+    console.log(`✅ Already have ${existingBaseCount} base articles for today. Skipping generation.`);
+    // Still serve to students and flag expired
+    await serveToStudents(students);
+    await flagExpiredArticles();
+    console.log(`\n✅ Article generation complete (served existing articles)\n`);
+    return;
+  }
+
+  const articlesNeeded = TARGET_BASE_ARTICLES - existingBaseCount;
+  if (existingBaseCount > 0) {
+    console.log(`📋 Found ${existingBaseCount} base articles from earlier run. Generating ${articlesNeeded} more.`);
+  }
 
   // Step 2: Fetch news headlines
   const headlines = await getNewsHeadlines();
@@ -440,14 +477,18 @@ async function run() {
     console.log(`🚫 Filtered out ${allTopicsRaw.length - allTopics.length} blocked topics`);
   }
 
+  // Filter out topics already generated today (from partial run)
+  const todaysTopics = await sql`SELECT topic FROM generated_topics WHERE generated_date = ${today}`;
+  const todaysSet = new Set(todaysTopics.map((t: any) => t.topic.toLowerCase()));
+
   // Check for recent topic duplicates (last 14 days)
   const recentTopics = await sql`SELECT topic FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
   const recentSet = new Set(recentTopics.map(t => t.topic.toLowerCase()));
-  const dedupedTopics = allTopics.filter(t => !recentSet.has(t.topic.toLowerCase()));
+  const dedupedTopics = allTopics.filter(t => !recentSet.has(t.topic.toLowerCase()) && !todaysSet.has(t.topic.toLowerCase()));
   if (allTopics.length !== dedupedTopics.length) {
-    console.log(`♻️ Skipped ${allTopics.length - dedupedTopics.length} recently covered topics`);
+    console.log(`♻️ Skipped ${allTopics.length - dedupedTopics.length} recently covered or already-generated topics`);
   }
-  const finalTopics = dedupedTopics.length > 0 ? dedupedTopics : allTopics; // fallback if all are dupes
+  const finalTopics = (dedupedTopics.length > 0 ? dedupedTopics : allTopics).slice(0, articlesNeeded);
 
   console.log(`\n📝 Generating ${finalTopics.length} base articles...\n`);
 
@@ -456,7 +497,7 @@ async function run() {
 
   for (let i = 0; i < finalTopics.length; i++) {
     const t = finalTopics[i];
-    console.log(`  ✍️  [${i + 1}/${allTopics.length}] ${t.type}: ${t.topic.substring(0, 55)}...`);
+    console.log(`  ✍️  [${i + 1}/${finalTopics.length}] ${t.type}: ${t.topic.substring(0, 55)}...`);
 
     const article = await generateBaseArticle(t.topic, t.source, t.type);
     if (article) {
@@ -499,19 +540,10 @@ async function run() {
   // Step 6: Serve to students
   await serveToStudents(students);
 
-  // Step 7: Flag expired articles (never delete — could orphan student data)
-  console.log("\n🧹 Flagging expired articles...");
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const expiredNews = await sql`UPDATE article_cache SET flagged = true WHERE category = 'news' AND generated_date < ${sevenDaysAgo} AND flagged = false RETURNING id`;
-  const expiredOther = await sql`UPDATE article_cache SET flagged = true WHERE category != 'news' AND generated_date < ${thirtyDaysAgo} AND flagged = false RETURNING id`;
-  if (expiredNews.length + expiredOther.length > 0) {
-    console.log(`  🚩 Flagged ${expiredNews.length} expired news + ${expiredOther.length} expired other articles`);
-  } else {
-    console.log("  No newly expired articles.");
-  }
+  // Step 7: Flag expired articles
+  await flagExpiredArticles();
 
-  console.log(`\n✅ Morning batch complete! Generated ${baseArticles.length} articles × ${levelsNeeded.size} levels\n`);
+  console.log(`\n✅ Article generation complete! Generated ${baseArticles.length} base articles × ${levelsNeeded.size} levels\n`);
 }
 
 run().catch(console.error);
