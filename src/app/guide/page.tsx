@@ -347,6 +347,28 @@ export default function GuideDashboard() {
                     </div>
                   )}
 
+                  {summary.levelUps?.length > 0 && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                      <p className="text-sm font-medium text-green-800 mb-1">🎉 Leveled Up This Week</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {summary.levelUps.map((l: string, i: number) => (
+                          <span key={i} className="text-sm text-green-700">{l}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {summary.levelDrops?.length > 0 && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm font-medium text-red-800 mb-1">Level Drops This Week</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {summary.levelDrops.map((l: string, i: number) => (
+                          <span key={i} className="text-sm text-red-700">{l}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wider mb-3">Student Details</h3>
                     <div className="space-y-3">
