@@ -25,6 +25,8 @@ interface WeeklySummary {
   activeStudents: number;
   totalSessionsThisWeek: number;
   globalAlerts: string[];
+  levelUps: string[];
+  levelDrops: string[];
   students: {
     id: number;
     name: string;
