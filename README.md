@@ -16,9 +16,20 @@ npm run dev
 
 | Document | What's In It |
 |----------|-------------|
+| **Product** | |
 | [`docs/product-requirements.md`](docs/product-requirements.md) | Current PRD — features, reading levels, data model, stack, success metrics |
 | [`docs/product-boundary.md`](docs/product-boundary.md) | "SigmaRead Is / Is Not" — product identity, core values, quality bar |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Live URLs, test credentials, environment variables, API routes |
+| **How Things Work** | |
+| [`docs/conversation-design.md`](docs/conversation-design.md) | AI conversation rules — 6 styles, tone, message length, scoring rubric |
+| [`docs/level-progression.md`](docs/level-progression.md) | Gradual Mix level system — how students move between reading levels |
+| [`docs/article-selection.md`](docs/article-selection.md) | How articles get from cache to student feed — buffer, daily cap, feedback loops |
+| [`docs/article-pipeline.md`](docs/article-pipeline.md) | Morning batch generation — news sourcing, topic planning, Opus/Sonnet hybrid |
+| [`docs/content-policy.md`](docs/content-policy.md) | What we publish and why — Three Bucket framework, selection principles |
+| [`docs/content-safety.md`](docs/content-safety.md) | 3-layer content filtering — onboarding, regex, generation |
+| [`docs/student-onboarding.md`](docs/student-onboarding.md) | Walkthrough + interest interview + initial article delivery |
+| [`docs/session-analytics.md`](docs/session-analytics.md) | What we track per session and diagnostic SQL queries |
+| [`docs/admin-interface.md`](docs/admin-interface.md) | Admin role — dashboard, students, guides, content, metrics, impersonation |
 | **Testing** | |
 | [`docs/testing/feedback-filter.md`](docs/testing/feedback-filter.md) | 5-gate evaluation filter for prioritizing improvements |
 | [`docs/testing/guide-personas.md`](docs/testing/guide-personas.md) | 4 guide personas for simulated testing |
