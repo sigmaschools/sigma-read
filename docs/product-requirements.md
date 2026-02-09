@@ -1,6 +1,6 @@
 # SigmaRead — Product Requirements
 
-**Last updated:** February 7, 2026 (evening)
+**Last updated:** February 8, 2026
 **Status:** MVP deployed, iterating based on founder + user testing
 **Live:** https://sigma-reader.vercel.app
 
@@ -74,7 +74,7 @@ A complete session takes **2-5 minutes per article** including the conversation.
 | 5 | 8 | ~1000-1100 | 400-600 words | Domain-specific vocabulary supported by context. Complex sentences allowed. |
 | 6 | 8+ | ~1150+ | 500-600 words | Advanced vocabulary. Assumes strong reader who handles nuance and inference. |
 
-Level adjusts over time: score 85+ consistently → level up. Score below 55 consistently → level down.
+Level adjusts gradually over time using the **Gradual Mix** system — probe articles at adjacent levels validate readiness before any level change. See [`level-progression.md`](./level-progression.md) for the full system.
 
 ---
 
@@ -112,7 +112,7 @@ Level adjusts over time: score 85+ consistently → level up. Score below 55 con
   4. Perspective Shift ("Imagine you were...")
   5. Detail → Big Picture (specific detail, zoom out to meaning)
   6. Creative ("If you could ask the author one question...")
-- 3 student responses per conversation. Hard backstop at 4 (scaffolding buffer).
+- Conversations flow naturally — usually 3 exchanges. Hard backstop at 8 student messages (safety limit).
 - **No progress dots.** The conversation just flows — student doesn't see the formula.
 - AI references the article naturally ("Looking at the article..." / "The article mentions...") — never tests memory ("Think back to..." / "Do you remember...?")
 - Like/dislike acknowledged naturally by AI (varied phrasing, sometimes skipped)
@@ -222,3 +222,20 @@ SigmaRead gets to know your kid. No multiple choice. Kids discuss articles with 
 - vs. ChatGPT: Not designed for kids, no guide dashboard, no progress tracking
 - vs. Newsela: Quiz-based assessment, not conversational. Requires teacher setup.
 - vs. Reading Eggs: Gamified to the point of distraction. We focus on actual comprehension.
+
+---
+
+## Related Documentation
+
+| Document | Covers |
+|----------|--------|
+| [Conversation Design](./conversation-design.md) | AI conversation rules, 6 styles, tone, scoring rubric |
+| [Level Progression](./level-progression.md) | Gradual Mix system, competitive research, thresholds |
+| [Article Selection](./article-selection.md) | Cache → buffer → feed pipeline, daily cap, feedback loops |
+| [Article Pipeline](./article-pipeline.md) | Morning batch generation, Opus/Sonnet hybrid |
+| [Content Policy](./content-policy.md) | Three Bucket framework, selection principles |
+| [Content Safety](./content-safety.md) | 3-layer silent filtering system |
+| [Student Onboarding](./student-onboarding.md) | Walkthrough, interest interview, initial delivery |
+| [Session Analytics](./session-analytics.md) | What we track, diagnostic queries |
+| [Admin Interface](./admin-interface.md) | Admin role and capabilities |
+| [Product Boundary](./product-boundary.md) | What SigmaRead is and isn't |
