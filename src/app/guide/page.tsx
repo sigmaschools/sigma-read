@@ -55,6 +55,8 @@ export default function GuideDashboard() {
   const [guideName, setGuideName] = useState("");
   const [classStats, setClassStats] = useState<ClassStats | null>(null);
   const [alerts, setAlerts] = useState<string[]>([]);
+  const [levelUps, setLevelUps] = useState<string[]>([]);
+  const [showLevelUps, setShowLevelUps] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [summary, setSummary] = useState<WeeklySummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -91,6 +93,7 @@ export default function GuideDashboard() {
     setStudents(data.students);
     if (data.classStats) setClassStats(data.classStats);
     if (data.alerts) setAlerts(data.alerts);
+    if (data.levelUps) setLevelUps(data.levelUps);
     setLoading(false);
   }
 
@@ -202,13 +205,34 @@ export default function GuideDashboard() {
           </div>
         )}
 
-        {/* Alerts */}
+        {/* Alerts — actionable items only */}
         {alerts.length > 0 && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <p className="text-sm font-medium text-amber-800 mb-1">Alerts</p>
-            {alerts.map((a, i) => (
-              <p key={i} className="text-sm text-amber-700">{a}</p>
-            ))}
+          <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+            <span className="text-amber-600 text-sm">⚠️</span>
+            <p className="text-sm text-amber-800">{alerts.join(" · ")}</p>
+          </div>
+        )}
+
+        {/* Level-ups — compact celebration */}
+        {levelUps.length > 0 && (
+          <div className="mb-4 px-4 py-2.5 bg-green-50 border border-green-200 rounded-lg">
+            <button
+              onClick={() => setShowLevelUps(!showLevelUps)}
+              className="flex items-center gap-2 w-full text-left"
+            >
+              <span className="text-sm">🎉</span>
+              <p className="text-sm text-green-800 flex-1">
+                {levelUps.length} student{levelUps.length !== 1 ? "s" : ""} leveled up this week
+              </p>
+              <span className="text-xs text-green-600">{showLevelUps ? "▾" : "›"}</span>
+            </button>
+            {showLevelUps && (
+              <div className="mt-2 pt-2 border-t border-green-200 flex flex-wrap gap-x-4 gap-y-1">
+                {levelUps.map((l, i) => (
+                  <span key={i} className="text-sm text-green-700">{l}</span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -131,27 +131,11 @@ export async function GET() {
     : null;
   const needsAttention = dashboardStudents.filter(s => s.status === "struggling" || s.status === "inactive").length;
 
-  // Generate alerts
+  // Generate alerts (actionable items only)
   const alerts: string[] = [];
   const inactiveStudents = dashboardStudents.filter(s => s.status === "inactive" && s.onboardingComplete);
   if (inactiveStudents.length > 0) {
     alerts.push(`${inactiveStudents.length} student${inactiveStudents.length > 1 ? "s haven't" : " hasn't"} read this week`);
-  }
-
-  // Check for level changes this week
-  const levelChanges = await db.select({
-    studentId: schema.levelHistory.studentId,
-    fromLevel: schema.levelHistory.fromLevel,
-    toLevel: schema.levelHistory.toLevel,
-  }).from(schema.levelHistory).where(gte(schema.levelHistory.changedAt, weekAgo));
-  
-  for (const lc of levelChanges) {
-    const student = students.find(s => s.id === lc.studentId);
-    if (student && lc.toLevel > lc.fromLevel) {
-      alerts.push(`${student.name.split(" ")[0]} moved up to Level ${lc.toLevel}! 🎉`);
-    } else if (student && lc.toLevel < lc.fromLevel) {
-      alerts.push(`${student.name.split(" ")[0]} dropped to Level ${lc.toLevel}`);
-    }
   }
 
   // Check for consecutive low scores
@@ -163,9 +147,37 @@ export async function GET() {
     }
   }
 
+  // Level changes this week — deduplicated to net change per student
+  const levelChanges = await db.select({
+    studentId: schema.levelHistory.studentId,
+    fromLevel: schema.levelHistory.fromLevel,
+    toLevel: schema.levelHistory.toLevel,
+    changedAt: schema.levelHistory.changedAt,
+  }).from(schema.levelHistory).where(gte(schema.levelHistory.changedAt, weekAgo))
+    .orderBy(desc(schema.levelHistory.changedAt));
+
+  // Keep only the most recent change per student
+  const latestByStudent = new Map<number, { fromLevel: number; toLevel: number }>();
+  for (const lc of levelChanges) {
+    if (!latestByStudent.has(lc.studentId)) {
+      latestByStudent.set(lc.studentId, { fromLevel: lc.fromLevel, toLevel: lc.toLevel });
+    }
+  }
+
+  const levelUps: string[] = [];
+  for (const [studentId, lc] of latestByStudent) {
+    const student = students.find(s => s.id === studentId);
+    if (student && lc.toLevel > lc.fromLevel) {
+      levelUps.push(`${student.name.split(" ")[0]} → Level ${lc.toLevel}`);
+    } else if (student && lc.toLevel < lc.fromLevel) {
+      alerts.push(`${student.name.split(" ")[0]} dropped to Level ${lc.toLevel}`);
+    }
+  }
+
   return NextResponse.json({
     students: dashboardStudents,
     classStats: { activeStudents, totalStudents, totalSessionsThisWeek, classAvgScore, needsAttention },
     alerts,
+    levelUps,
   });
 }
