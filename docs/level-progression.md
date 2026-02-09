@@ -281,3 +281,108 @@ Every student has a **base level** (their official reading level) and a **feed m
 - After each comprehension report, evaluate recent scores against trigger conditions
 - Update feed mix state accordingly
 - If phase transition conditions met, advance phase or revert
+
+---
+
+## Level Progression Optimization Plan
+
+### Purpose
+
+The specific thresholds in the Gradual Mix system (score targets, window sizes, probe validation criteria) are educated guesses based on competitive research. This plan ensures they are continuously validated and improved with real student data.
+
+### What We Measure
+
+**Per session:**
+- Comprehension score (0-100), calibrated to reading level
+- Self-assessment (4 options) + calibration flag (overconfident/underconfident)
+- Conversation style used (1 of 6)
+- Article metadata: level served, topic, category, base article ID
+- Probe tracking: whether article was served at a different level (`served_as_level`)
+- Feed mix state: probe direction, phase, scores on probes
+
+**Derived over time:**
+- Score trends per student (improving, flat, declining)
+- Score distribution by reading level
+- Topic effects on scores
+- Conversation style effects on scores
+- Probe success rates
+- Time-to-stabilize for new students
+- AI scoring variance (session-to-session fluctuation for stable students)
+
+### Optimization Cadence
+
+- **Weeks 1-4 after launch**: Baseline period. Collect data, no threshold changes.
+- **Monthly thereafter**: Full optimization review on the 1st of each month.
+- **Mid-cycle alerts**: If a metric goes critical (see below), flag in morning brief immediately rather than waiting for monthly review.
+
+### Monthly Review Process
+
+#### Step 1: Pull Metrics
+
+Run the level progression analytics query (to be built into admin metrics page). Key numbers:
+
+1. Total sessions completed across all students
+2. Probe trigger rate — % of students who entered probing state
+3. Probe success rate — % of probes that led to phase advancement vs abort
+4. Level change rate — how many students actually changed levels
+5. Post-change performance — scores in first 5 sessions after a level change
+6. Score variance — standard deviation per student over rolling 5-session windows
+7. Frustration indicators — sessions with score <50, especially consecutive
+8. Self-assessment calibration — correlation between overconfidence flags and probe failures
+9. Downward mix recovery rate — % of students who returned to base level without a level change
+10. Reversal rate — students who leveled up then leveled back down within 2 weeks
+
+#### Step 2: Diagnose Against Target Ranges
+
+| Metric | Healthy Range | Too Low Means | Too High Means |
+|--------|--------------|---------------|----------------|
+| Probe trigger rate | 15-25% of students/month | Thresholds too strict, students stuck at levels | Thresholds too loose, system is restless |
+| Probe → level change rate | 40-60% of triggered probes | Promoting into probes too early | Probes too easy, not testing real readiness |
+| Post-change success rate | 70%+ score ≥65 in first 5 sessions | Level change was premature | Level change was overdue |
+| Score variance per student | SD of 8-12 points | Conversations too formulaic | AI scoring inconsistent or content difficulty varies too much |
+| Downward mix recovery rate | 50%+ return without level change | Students aren't recovering — base level is wrong | Struggles are temporary — confirms the design |
+| Reversal rate | <10% | Healthy | Level changes are premature, tighten criteria |
+
+#### Step 3: Adjust One Variable at a Time
+
+**Critical rule: Never change multiple thresholds simultaneously.** Pick the biggest problem, adjust the single most relevant parameter, observe for 2-4 weeks.
+
+Example adjustments:
+- Probe trigger rate too low → lower score threshold by 5 points (e.g., 85→80 for younger)
+- Post-change success rate too low → add more required probe sessions before committing
+- Score variance too high → investigate conversation styles as confound, potentially normalize scores by style
+- Reversal rate too high → extend probe phases, require more evidence
+
+#### Step 4: Validate
+
+**With enough students (20+):** A/B cohort testing. Split students, compare post-change success rates after 3 weeks.
+
+**With small student counts:** Before/after comparison. Measure same metrics for 4 weeks pre-change vs 4 weeks post-change.
+
+### Success Criteria
+
+An optimization is **successful** when:
+- The target metric moves into the healthy range
+- Other metrics don't degrade (no whack-a-mole effects)
+- Guide feedback doesn't surface new complaints
+- Students who change levels perform well afterward
+
+An optimization **failed** when:
+- The target metric doesn't improve or gets worse
+- A previously healthy metric degrades
+- Guide alerts increase (more L1 floor alerts, more frustrated students)
+- Reversal rate increases
+
+**If a change fails: revert immediately.** The system stores feed_mix state, so reverting a threshold doesn't disrupt students mid-probe.
+
+### Reporting
+
+- **Admin metrics page**: Monthly summary — probe/change rates, post-change success, threshold adjustments made and why
+- **Morning brief**: Flag anomalies mid-cycle if a metric goes critical
+- **This document**: Updated with each threshold change — what was changed, why, what happened
+
+### Change Log
+
+| Date | Change | Rationale | Outcome |
+|------|--------|-----------|---------|
+| 2026-02-09 | Initial thresholds set | Based on competitive research synthesis | Baseline — awaiting real data |
