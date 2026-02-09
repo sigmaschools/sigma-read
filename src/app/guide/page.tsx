@@ -188,17 +188,6 @@ export default function GuideDashboard() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Your Students</h2>
           <div className="flex items-center gap-3">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-2 py-1.5 text-sm border border-[var(--border)] rounded-lg outline-none focus:border-[var(--accent)] transition bg-white"
-            >
-              <option value="status">Sort: Status</option>
-              <option value="name">Sort: Name</option>
-              <option value="score">Sort: Score</option>
-              <option value="sessions">Sort: Sessions</option>
-              <option value="active">Sort: Total</option>
-            </select>
             <input
               type="text"
               value={search}
