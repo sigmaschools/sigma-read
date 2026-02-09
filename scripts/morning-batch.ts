@@ -99,6 +99,7 @@ async function analyzeStudents(): Promise<{
 // ─── Step 2: Fetch News Headlines ───────────────────────────────────────────
 
 async function getNewsHeadlines(): Promise<{ topic: string; source: string }[]> {
+  const today = new Date().toISOString().split("T")[0];
   console.log("📰 Fetching today's news headlines...");
 
   // Primary: Brave Search across mainstream + kid-friendly sources
@@ -118,12 +119,18 @@ async function getNewsHeadlines(): Promise<{ topic: string; source: string }[]> 
     ];
     for (const { q, label } of searches) {
       try {
-        const searchRes = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=5&freshness=pd`, {
-          headers: { "X-Subscription-Token": BRAVE_KEY, Accept: "application/json" },
-        });
-        const data = await searchRes.json();
-        if (data.web?.results) {
-          allHeadlines += `\n${label}:\n${data.web.results.map((r: any) => `- ${r.title} (${r.url})`).join("\n")}\n`;
+        // Try past 24h first, fall back to past week if too few results
+        let results: any[] = [];
+        for (const freshness of ["pd", "pw"]) {
+          const searchRes = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=5&freshness=${freshness}`, {
+            headers: { "X-Subscription-Token": BRAVE_KEY, Accept: "application/json" },
+          });
+          const data = await searchRes.json();
+          results = data.web?.results || [];
+          if (results.length >= 2) break; // enough results from this freshness window
+        }
+        if (results.length > 0) {
+          allHeadlines += `\n${label}:\n${results.map((r: any) => `- ${r.title}${r.published ? ` [${r.published}]` : ""} (${r.url})`).join("\n")}\n`;
         }
       } catch { console.log(`  ⚠️  Search failed: ${label}`); }
     }
@@ -164,17 +171,26 @@ async function getNewsHeadlines(): Promise<{ topic: string; source: string }[]> 
     max_tokens: 2000,
     messages: [{
       role: "user",
-      content: `Here are recent news headlines from kid-friendly sources:\n\n${allHeadlines}\n\nSelect 5-6 stories using this framework:
+      content: `TODAY'S DATE: ${today}
+
+Here are recent news headlines:\n\n${allHeadlines}\n\nSelect 5-6 stories using this framework:
 
 CONTENT BUCKETS:
 - Bucket 1 (aim for 4-5): Universally safe — science, animals, sports, space, technology, weather, human interest, gaming. Almost no parent objects.
 - Bucket 2 (aim for 0-1): Factual current events with civic relevance. Report the WHAT, skip the WHY. Only if genuinely significant.
 - Bucket 3 (AVOID): Genuinely polarizing. Skip entirely.
 
+CRITICAL — RECENCY RULES:
+- Only select stories about events from the PAST 3 DAYS (${today} and the 2 days before).
+- REJECT any headline about events from weeks, months, or years ago — even if the article was recently published. A "2025 Super Bowl recap" published today is NOT current news.
+- Look for date cues in headlines: year numbers, "last year", "last month", season references that don't match the current date.
+- When in doubt about recency, skip the story.
+- The goal is helping students understand what is happening in the world RIGHT NOW.
+
 RULES: Age-appropriate, factual framing, no editorializing, prioritize curiosity over anxiety.
 
 Output as JSON array ONLY:
-[{"topic": "brief description", "source": "source name or URL"}]`
+[{"topic": "brief description of the CURRENT event", "source": "source name or URL"}]`
     }],
   });
 
@@ -283,7 +299,9 @@ async function generateBaseArticle(topic: string, source: string, type: string):
     max_tokens: 2000,
     messages: [{
       role: "user",
-      content: `Write an original nonfiction article for a student.
+      content: `TODAY'S DATE: ${new Date().toISOString().split("T")[0]}
+
+Write an original nonfiction article for a student.
 
 Topic: ${topic}
 Source/context: ${source}
@@ -295,6 +313,7 @@ VOCABULARY RULES: ${guide.vocab}
 
 Requirements:
 - Write an ORIGINAL article grounded in real, current information. Do not fabricate facts.
+- For NEWS articles: write about what is happening NOW (today's date above). Do not write about past events unless they are directly relevant context for a current story. If the topic references an event, make sure the article reflects the CURRENT state of that event.
 - Calibrate sentence length and complexity to the grade level.
 - Make it genuinely interesting. Strong opening that hooks the reader.
 - Short paragraphs (2-4 sentences each).
