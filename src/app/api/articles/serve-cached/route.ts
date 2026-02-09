@@ -62,8 +62,16 @@ export async function POST(req: NextRequest) {
   }
 
   for (const [serveLevel, count] of levelCounts) {
+    // News articles expire after 7 days — don't serve stale news to new students
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
     const cached = await db.select().from(schema.articleCache)
-      .where(and(eq(schema.articleCache.readingLevel, serveLevel), eq(schema.articleCache.flagged, false)))
+      .where(and(
+        eq(schema.articleCache.readingLevel, serveLevel),
+        eq(schema.articleCache.flagged, false),
+        sql`(${schema.articleCache.category} != 'news' OR ${schema.articleCache.generatedDate} IS NULL OR ${schema.articleCache.generatedDate} >= ${sevenDaysAgo.toISOString().split('T')[0]})`,
+      ))
       .orderBy(sql`RANDOM()`)
       .limit(20);
 
