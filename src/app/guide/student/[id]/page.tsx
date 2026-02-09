@@ -284,13 +284,6 @@ export default function StudentDetailPage() {
           </div>
         )}
 
-        {/* Flags */}
-        {insights && insights.avgReadingTime !== null && insights.avgReadingTime < 30 && (
-          <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-700">⚠ Very fast reader — may be skimming</p>
-          </div>
-        )}
-
         {/* Sessions */}
         <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">Reading Sessions</h2>
         <div className="space-y-2">
