@@ -211,9 +211,13 @@ export default function AdminContentPage() {
                     ))}
                   </div>
                   {topic.source && (
-                    <a href={topic.source} target="_blank" rel="noopener" className="block mt-2 text-[11px] text-blue-500 hover:underline truncate">
-                      {(() => { try { return new URL(topic.source).hostname.replace("www.", ""); } catch { return topic.source; } })()}
-                    </a>
+                    topic.source.startsWith("http") ? (
+                      <a href={topic.source} target="_blank" rel="noopener" className="block mt-2 text-[11px] text-blue-500 hover:underline truncate">
+                        {(() => { try { return new URL(topic.source).hostname.replace("www.", ""); } catch { return topic.source; } })()}
+                      </a>
+                    ) : (
+                      <span className="block mt-2 text-[11px] text-[var(--muted)]">{topic.source}</span>
+                    )
                   )}
                 </div>
               )}
