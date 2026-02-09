@@ -21,6 +21,7 @@ interface Topic {
 interface ArchiveDate {
   date: string;
   count: number;
+  categories?: Record<string, number>;
 }
 
 interface ArchiveArticle {
@@ -40,6 +41,12 @@ interface Preview {
   sources: string[];
 }
 
+interface FlagConfirm {
+  topicId: number;
+  topic: string;
+  flagged: boolean;
+}
+
 export default function AdminContentPage() {
   const [batchDate, setBatchDate] = useState("");
   const [isToday, setIsToday] = useState(true);
@@ -53,6 +60,7 @@ export default function AdminContentPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loading, setLoading] = useState(true);
   const [catModal, setCatModal] = useState<string | null>(null);
+  const [flagConfirm, setFlagConfirm] = useState<FlagConfirm | null>(null);
 
   useEffect(() => { loadContent(); }, []);
 
@@ -96,12 +104,19 @@ export default function AdminContentPage() {
     });
   }
 
-  async function flagTopic(topicId: number, flag: boolean) {
+  function handleFlagClick(e: React.MouseEvent, topic: Topic) {
+    e.stopPropagation();
+    setFlagConfirm({ topicId: topic.id, topic: topic.topic, flagged: topic.flagged });
+  }
+
+  async function confirmFlag() {
+    if (!flagConfirm) return;
     await fetch("/api/admin/content", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: topicId, flagged: flag }),
+      body: JSON.stringify({ id: flagConfirm.topicId, flagged: !flagConfirm.flagged }),
     });
+    setFlagConfirm(null);
     loadContent();
   }
 
@@ -110,10 +125,13 @@ export default function AdminContentPage() {
   const catLabel = (cat: string) =>
     cat === "general" ? "Explore" : cat.charAt(0).toUpperCase() + cat.slice(1);
   const catDescription = (cat: string) => {
-    if (cat === "news") return "News articles are sourced from kid-friendly news sites each morning. The batch scrapes headlines, then Claude curates the most interesting and age-appropriate stories. These expose students to current events and build civic literacy. Every news article must pass the \"why did we pick this?\" test — the answer is always \"factually significant event that teaches critical reading.\"";
+    if (cat === "news") return "News articles are sourced from mainstream news outlets each morning via web search. Claude curates the most interesting and age-appropriate stories, then rewrites them at each reading level. All content follows our editorial guidelines: factual framing, no editorializing, age-appropriate language. Every news article must pass the \"why did we pick this?\" test — the answer is always \"factually significant current event that builds awareness of the world.\"";
     if (cat === "interest") return "Interest articles are matched to each student's personal interests, collected during onboarding and refined over time through favorites, topic suggestions, and ratings. The morning batch analyzes aggregated student interests and generates articles on topics students care about. The answer to \"why did we pick this?\" is always \"student's interest.\"";
     return "Explore articles broaden students' horizons beyond their stated interests. These cover fascinating topics students might not seek out on their own — science, history, culture, nature — chosen to spark curiosity. They ensure students aren't trapped in a filter bubble of only what they already like.";
   };
+
+  // Count how many active (unflagged) topics remain
+  const activeTopicCount = topics.filter(t => !t.flagged).length;
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" /></div>;
@@ -131,6 +149,11 @@ export default function AdminContentPage() {
         {batchFailed && (
           <p className="text-sm text-amber-600">
             ⚠️ Morning batch failed — some students may not have fresh articles
+          </p>
+        )}
+        {activeTopicCount === 0 && totalTopics > 0 && (
+          <p className="text-sm text-red-500 mt-1">
+            ⚠️ All articles for this batch are blocked. Students will only see older articles from their buffer.
           </p>
         )}
       </div>
@@ -168,6 +191,49 @@ export default function AdminContentPage() {
         </div>
       )}
 
+      {/* Flag confirmation modal */}
+      {flagConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setFlagConfirm(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-3">
+              {flagConfirm.flagged ? "Unblock Article" : "Block Article"}
+            </h2>
+            <p className="text-sm text-[var(--fg)] mb-2 font-medium">&ldquo;{flagConfirm.topic}&rdquo;</p>
+            {flagConfirm.flagged ? (
+              <p className="text-sm text-[var(--fg)] leading-relaxed mb-5">
+                This will unblock this topic and make it available to students again. The topic will also be removed from the blocked topics list.
+              </p>
+            ) : (
+              <div className="text-sm text-[var(--fg)] leading-relaxed mb-5">
+                <p className="mb-2">Blocking this article will:</p>
+                <ul className="list-disc pl-5 space-y-1 text-[var(--muted)]">
+                  <li>Remove it from all students&apos; article feeds</li>
+                  <li>Flag all reading level versions (L1–L5)</li>
+                  <li>Add the topic to the blocked list so it won&apos;t be regenerated</li>
+                </ul>
+                <p className="mt-3">Use this for content that&apos;s inappropriate, inaccurate, or doesn&apos;t meet editorial standards.</p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setFlagConfirm(null)}
+                className="flex-1 px-4 py-2 text-sm rounded-lg border border-[var(--border)] text-[var(--fg)] hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmFlag}
+                className={`flex-1 px-4 py-2 text-sm rounded-lg text-white transition ${
+                  flagConfirm.flagged ? "bg-green-600 hover:bg-green-700" : "bg-red-500 hover:bg-red-600"
+                }`}
+              >
+                {flagConfirm.flagged ? "Unblock" : "Block"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Today's topics */}
       {totalTopics > 0 ? (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden mb-8">
@@ -184,7 +250,7 @@ export default function AdminContentPage() {
                 <div className="flex items-center gap-3 pr-5 shrink-0">
                   {topic.flagged && <span className="text-xs text-red-400">blocked</span>}
                   <button
-                    onClick={(e) => { e.stopPropagation(); flagTopic(topic.id, !topic.flagged); }}
+                    onClick={(e) => handleFlagClick(e, topic)}
                     className={`p-1.5 transition ${topic.flagged ? "text-green-600 hover:text-green-800" : "text-[var(--muted)] hover:text-red-500"}`}
                     title={topic.flagged ? "Unblock topic" : "Block topic"}
                   >
@@ -245,8 +311,25 @@ export default function AdminContentPage() {
                   <span className="text-sm">
                     {new Date(d.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-[var(--muted)]">{d.count} articles</span>
+                  <div className="flex items-center gap-3">
+                    {/* Category breakdown pills */}
+                    {d.categories && (
+                      <div className="flex gap-1">
+                        {Object.entries(d.categories).sort(([a], [b]) => {
+                          const order: Record<string, number> = { news: 0, interest: 1, general: 2 };
+                          return (order[a] ?? 9) - (order[b] ?? 9);
+                        }).map(([cat, cnt]) => (
+                          <span
+                            key={cat}
+                            className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                            style={{ backgroundColor: catColor(cat) + "20", color: catColor(cat) }}
+                          >
+                            {catLabel(cat)} {cnt}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <span className="text-xs text-[var(--muted)]">{d.count} total</span>
                     <span className="text-xs text-[var(--muted)]">{expandedArchive === d.date ? "▾" : "›"}</span>
                   </div>
                 </button>
