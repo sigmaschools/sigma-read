@@ -14,9 +14,14 @@ export async function POST(req: NextRequest) {
 
   // Filter inappropriate interest suggestions before saving
   if (eventType === "interest_suggestion" && metadata?.topic) {
-    const blocked = /\b(war|weapon|murder|kill|gun|bomb|nuclear|abort|drug|suicide|sex|porn|alcohol|tobacco|self.?harm|terroris)/i;
-    if (blocked.test(metadata.topic)) {
-      return NextResponse.json({ ok: true }); // Silently ignore
+    const topic = metadata.topic.toLowerCase();
+    // Allowlist: legitimate topics that contain blocked substrings
+    const allowed = /star wars|civil war|world war|cold war|drug discovery|drugstore|nuclear energy|nuclear power|nuclear physics|warfare history|revolutionary war/i;
+    if (!allowed.test(topic)) {
+      const blocked = /\b(war(?:fare)?|weapons?|murder|kill(?:ing)?|guns?|bomb(?:ing|s)?|nuclear\s*(?:war|bomb|weapon)|abort(?:ion)?|drugs?(?!\s*(?:store|discovery))|suicid|sex(?:ual)?|porn|alcohol|tobacco|self.?harm|terroris|mass\s*shoot|school\s*shoot|genocide|rape)\b/i;
+      if (blocked.test(topic)) {
+        return NextResponse.json({ ok: true }); // Silently ignore
+      }
     }
   }
 
