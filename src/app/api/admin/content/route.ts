@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
   const batchFailed = batchRanToday && totalCached < 4;
 
   // Sort topics by category: interest, explore, news
-  const catOrder: Record<string, number> = { interest: 0, general: 1, news: 2 };
+  const catOrder: Record<string, number> = { news: 0, interest: 1, general: 2 };
   todayTopics.sort((a, b) => (catOrder[a.category] ?? 9) - (catOrder[b.category] ?? 9));
 
   return NextResponse.json({
@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Sort by category: interest, explore, news (matches today's view)
-  const catOrder: Record<string, number> = { interest: 0, general: 1, news: 2 };
+  const catOrder: Record<string, number> = { news: 0, interest: 1, general: 2 };
   result.sort((a, b) => (catOrder[a.category!] ?? 9) - (catOrder[b.category!] ?? 9));
 
   return NextResponse.json(result);
