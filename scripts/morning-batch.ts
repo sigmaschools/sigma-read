@@ -499,16 +499,16 @@ async function run() {
   // Step 6: Serve to students
   await serveToStudents(students);
 
-  // Step 7: Expire old cache
-  console.log("\n🧹 Expiring old articles...");
+  // Step 7: Flag expired articles (never delete — could orphan student data)
+  console.log("\n🧹 Flagging expired articles...");
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const expiredNews = await sql`DELETE FROM article_cache WHERE category = 'news' AND generated_date < ${sevenDaysAgo} RETURNING id`;
-  const expiredOther = await sql`DELETE FROM article_cache WHERE category != 'news' AND generated_date < ${thirtyDaysAgo} RETURNING id`;
+  const expiredNews = await sql`UPDATE article_cache SET flagged = true WHERE category = 'news' AND generated_date < ${sevenDaysAgo} AND flagged = false RETURNING id`;
+  const expiredOther = await sql`UPDATE article_cache SET flagged = true WHERE category != 'news' AND generated_date < ${thirtyDaysAgo} AND flagged = false RETURNING id`;
   if (expiredNews.length + expiredOther.length > 0) {
-    console.log(`  🗑️ Expired ${expiredNews.length} news + ${expiredOther.length} other articles`);
+    console.log(`  🚩 Flagged ${expiredNews.length} expired news + ${expiredOther.length} expired other articles`);
   } else {
-    console.log("  No expired articles.");
+    console.log("  No newly expired articles.");
   }
 
   console.log(`\n✅ Morning batch complete! Generated ${baseArticles.length} articles × ${levelsNeeded.size} levels\n`);
