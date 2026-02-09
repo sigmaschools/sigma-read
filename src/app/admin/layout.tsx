@@ -5,11 +5,11 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: "🏠" },
-  { href: "/admin/students", label: "Students", icon: "👥" },
-  { href: "/admin/guides", label: "Guides", icon: "👨‍🏫" },
-  { href: "/admin/content", label: "Content", icon: "📄" },
-  { href: "/admin/metrics", label: "Metrics", icon: "📊" },
+  { href: "/admin", label: "Dashboard" },
+  { href: "/admin/content", label: "Content" },
+  { href: "/admin/students", label: "Students" },
+  { href: "/admin/guides", label: "Guides" },
+  { href: "/admin/metrics", label: "Metrics" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -48,7 +48,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   : "text-gray-400 hover:text-white hover:bg-gray-800/50"
               }`}
             >
-              <span>{item.icon}</span>
               <span>{item.label}</span>
             </Link>
           ))}
