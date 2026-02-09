@@ -52,7 +52,7 @@ export default function GuideDashboard() {
   const [students, setStudents] = useState<DashboardStudent[]>([]);
   const [filtered, setFiltered] = useState<DashboardStudent[]>([]);
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"status" | "name" | "score" | "sessions" | "active">("status");
+  const [sortBy, setSortBy] = useState<"status" | "name" | "score" | "sessions" | "active">("score");
   const [loading, setLoading] = useState(true);
   const [guideName, setGuideName] = useState("");
   const [classStats, setClassStats] = useState<ClassStats | null>(null);
@@ -78,7 +78,7 @@ export default function GuideDashboard() {
     else if (sortBy === "score") sorted.sort((a, b) => (b.avgScore ?? -1) - (a.avgScore ?? -1));
     else if (sortBy === "sessions") sorted.sort((a, b) => b.sessionsThisWeek - a.sessionsThisWeek);
     else if (sortBy === "active") sorted.sort((a, b) => b.totalSessions - a.totalSessions);
-    // default "status" keeps server sort
+    // default "score" sort: high to low (matches server sort); "status" keeps original server order
     setFiltered(sorted);
   }, [search, students, sortBy]);
 

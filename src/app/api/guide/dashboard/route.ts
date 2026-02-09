@@ -114,9 +114,9 @@ export async function GET() {
     new: 4,
   };
   dashboardStudents.sort((a, b) => {
-    const orderDiff = statusOrder[a.status] - statusOrder[b.status];
-    if (orderDiff !== 0) return orderDiff;
-    if (a.avgScore !== null && b.avgScore !== null) return a.avgScore - b.avgScore;
+    // High to low by score; nulls (no sessions) sink to bottom
+    if (a.avgScore !== null && b.avgScore !== null) return b.avgScore - a.avgScore;
+    if (a.avgScore === null && b.avgScore === null) return a.name.localeCompare(b.name);
     if (a.avgScore === null) return 1;
     return -1;
   });
