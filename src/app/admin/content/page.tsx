@@ -125,7 +125,7 @@ export default function AdminContentPage() {
   const catLabel = (cat: string) =>
     cat === "general" ? "Explore" : cat.charAt(0).toUpperCase() + cat.slice(1);
   const catDescription = (cat: string) => {
-    if (cat === "news") return "News articles are sourced from mainstream news outlets each morning via web search. Claude curates the most interesting and age-appropriate stories, then rewrites them at each reading level. All content follows our editorial guidelines: factual framing, no editorializing, age-appropriate language. Every news article must pass the \"why did we pick this?\" test — the answer is always \"factually significant current event that builds awareness of the world.\"";
+    if (cat === "news") return "News articles are sourced from a wide range of outlets — mainstream media, science journals, sports coverage, and more. We don't limit ourselves to \"kid-friendly\" sources. Instead, our AI reads real-world reporting and rewrites each story at every reading level with age-appropriate language and framing. Editorial guidelines: factual tone, no editorializing, no graphic or disturbing content, and every article must pass the \"why did we pick this?\" test — the answer is always a factually significant current event that builds awareness of the world.";
     if (cat === "interest") return "Interest articles are matched to each student's personal interests, collected during onboarding and refined over time through favorites, topic suggestions, and ratings. The morning batch analyzes aggregated student interests and generates articles on topics students care about. The answer to \"why did we pick this?\" is always \"student's interest.\"";
     return "Explore articles broaden students' horizons beyond their stated interests. These cover fascinating topics students might not seek out on their own — science, history, culture, nature — chosen to spark curiosity. They ensure students aren't trapped in a filter bubble of only what they already like.";
   };
@@ -161,7 +161,10 @@ export default function AdminContentPage() {
       {/* Category mix bar */}
       {totalTopics > 0 && (
         <div className="flex rounded-lg overflow-hidden h-8 mb-6">
-          {Object.entries(categoryMix).filter(([, c]) => c > 0).map(([cat, cnt]) => (
+          {Object.entries(categoryMix).filter(([, c]) => c > 0).sort(([a], [b]) => {
+            const order: Record<string, number> = { interest: 0, general: 1, news: 2 };
+            return (order[a] ?? 9) - (order[b] ?? 9);
+          }).map(([cat, cnt]) => (
             <button
               key={cat}
               className="flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer hover:brightness-110 transition"
@@ -316,7 +319,7 @@ export default function AdminContentPage() {
                     {d.categories && (
                       <div className="flex gap-1">
                         {Object.entries(d.categories).sort(([a], [b]) => {
-                          const order: Record<string, number> = { news: 0, interest: 1, general: 2 };
+                          const order: Record<string, number> = { interest: 0, general: 1, news: 2 };
                           return (order[a] ?? 9) - (order[b] ?? 9);
                         }).map(([cat, cnt]) => (
                           <span
