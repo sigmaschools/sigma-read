@@ -260,20 +260,18 @@ export default function StudentDetailPage() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-[var(--border)] px-8 py-4">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push("/guide")} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">
-            ← Back
-          </button>
-          <div>
-            <h1 className="text-lg font-semibold">{student.name}</h1>
-            <p className="text-sm text-[var(--muted)]">
-              {student.gradeLevel ? `Grade ${student.gradeLevel}` : ""}{student.gradeLevel && student.readingLevel ? " · " : ""}{student.readingLevel ? levelLabel(student.readingLevel) : ""}
-            </p>
-          </div>
-        </div>
+        <button onClick={() => router.push("/guide")} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">
+          ← Back
+        </button>
       </header>
 
       <div className="max-w-3xl mx-auto px-8 py-6">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold">{student.name}</h1>
+          <p className="text-sm text-[var(--muted)]">
+            {student.gradeLevel ? `Grade ${student.gradeLevel}` : ""}{student.gradeLevel && student.readingLevel ? " · " : ""}{student.readingLevel ? levelLabel(student.readingLevel) : ""}
+          </p>
+        </div>
         {/* Score Trend — only when meaningful variation exists */}
         {renderTrendline() && (
           <div className="mb-6">
