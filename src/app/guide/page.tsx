@@ -183,29 +183,7 @@ export default function GuideDashboard() {
       </header>
 
       <div className="p-8 max-w-5xl mx-auto">
-        {/* Class Stats */}
-        {classStats && (
-          <div className="grid grid-cols-4 gap-3 mb-6">
-            <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
-              <p className="text-2xl font-semibold">{classStats.activeStudents}/{classStats.totalStudents}</p>
-              <p className="text-xs text-[var(--muted)]">Active this week</p>
-            </div>
-            <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
-              <p className="text-2xl font-semibold">{classStats.totalSessionsThisWeek}</p>
-              <p className="text-xs text-[var(--muted)]">Sessions this week</p>
-            </div>
-            <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
-              <p className={`text-2xl font-semibold ${scoreColor(classStats.classAvgScore)}`}>{classStats.classAvgScore ?? "—"}</p>
-              <p className="text-xs text-[var(--muted)]">Class avg score</p>
-            </div>
-            <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center">
-              <p className={`text-2xl font-semibold ${classStats.needsAttention > 0 ? "text-amber-600" : "text-green-600"}`}>{classStats.needsAttention}</p>
-              <p className="text-xs text-[var(--muted)]">Need attention</p>
-            </div>
-          </div>
-        )}
-
-        {/* No alerts/notifications — student list communicates everything via sort order, badges, and scores */}
+        {/* No stats or alerts — the student list is the UI */}
 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Your Students</h2>
