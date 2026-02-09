@@ -163,6 +163,32 @@ export async function GET() {
     globalAlerts.push(`${inactiveCount} student${inactiveCount > 1 ? "s" : ""} had no sessions this week`);
   }
 
+  // Level changes this week — deduplicated to net change per student
+  const levelChanges = await db.select({
+    studentId: schema.levelHistory.studentId,
+    fromLevel: schema.levelHistory.fromLevel,
+    toLevel: schema.levelHistory.toLevel,
+  }).from(schema.levelHistory).where(gte(schema.levelHistory.changedAt, oneWeekAgo))
+    .orderBy(desc(schema.levelHistory.changedAt));
+
+  const latestByStudent = new Map<number, { fromLevel: number; toLevel: number }>();
+  for (const lc of levelChanges) {
+    if (!latestByStudent.has(lc.studentId)) {
+      latestByStudent.set(lc.studentId, { fromLevel: lc.fromLevel, toLevel: lc.toLevel });
+    }
+  }
+
+  const levelUps: string[] = [];
+  const levelDrops: string[] = [];
+  for (const [studentId, lc] of latestByStudent) {
+    const student = students.find(s => s.id === studentId);
+    if (student && lc.toLevel > lc.fromLevel) {
+      levelUps.push(`${student.name.split(" ")[0]} → Level ${lc.toLevel}`);
+    } else if (student && lc.toLevel < lc.fromLevel) {
+      levelDrops.push(`${student.name.split(" ")[0]} → Level ${lc.toLevel}`);
+    }
+  }
+
   // Sort: students with alerts first, then by sessions (ascending — least active first)
   summaries.sort((a, b) => {
     if (a.alerts.length > 0 && b.alerts.length === 0) return -1;
@@ -176,6 +202,8 @@ export async function GET() {
     activeStudents,
     totalSessionsThisWeek,
     globalAlerts,
+    levelUps,
+    levelDrops,
     students: summaries,
   });
 }
