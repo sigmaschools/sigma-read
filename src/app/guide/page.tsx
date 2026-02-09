@@ -254,14 +254,16 @@ export default function GuideDashboard() {
                       <p className={`text-lg font-semibold ${scoreColor(student.avgScore)}`}>
                         {student.avgScore !== null ? student.avgScore : "—"}
                       </p>
-                      <p className="text-xs text-[var(--muted)]">
-                        <span className={
-                          student.sessionsThisWeek >= Math.round((student.weeklySessionTarget || 25) * 0.8) ? "text-green-600" :
-                          student.sessionsThisWeek >= Math.round((student.weeklySessionTarget || 25) * 0.5) ? "text-yellow-600" :
-                          student.sessionsThisWeek > 0 ? "text-red-500" : ""
-                        }>{student.sessionsThisWeek}/{student.weeklySessionTarget || 25}</span>
-                        {" this week · "}{student.totalSessions} total
-                      </p>
+                      {(() => {
+                        // Show "behind this week" only when student is below pace; silence = on track
+                        const target = student.weeklySessionTarget || 5;
+                        const dayOfWeek = new Date().getDay() || 7; // 1=Mon..7=Sun
+                        const expectedByNow = Math.floor((dayOfWeek / 7) * target);
+                        const behind = student.sessionsThisWeek < expectedByNow && expectedByNow > 0;
+                        return behind ? (
+                          <p className="text-xs text-[var(--muted)]">behind this week</p>
+                        ) : null;
+                      })()}
                     </div>
                     {student.status === "inactive" && (
                       <span className="text-xs text-gray-400">Inactive</span>
@@ -376,7 +378,7 @@ export default function GuideDashboard() {
                               <div>
                                 <h4 className="font-medium text-[15px]">{s.name}</h4>
                                 <p className="text-xs text-[var(--muted)]">
-                                  {s.readingLevel ? levelLabel(s.readingLevel) : "Not assessed"} · {s.sessionsThisWeek} session{s.sessionsThisWeek !== 1 ? "s" : ""} this week
+                                  {s.readingLevel ? levelLabel(s.readingLevel) : "Not assessed"}
                                   {s.lastActive && ` · Last active ${s.lastActive}`}
                                 </p>
                               </div>
