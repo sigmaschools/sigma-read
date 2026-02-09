@@ -254,16 +254,7 @@ export default function GuideDashboard() {
                       <p className={`text-lg font-semibold ${scoreColor(student.avgScore)}`}>
                         {student.avgScore !== null ? student.avgScore : "—"}
                       </p>
-                      {(() => {
-                        // Show "behind this week" only when student is below pace; silence = on track
-                        const target = student.weeklySessionTarget || 5;
-                        const dayOfWeek = new Date().getDay() || 7; // 1=Mon..7=Sun
-                        const expectedByNow = Math.floor((dayOfWeek / 7) * target);
-                        const behind = student.sessionsThisWeek < expectedByNow && expectedByNow > 0;
-                        return behind ? (
-                          <p className="text-xs text-[var(--muted)]">behind this week</p>
-                        ) : null;
-                      })()}
+{/* volume info moved to student detail page */}
                     </div>
                     {student.status === "inactive" && (
                       <span className="text-xs text-gray-400">Inactive</span>

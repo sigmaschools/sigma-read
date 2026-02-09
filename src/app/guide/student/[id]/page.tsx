@@ -281,6 +281,25 @@ export default function StudentDetailPage() {
           <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
             <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Sessions</p>
             <p className="font-semibold">{scoredSessions.length}</p>
+            {(() => {
+              const target = (student as any).weeklySessionTarget || 5;
+              const dayOfWeek = new Date().getDay() || 7;
+              const expectedByNow = Math.floor((dayOfWeek / 7) * target);
+              const thisWeek = sessions.filter(s => {
+                if (!s.completedAt) return false;
+                const d = new Date(s.completedAt);
+                const now = new Date();
+                const weekStart = new Date(now);
+                weekStart.setDate(now.getDate() - now.getDay());
+                weekStart.setHours(0, 0, 0, 0);
+                return d >= weekStart;
+              }).length;
+              return thisWeek < expectedByNow && expectedByNow > 0 ? (
+                <p className="text-xs text-amber-600 mt-1">Behind this week ({thisWeek}/{target})</p>
+              ) : (
+                <p className="text-xs text-[var(--muted)] mt-1">{thisWeek} this week</p>
+              );
+            })()}
           </div>
           <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
             <p className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Interests</p>
