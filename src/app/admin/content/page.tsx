@@ -162,7 +162,7 @@ export default function AdminContentPage() {
       {totalTopics > 0 && (
         <div className="flex rounded-lg overflow-hidden h-8 mb-6">
           {Object.entries(categoryMix).filter(([, c]) => c > 0).sort(([a], [b]) => {
-            const order: Record<string, number> = { interest: 0, general: 1, news: 2 };
+            const order: Record<string, number> = { news: 0, interest: 1, general: 2 };
             return (order[a] ?? 9) - (order[b] ?? 9);
           }).map(([cat, cnt]) => (
             <button
@@ -215,6 +215,9 @@ export default function AdminContentPage() {
                   <li>Add the topic to the blocked list so it won&apos;t be regenerated</li>
                 </ul>
                 <p className="mt-3">Use this for content that&apos;s inappropriate, inaccurate, or doesn&apos;t meet editorial standards.</p>
+                {activeTopicCount === 1 && (
+                  <p className="mt-3 text-amber-600 font-medium">⚠️ This is the last active article for today. Blocking it means students will only see older articles from their reading buffer.</p>
+                )}
               </div>
             )}
             <div className="flex gap-3">
@@ -319,7 +322,7 @@ export default function AdminContentPage() {
                     {d.categories && (
                       <div className="flex gap-1">
                         {Object.entries(d.categories).sort(([a], [b]) => {
-                          const order: Record<string, number> = { interest: 0, general: 1, news: 2 };
+                          const order: Record<string, number> = { news: 0, interest: 1, general: 2 };
                           return (order[a] ?? 9) - (order[b] ?? 9);
                         }).map(([cat, cnt]) => (
                           <span
