@@ -273,10 +273,6 @@ export default function StudentDetailPage() {
             </p>
           </div>
         </div>
-        {/* Flags — only show when something needs attention */}
-        {insights && insights.avgReadingTime !== null && insights.avgReadingTime < 30 && (
-          <p className="text-sm text-amber-600 mt-2">⚠ Very fast reader — may be skimming</p>
-        )}
       </header>
 
       <div className="max-w-3xl mx-auto px-8 py-6">
@@ -287,6 +283,13 @@ export default function StudentDetailPage() {
             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
               {renderTrendline()}
             </div>
+          </div>
+        )}
+
+        {/* Flags */}
+        {insights && insights.avgReadingTime !== null && insights.avgReadingTime < 30 && (
+          <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-700">⚠ Very fast reader — may be skimming</p>
           </div>
         )}
 
