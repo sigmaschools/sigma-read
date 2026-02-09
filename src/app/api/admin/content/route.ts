@@ -85,17 +85,30 @@ export async function GET(req: NextRequest) {
   const catMix: Record<string, number> = {};
   todayTopics.forEach(t => { catMix[t.category] = (catMix[t.category] || 0) + 1; });
 
-  // Archive: older batches (just date + count + topics as L4 headlines)
-  const archiveDates = await db.select({
+  // Archive: older batches with category breakdown
+  const archiveRaw = await db.select({
     date: schema.articleCache.generatedDate,
+    category: schema.articleCache.category,
     count: count(),
   }).from(schema.articleCache)
     .where(and(
       sql`${schema.articleCache.baseArticleId} IS NULL`,
       sql`${schema.articleCache.generatedDate} != ${latestBatchDate}`
     ))
-    .groupBy(schema.articleCache.generatedDate)
+    .groupBy(schema.articleCache.generatedDate, schema.articleCache.category)
     .orderBy(desc(schema.articleCache.generatedDate));
+
+  // Group by date
+  const archiveDateMap = new Map<string, { count: number; categories: Record<string, number> }>();
+  for (const row of archiveRaw) {
+    const d = row.date!;
+    if (!archiveDateMap.has(d)) archiveDateMap.set(d, { count: 0, categories: {} });
+    const entry = archiveDateMap.get(d)!;
+    const c = Number(row.count);
+    entry.count += c;
+    entry.categories[row.category!] = c;
+  }
+  const archiveDates = [...archiveDateMap.entries()].map(([date, { count, categories }]) => ({ date, count, categories }));
 
   // Batch failure: only alert if batch ran today but cache is critically low
   const batchRanToday = latestBatchDate === today;
@@ -137,7 +150,7 @@ export async function POST(req: NextRequest) {
       eq(schema.articleCache.generatedDate, date),
       sql`${schema.articleCache.baseArticleId} IS NULL`
     ))
-    .orderBy(schema.articleCache.topic);
+    .orderBy(schema.articleCache.category, schema.articleCache.topic);
 
   // For each, get the L4 version title (most descriptive)
   const result = [];
@@ -157,6 +170,10 @@ export async function POST(req: NextRequest) {
       flagged: a.flagged,
     });
   }
+
+  // Sort by category: news first, then interest, then explore
+  const catOrder: Record<string, number> = { news: 0, interest: 1, general: 2 };
+  result.sort((a, b) => (catOrder[a.category!] ?? 9) - (catOrder[b.category!] ?? 9));
 
   return NextResponse.json(result);
 }
