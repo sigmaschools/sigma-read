@@ -122,11 +122,13 @@ export default function StudentDetailPage() {
   const scoredSessions = sessions.filter((s) => s.score !== null);
   const interests = student.interestProfile;
 
-  // SVG trendline
+  // SVG trendline — only meaningful when scores vary
   function renderTrendline() {
-    if (scoredSessions.length < 2) return <p className="text-sm text-[var(--muted)]">Not enough data yet.</p>;
+    if (scoredSessions.length < 3) return null;
     const scores = scoredSessions.map((s) => s.score!);
-    const w = 600, h = 140, padX = 40, padY = 16;
+    const scoreRange = Math.max(...scores) - Math.min(...scores);
+    if (scoreRange < 10) return null; // flat line = no signal
+    const w = 600, h = 100, padX = 40, padY = 12;
     const chartW = w - padX * 2, chartH = h - padY * 2;
     const min = Math.max(0, Math.min(...scores) - 10);
     const max = Math.min(100, Math.max(...scores) + 10);
@@ -138,7 +140,7 @@ export default function StudentDetailPage() {
     }));
 
     return (
-      <svg width="100%" viewBox={`0 0 ${w} ${h}`}>
+      <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
         {[min, min + range * 0.5, max].map((v, i) => {
           const y = padY + chartH - ((v - min) / range) * chartH;
           return (
@@ -277,12 +279,12 @@ export default function StudentDetailPage() {
         )}
       </header>
 
-      <div className="max-w-3xl mx-auto p-8">
-        {/* Score Trend — compact */}
-        {scoredSessions.length >= 2 && (
-          <div className="mb-8">
-            <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">Score Trend</h2>
-            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4" style={{ maxHeight: "120px" }}>
+      <div className="max-w-3xl mx-auto px-8 py-6">
+        {/* Score Trend — only when meaningful variation exists */}
+        {renderTrendline() && (
+          <div className="mb-6">
+            <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Score Trend</h2>
+            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
               {renderTrendline()}
             </div>
           </div>
