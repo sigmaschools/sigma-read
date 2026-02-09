@@ -263,7 +263,12 @@ export default function GuideDashboard() {
                         {" this week · "}{student.totalSessions} total
                       </p>
                     </div>
-                    {statusBadge(student.status)}
+                    {student.status === "inactive" && (
+                      <span className="text-xs text-gray-400">Inactive</span>
+                    )}
+                    {student.status === "new" && (
+                      <span className="text-xs text-purple-500">New</span>
+                    )}
                   </div>
                 </div>
               </Link>
