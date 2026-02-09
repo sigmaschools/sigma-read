@@ -101,42 +101,52 @@ async function analyzeStudents(): Promise<{
 async function getNewsHeadlines(): Promise<{ topic: string; source: string }[]> {
   console.log("📰 Fetching today's news headlines...");
 
-  const sources = [
-    "https://newsforkids.net/",
-    "https://www.dogonews.com/",
-    "https://www.timeforkids.com/g34/",
-  ];
-
+  // Primary: Brave Search across mainstream + kid-friendly sources
   let allHeadlines = "";
-  for (const url of sources) {
-    try {
-      const res = await fetch(url);
-      const html = await res.text();
-      const titleMatches = html.match(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/gi) || [];
-      const titles = titleMatches.map(t => t.replace(/<[^>]*>/g, "").trim()).filter(t => t.length > 10 && t.length < 200);
-      if (titles.length > 0) {
-        allHeadlines += `\nFrom ${url}:\n${titles.slice(0, 8).map(t => `- ${t}`).join("\n")}\n`;
-      }
-    } catch { console.log(`  ⚠️  Could not fetch ${url}`); }
+  const BRAVE_KEY = process.env.BRAVE_API_KEY || "";
+
+  if (BRAVE_KEY) {
+    const searches = [
+      // Mainstream news — Claude will filter for age-appropriateness
+      { q: "top news today", label: "Top News" },
+      { q: "science discovery news today", label: "Science" },
+      { q: "sports news today", label: "Sports" },
+      { q: "technology news today", label: "Technology" },
+      { q: "space NASA astronomy news", label: "Space" },
+      { q: "animals nature wildlife news", label: "Animals & Nature" },
+      { q: "interesting world news today", label: "World" },
+    ];
+    for (const { q, label } of searches) {
+      try {
+        const searchRes = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=5&freshness=pd`, {
+          headers: { "X-Subscription-Token": BRAVE_KEY, Accept: "application/json" },
+        });
+        const data = await searchRes.json();
+        if (data.web?.results) {
+          allHeadlines += `\n${label}:\n${data.web.results.map((r: any) => `- ${r.title} (${r.url})`).join("\n")}\n`;
+        }
+      } catch { console.log(`  ⚠️  Search failed: ${label}`); }
+    }
   }
 
-  // Supplement with Brave Search
-  try {
-    const BRAVE_KEY = process.env.BRAVE_API_KEY || "";
-    if (BRAVE_KEY) {
-      for (const q of ["interesting science news today kids", "sports news today kids", "animals discovery news"]) {
-        try {
-          const searchRes = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=3&freshness=pd`, {
-            headers: { "X-Subscription-Token": BRAVE_KEY, Accept: "application/json" },
-          });
-          const data = await searchRes.json();
-          if (data.web?.results) {
-            allHeadlines += `\nFrom search "${q}":\n${data.web.results.map((r: any) => `- ${r.title} (${r.url})`).join("\n")}\n`;
-          }
-        } catch {}
-      }
+  // Fallback: scrape kid-friendly sites if Brave returns nothing
+  if (!allHeadlines.trim()) {
+    const kidSources = [
+      "https://newsforkids.net/",
+      "https://www.dogonews.com/",
+    ];
+    for (const url of kidSources) {
+      try {
+        const res = await fetch(url);
+        const html = await res.text();
+        const titleMatches = html.match(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/gi) || [];
+        const titles = titleMatches.map(t => t.replace(/<[^>]*>/g, "").trim()).filter(t => t.length > 10 && t.length < 200);
+        if (titles.length > 0) {
+          allHeadlines += `\nFrom ${url}:\n${titles.slice(0, 8).map(t => `- ${t}`).join("\n")}\n`;
+        }
+      } catch { console.log(`  ⚠️  Could not fetch ${url}`); }
     }
-  } catch {}
+  }
 
   if (!allHeadlines.trim()) {
     console.log("  ⚠️  No headlines fetched, using evergreen fallback");
@@ -483,10 +493,48 @@ async function run() {
 
   // Check for recent topic duplicates (last 14 days)
   const recentTopics = await sql`SELECT topic FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
-  const recentSet = new Set(recentTopics.map(t => t.topic.toLowerCase()));
-  const dedupedTopics = allTopics.filter(t => !recentSet.has(t.topic.toLowerCase()) && !todaysSet.has(t.topic.toLowerCase()));
+  const recentList = recentTopics.map(t => t.topic as string);
+
+  // Semantic dedup via Claude — catch near-duplicates like "Animal Architects" vs "Animal Architecture"
+  let dedupedTopics = allTopics.filter(t => !todaysSet.has(t.topic.toLowerCase()));
+  if (recentList.length > 0 && dedupedTopics.length > 0) {
+    try {
+      const dedupResponse = await anthropic.messages.create({
+        model: SONNET_MODEL,
+        max_tokens: 1000,
+        messages: [{
+          role: "user",
+          content: `I have candidate article topics and recently published topics. Remove any candidate that is semantically too similar to a recent topic (same subject, just different wording).
+
+RECENT TOPICS (last 14 days):
+${recentList.map(t => `- ${t}`).join("\n")}
+
+CANDIDATE TOPICS:
+${dedupedTopics.map((t, i) => `${i}: ${t.topic}`).join("\n")}
+
+Return ONLY a JSON array of the candidate indices to KEEP (not duplicates):
+[0, 2, 5, ...]`
+        }],
+      });
+      const dedupText = dedupResponse.content[0].type === "text" ? dedupResponse.content[0].text : "";
+      const keepMatch = dedupText.match(/\[[\s\S]*?\]/);
+      if (keepMatch) {
+        const keepIndices = new Set(JSON.parse(keepMatch[0]) as number[]);
+        const before = dedupedTopics.length;
+        dedupedTopics = dedupedTopics.filter((_, i) => keepIndices.has(i));
+        if (before !== dedupedTopics.length) {
+          console.log(`♻️ Semantic dedup removed ${before - dedupedTopics.length} near-duplicate topics`);
+        }
+      }
+    } catch (e) {
+      console.log(`⚠️ Semantic dedup failed, falling back to exact match`);
+      const recentSet = new Set(recentList.map(t => t.toLowerCase()));
+      dedupedTopics = dedupedTopics.filter(t => !recentSet.has(t.topic.toLowerCase()));
+    }
+  }
+
   if (allTopics.length !== dedupedTopics.length) {
-    console.log(`♻️ Skipped ${allTopics.length - dedupedTopics.length} recently covered or already-generated topics`);
+    console.log(`♻️ Total skipped: ${allTopics.length - dedupedTopics.length} duplicate/recent topics`);
   }
   const finalTopics = (dedupedTopics.length > 0 ? dedupedTopics : allTopics).slice(0, articlesNeeded);
 
@@ -536,6 +584,29 @@ async function run() {
       }
     }
   }
+
+  // Step 5b: Backfill any base articles missing level adaptations
+  console.log("\n🔧 Checking for incomplete level coverage...\n");
+  const allBases = await sql`
+    SELECT ac.id, ac.topic, ac.title, ac.body_text, ac.sources, ac.category, ac.generated_date,
+      (SELECT array_agg(DISTINCT reading_level ORDER BY reading_level) FROM article_cache WHERE base_article_id = ac.id OR id = ac.id) as levels
+    FROM article_cache ac WHERE base_article_id IS NULL AND flagged = false AND generated_date >= CURRENT_DATE - INTERVAL '7 days'
+  `;
+  const allLevelsArr = [...levelsNeeded];
+  let backfilled = 0;
+  for (const base of allBases) {
+    const missing = allLevelsArr.filter(l => l !== BASE_LEVEL && !base.levels.includes(l));
+    for (const level of missing) {
+      console.log(`  🔧 Backfilling ${base.topic} → L${level}`);
+      const adapted = await adaptArticleToLevel(base.title, base.body_text, level);
+      if (adapted) {
+        await sql`INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date)
+          VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources || [])}, ${adapted.estimatedReadTime}, ${base.category}, ${base.id}, ${base.generated_date})`;
+        backfilled++;
+      }
+    }
+  }
+  if (backfilled > 0) console.log(`  ✅ Backfilled ${backfilled} missing adaptations`);
 
   // Step 6: Serve to students
   await serveToStudents(students);
