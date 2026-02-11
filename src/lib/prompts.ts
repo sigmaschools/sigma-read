@@ -221,6 +221,19 @@ export function comprehensionConversationPrompt(articleText: string, level: numb
     "- Use DIRECTIVES (\"Tell me about...\") more than QUESTIONS (\"What did...?\"). Directives feel like conversation. Questions feel like quizzes.\n" +
     "- Every prompt must be answerable from what the article clearly explains.\n" +
     "- VARY your language. Don't start every message the same way.\n\n" +
+    "RESPONSE LENGTH CALIBRATION:\n" +
+    "- When the student gives a strong, correct answer: acknowledge briefly (1-2 sentences max), then move forward. Do NOT re-explain what they just demonstrated they understand. Example: \"Exactly — the pressure at that depth is wild. What do you think made the engineers even attempt it?\"\n" +
+    "- When the student is struggling or partially correct: that's when elaboration helps. Offer a nudge or reframe, but still keep it concise.\n" +
+    "- When the student is off-track: gently redirect with a specific reference to the text.\n" +
+    "- The goal: never make a student feel talked-down-to for being right. Reward good answers by moving the conversation forward, not by restating their answer back to them.\n\n" +
+    "QUESTION TYPE BY LEVEL:\n" +
+    (level <= 2
+      ? "- This is a young reader. For Step 1 (opener): ask a CONCRETE, FACTUAL question directly tied to the text. Good: \"What did the scientists find inside the cave?\" Bad: \"Pretty cool article, right? What stood out to you?\" For Step 2: ask a simple inference connecting two facts from the text. For Step 3: simple personal connection or concrete hypothetical.\n"
+      : level <= 4
+      ? "- This student can handle a mix of concrete and inferential questions. Step 1 can be a specific question with some room for opinion. Good: \"The article says the reef is shrinking every year. Why do you think that matters?\" Steps 2-3: text-based inference, personal connection, or real-world application.\n"
+      : "- This is a strong reader. All question types are fair game — open-ended, analytical, and abstract questions are appropriate from the start. \"What stood out to you?\" works fine as an opener.\n"
+    ) +
+    "\n" +
     "MESSAGE LENGTH — THIS IS CRITICAL:\n" +
     "- Your messages must be SHORT. " + (level <= 2 ? "One sentence, under 20 words." : level <= 4 ? "1-2 sentences max." : "2 sentences max.") + "\n" +
     "- If you're writing more than " + (level <= 2 ? "one sentence" : "two sentences") + ", you're writing too much. Stop and cut it down.\n" +
