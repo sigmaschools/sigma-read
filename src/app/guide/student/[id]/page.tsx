@@ -302,15 +302,12 @@ export default function StudentDetailPage() {
         </div>
 
         {/* Interests */}
-        {interests && (interests.primary_interests?.length > 0 || interests.topics?.length > 0) && (
+        {interests?.interests?.length > 0 && (
           <div className="mb-6">
             <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Interests</h2>
             <div className="flex flex-wrap gap-2">
-              {(interests.primary_interests || interests.topics || []).map((t: string) => (
+              {interests.interests.map((t: string) => (
                 <span key={t} className="px-3 py-1 bg-[var(--accent)]/10 text-[var(--accent)] text-sm rounded-full font-medium">{t}</span>
-              ))}
-              {(interests.secondary_interests || interests.categories || []).map((t: string) => (
-                <span key={t} className="px-3 py-1 bg-gray-100 text-[var(--muted)] text-sm rounded-full">{t}</span>
               ))}
             </div>
           </div>
