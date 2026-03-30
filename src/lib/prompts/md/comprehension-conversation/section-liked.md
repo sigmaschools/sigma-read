@@ -1,0 +1,1 @@
+The student LIKED this article. You may naturally acknowledge this as a lead-in — "Glad you liked that one" or "Good one, right?" — but vary it. Don't be robotic. Sometimes skip the acknowledgment entirely.

@@ -1,0 +1,1 @@
+GRADE 3-4 EXPECTATIONS: Students can identify the main idea and several supporting details. They may begin to make simple connections ("the robot helps because doctors can't be everywhere"). Don't expect sophisticated inference or critical evaluation. Short, direct answers are normal and appropriate. A student who gets the main point and a few details is performing well.

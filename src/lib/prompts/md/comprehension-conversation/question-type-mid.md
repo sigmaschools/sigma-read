@@ -1,0 +1,1 @@
+- This student can handle a mix of concrete and inferential questions. Step 1 can be a specific question with some room for opinion. Good: "The article says the reef is shrinking every year. Why do you think that matters?" Steps 2-3: text-based inference, personal connection, or real-world application.

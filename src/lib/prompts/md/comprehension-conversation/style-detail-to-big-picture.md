@@ -1,0 +1,3 @@
+1. OPENER: Start with one specific, interesting detail from the article. "The article mentions [specific concrete detail]. Tell me about that." Pick something vivid, not obscure.
+2. ZOOM OUT: From that detail, ask what bigger idea it connects to. "Why does that detail matter for the bigger story here?"
+3. TAKEAWAY: What's the main thing someone should walk away knowing? "If you had to explain this article to a friend in one sentence, what would you say?"
