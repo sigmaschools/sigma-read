@@ -23,12 +23,13 @@ async function main() {
     const raw = student.interest_profile;
     const normalized = normalizeInterestProfile(raw);
 
-    // Check if already canonical
+    // Check if already canonical (new flat shape)
     const isCanonical =
       raw &&
       typeof raw === "object" &&
       !Array.isArray(raw) &&
-      Array.isArray((raw as Record<string, unknown>).primary_interests);
+      Array.isArray((raw as Record<string, unknown>).interests) &&
+      !("primary_interests" in (raw as Record<string, unknown>));
 
     if (isCanonical) {
       console.log(`  ${student.name} (id ${student.id}): already canonical — skipped`);

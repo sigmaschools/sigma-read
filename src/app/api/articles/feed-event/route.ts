@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
 
-const MAX_PRIMARY_INTERESTS = 10;
+const MAX_INTERESTS = 10;
 
 // Track article feed events (show_me_different clicks, etc.)
 export async function POST(req: NextRequest) {
@@ -46,15 +46,15 @@ export async function POST(req: NextRequest) {
 
       if (student) {
         const profile = normalizeInterestProfile(student.interestProfile);
-        const lowerExisting = profile.primary_interests.map(i => i.toLowerCase());
+        const lowerExisting = profile.interests.map(i => i.toLowerCase());
 
         // Only add if not already present (case-insensitive)
         if (!lowerExisting.includes(suggestion.toLowerCase())) {
-          profile.primary_interests.push(suggestion);
+          profile.interests.push(suggestion);
 
-          // Cap at MAX_PRIMARY_INTERESTS — drop oldest (first) entries to make room
-          if (profile.primary_interests.length > MAX_PRIMARY_INTERESTS) {
-            profile.primary_interests = profile.primary_interests.slice(-MAX_PRIMARY_INTERESTS);
+          // Cap at MAX_INTERESTS — drop oldest (first) entries to make room
+          if (profile.interests.length > MAX_INTERESTS) {
+            profile.interests = profile.interests.slice(-MAX_INTERESTS);
           }
 
           await db.update(schema.students)

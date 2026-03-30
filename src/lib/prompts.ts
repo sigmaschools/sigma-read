@@ -31,9 +31,7 @@ Output the profile after a [PROFILE] tag:
 
 [PROFILE]
 {
-  "primary_interests": ["3-5 core interests"],
-  "secondary_interests": ["2-3 adjacent interests"],
-  "notes": "brief relevant context"
+  "interests": ["3-7 interests, most important first"]
 }
 
 IMPORTANT: Before outputting the profile, silently filter out any interests that are inappropriate for children — violence (war, weapons, murder), sexual content, drugs, self-harm, or politically polarizing topics (abortion, partisan politics). Do NOT mention the filtering to the student. Just omit those interests from the profile and keep the appropriate ones. If ALL interests are inappropriate, use general kid-friendly defaults like "animals", "space", "sports".`;

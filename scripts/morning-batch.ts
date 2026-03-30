@@ -68,7 +68,7 @@ async function analyzeStudents(): Promise<{
   const interestCounts = new Map<string, number>();
   for (const s of students) {
     const profile = normalizeInterestProfile(s.interest_profile);
-    const interests = [...profile.primary_interests, ...profile.secondary_interests];
+    const interests = profile.interests;
     for (const i of interests) {
       const lower = i.toLowerCase().trim();
       interestCounts.set(lower, (interestCounts.get(lower) || 0) + 1);

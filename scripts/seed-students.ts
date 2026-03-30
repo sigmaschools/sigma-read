@@ -6,7 +6,7 @@ const sql = neon(process.env.DATABASE_URL!);
 const STUDENTS = [
   {
     name: "Emma", username: "emma", level: 3,
-    interests: { primary_interests: ["marine biology", "art", "cooking"], secondary_interests: ["travel", "photography"], notes: "Loves ocean documentaries" },
+    interests: { interests: ["marine biology", "art", "cooking", "travel", "photography"] },
     sessions: [
       { score: 82, rating: "Strong", understood: "Emma grasped the main concept and connected it to prior knowledge about ecosystems.", missed: "Missed some vocabulary around chemical processes. Didn't engage with the data section.", engagement: "Engaged and asked follow-up questions. Showed genuine curiosity." },
       { score: 71, rating: "Solid", understood: "Understood the central narrative and key characters. Good recall of specific details.", missed: "Struggled with the cause-and-effect chain in the middle section. Missed the author's main argument.", engagement: "Steady engagement but responses were brief." },
@@ -16,7 +16,7 @@ const STUDENTS = [
   },
   {
     name: "Jayden", username: "jayden", level: 2,
-    interests: { primary_interests: ["basketball", "video games", "cars"], secondary_interests: ["music", "sneakers"], notes: "Competitive, loves stats and rankings" },
+    interests: { interests: ["basketball", "video games", "cars", "music", "sneakers"] },
     sessions: [
       { score: 65, rating: "Solid", understood: "Got the main idea and a few supporting details. Understood the competitive angle.", missed: "Missed nuance in the comparison section. Vocabulary gaps on technical terms.", engagement: "Engaged when the topic connected to sports. Less so on technical sections." },
       { score: 58, rating: "Developing", understood: "Recalled the opening hook and conclusion. Basic understanding of the topic.", missed: "Missed most of the middle section details. Couldn't explain the cause-and-effect relationship.", engagement: "Short responses. Seemed distracted toward the end." },
@@ -25,7 +25,7 @@ const STUDENTS = [
   },
   {
     name: "Sofia", username: "sofia", level: 4,
-    interests: { primary_interests: ["astronomy", "writing", "mythology"], secondary_interests: ["philosophy", "languages"], notes: "Advanced reader, loves complex narratives" },
+    interests: { interests: ["astronomy", "writing", "mythology", "philosophy", "languages"] },
     sessions: [
       { score: 94, rating: "Strong", understood: "Exceptional comprehension. Identified the thesis, supporting arguments, and counterpoints. Made inferences beyond the text.", missed: "Nothing significant. Noted one minor factual detail she wasn't sure about.", engagement: "Deeply engaged. Asked questions that went beyond the article content." },
       { score: 91, rating: "Strong", understood: "Articulated complex relationships between concepts. Drew parallels to Greek mythology she'd read.", missed: "Slightly confused one timeline detail but self-corrected.", engagement: "Enthusiastic and articulate. Natural conversationalist." },
@@ -36,7 +36,7 @@ const STUDENTS = [
   },
   {
     name: "Marcus", username: "marcus", level: 1,
-    interests: { primary_interests: ["dinosaurs", "Legos", "dogs"], secondary_interests: ["volcanoes", "trucks"], notes: "Youngest reader, enthusiastic but needs support" },
+    interests: { interests: ["dinosaurs", "Legos", "dogs", "volcanoes", "trucks"] },
     sessions: [
       { score: 45, rating: "Developing", understood: "Remembered the main topic and one or two vivid details (the size comparison).", missed: "Couldn't articulate the main idea. Mixed up several key facts. Vocabulary was a barrier.", engagement: "Tried hard but seemed frustrated. Shortened responses toward the end." },
       { score: 52, rating: "Developing", understood: "Better recall this time. Got the basic who/what/where. Enjoyed the animal content.", missed: "Missed the why — couldn't explain motivations or causes. Timeline was jumbled.", engagement: "More relaxed than last session. The dog-related content helped." },
@@ -45,7 +45,7 @@ const STUDENTS = [
   },
   {
     name: "Aisha", username: "aisha", level: 3,
-    interests: { primary_interests: ["fashion design", "dance", "social justice"], secondary_interests: ["psychology", "entrepreneurship"], notes: "Creative thinker, strong opinions" },
+    interests: { interests: ["fashion design", "dance", "social justice", "psychology", "entrepreneurship"] },
     sessions: [
       { score: 78, rating: "Strong", understood: "Clear understanding of the central argument. Connected it to her own observations about fairness.", missed: "Glossed over the historical context section. Focused more on the opinion than the evidence.", engagement: "Very engaged. Had strong reactions and wanted to debate." },
       { score: 74, rating: "Solid", understood: "Good comprehension of the narrative arc. Identified the turning point correctly.", missed: "Missed some technical details in the process description.", engagement: "Steady engagement. Asked one really insightful question." },
@@ -55,7 +55,7 @@ const STUDENTS = [
   },
   {
     name: "Liam", username: "liam", level: 2,
-    interests: { primary_interests: ["fishing", "hunting", "football"], secondary_interests: ["woodworking", "camping"], notes: "Hands-on learner, prefers concrete topics" },
+    interests: { interests: ["fishing", "hunting", "football", "woodworking", "camping"] },
     sessions: [
       { score: 63, rating: "Solid", understood: "Good recall of concrete facts and numbers. Understood the practical applications.", missed: "Struggled with abstract reasoning. Couldn't connect the concept to the bigger picture.", engagement: "Engaged when discussing practical, real-world applications." },
       { score: 55, rating: "Developing", understood: "Remembered the opening and a few details. Got the general topic.", missed: "Lost the thread in the middle. Couldn't distinguish between two key concepts.", engagement: "Fading attention. Responses got shorter as the conversation went on." },
@@ -63,7 +63,7 @@ const STUDENTS = [
   },
   {
     name: "Zara", username: "zara", level: 3,
-    interests: { primary_interests: ["robotics", "math", "chess"], secondary_interests: ["coding", "puzzles"], notes: "Analytical thinker, enjoys problem-solving" },
+    interests: { interests: ["robotics", "math", "chess", "coding", "puzzles"] },
     sessions: [
       { score: 85, rating: "Strong", understood: "Precise recall of technical details. Explained the process step-by-step. Strong analytical thinking.", missed: "Less attentive to the human interest angle of the story.", engagement: "Focused and methodical. Asked clarifying questions about specifics." },
       { score: 79, rating: "Strong", understood: "Good understanding of the logical structure. Identified patterns the article described.", missed: "Missed some contextual/historical background.", engagement: "Consistent engagement. Preferred the data-heavy sections." },
@@ -72,7 +72,7 @@ const STUDENTS = [
   },
   {
     name: "Diego", username: "diego", level: 2,
-    interests: { primary_interests: ["soccer", "cooking", "comics"], secondary_interests: ["animation", "music"], notes: "Bilingual (Spanish/English), creative storyteller" },
+    interests: { interests: ["soccer", "cooking", "comics", "animation", "music"] },
     sessions: [
       { score: 70, rating: "Solid", understood: "Good understanding of the narrative. Retold the story in his own words effectively.", missed: "Some vocabulary gaps. Confused two similar-sounding terms.", engagement: "Engaged and expressive. Used gestures while explaining." },
       { score: 66, rating: "Solid", understood: "Got the basic facts right. Understood the sequence of events.", missed: "Missed the deeper significance. Took the article at face value.", engagement: "Moderate engagement. Perked up when food was mentioned." },

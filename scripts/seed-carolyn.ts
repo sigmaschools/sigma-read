@@ -50,7 +50,7 @@ async function main() {
       guideId,
       readingLevel: s.level,
       onboardingComplete: true,
-      interestProfile: { primary_interests: ["science", "animals"], secondary_interests: ["art"] },
+      interestProfile: { interests: ["science", "animals", "art"] },
     }).returning();
     console.log(`Created student ${s.name} (id: ${student.id})`);
   }
