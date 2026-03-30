@@ -314,8 +314,11 @@ main().catch(console.error);
 ```
 
 - Use `wvaughan@gmail.com` as git author (Vercel team requirement)
-- Push to `main` branch on `sigmaschools/sigma-reader`
-- Deploy with `npx vercel --prod`
+- All changes go through PRs to `main` — no direct pushes
+- Branch naming: `fix/`, `feat/`, `chore/` prefixes
+- CI must pass (build on Node 20 + 22) before merging
+- Merge with squash: `gh pr merge --squash --delete-branch`
+- Vercel auto-deploys from `main` on merge
 
 ---
 

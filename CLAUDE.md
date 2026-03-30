@@ -57,11 +57,23 @@ Additional rules:
 
 ## Git & Deployment
 
-- Repo: `sigmaschools/sigma-reader` on GitHub
-- Branch: `main`
+- Repo: `sigmaschools/sigma-read` on GitHub
+- Default branch: `main` (protected — no direct pushes)
 - Git author: `wvaughan@gmail.com`
-- Deploy: Vercel (auto-deploys from main, or `npx vercel --prod`)
+- Deploy: Vercel (auto-deploys from main on merge)
 - Commit style: short description, optional bullet details (see git log)
+
+### PR Workflow (required)
+
+All changes must go through pull requests. Direct pushes to `main` are blocked.
+
+1. Create a feature branch: `git checkout -b <descriptive-branch-name>`
+2. Make changes, commit to the branch
+3. Push branch and create PR: `git push -u origin <branch> && gh pr create`
+4. CI runs automatically: build on Node 20 + 22, AI code review on PRs
+5. Once CI passes, merge the PR: `gh pr merge --squash --delete-branch`
+
+Branch naming: use short descriptive names like `fix/admin-student-access`, `feat/daily-recap-email`, `chore/update-deps`.
 
 ## What to Be Careful With
 
