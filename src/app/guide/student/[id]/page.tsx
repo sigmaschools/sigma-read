@@ -60,18 +60,30 @@ export default function StudentDetailPage() {
   const [insights, setInsights] = useState<StudentInsights | null>(null);
   const [selectedSession, setSelectedSession] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
   }, [id]);
 
+  function backPath() {
+    return role === "admin" ? "/admin/students" : "/guide";
+  }
+
   async function loadData() {
     try {
+      const meRes = await fetch("/api/auth/me");
+      if (!meRes.ok) { router.push("/login"); return; }
+      const me = await meRes.json();
+      if (me.role !== "guide" && me.role !== "admin") { router.push("/login"); return; }
+      setRole(me.role);
+
       const studRes = await fetch("/api/students");
-      if (!studRes.ok) { router.push("/guide"); return; }
+      if (!studRes.ok) { setError("Could not load student data."); setLoading(false); return; }
       const studs = await studRes.json();
       const s = Array.isArray(studs) && studs.find((st: Student) => st.id === parseInt(id as string));
-      if (!s) { router.push("/guide"); return; }
+      if (!s) { setError("Student not found."); setLoading(false); return; }
       setStudent(s);
 
       const [repRes, insightsRes] = await Promise.all([
@@ -83,8 +95,7 @@ export default function StudentDetailPage() {
       const ins = await insightsRes.json();
       if (!ins.error) setInsights(ins);
     } catch {
-      router.push("/guide");
-      return;
+      setError("Something went wrong.");
     }
     setLoading(false);
   }
@@ -117,10 +128,21 @@ export default function StudentDetailPage() {
     return labels[sa] || sa;
   };
 
-  if (loading || !student) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !student) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-3">
+        <p className="text-[var(--muted)]">{error || "Student not found."}</p>
+        <button onClick={() => router.push(backPath())} className="text-sm text-[var(--accent)] hover:underline">
+          ← Go back
+        </button>
       </div>
     );
   }
@@ -266,7 +288,7 @@ export default function StudentDetailPage() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-[var(--border)] px-8 py-4">
-        <button onClick={() => router.push("/guide")} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">
+        <button onClick={() => router.push(backPath())} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">
           ← Back
         </button>
       </header>
