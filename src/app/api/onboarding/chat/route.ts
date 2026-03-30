@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { INTEREST_INTERVIEW, READING_LEVEL_ASSESSMENT } from "@/lib/prompts";
+import { normalizeInterestProfile } from "@/lib/normalize-interests";
 
 const anthropic = new Anthropic();
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   const profileMatch = assistantText.match(/\[PROFILE\]\s*(\{[\s\S]*?\})/);
   if (profileMatch) {
     try {
-      const profile = JSON.parse(profileMatch[1]);
+      const profile = normalizeInterestProfile(JSON.parse(profileMatch[1]));
       // Save profile, set default reading level 2 (grade 5-6), mark onboarding complete
       // Reading level will be calibrated from their first comprehension session
       await db.update(schema.students)

@@ -20,6 +20,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
+import { normalizeInterestProfile } from "../src/lib/normalize-interests";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -66,9 +67,8 @@ async function analyzeStudents(): Promise<{
   // Aggregate interests across all students
   const interestCounts = new Map<string, number>();
   for (const s of students) {
-    const profile = s.interest_profile as any;
-    if (!profile) continue;
-    const interests = [...(profile.primary_interests || []), ...(profile.secondary_interests || [])];
+    const profile = normalizeInterestProfile(s.interest_profile);
+    const interests = [...profile.primary_interests, ...profile.secondary_interests];
     for (const i of interests) {
       const lower = i.toLowerCase().trim();
       interestCounts.set(lower, (interestCounts.get(lower) || 0) + 1);
