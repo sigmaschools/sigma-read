@@ -6,9 +6,11 @@ import { eq } from "drizzle-orm";
 
 export async function GET() {
   const session = await getSession();
-  if (!session || session.role !== "guide") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || (session.role !== "guide" && session.role !== "admin")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const studentList = await db.select().from(schema.students).where(eq(schema.students.guideId, session.userId));
+  const studentList = session.role === "admin"
+    ? await db.select().from(schema.students)
+    : await db.select().from(schema.students).where(eq(schema.students.guideId, session.userId));
   return NextResponse.json(studentList);
 }
 
