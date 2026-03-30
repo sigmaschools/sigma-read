@@ -4,29 +4,49 @@ import { normalizeInterestProfile } from "./normalize-interests";
 // ─── Test: Already correct shape ────────────────────────────────────────────
 {
   const result = normalizeInterestProfile({
-    primary_interests: ["space", "dinosaurs"],
-    secondary_interests: ["cooking"],
-    notes: "loves rockets",
+    interests: ["space", "dinosaurs", "cooking"],
   });
   assert.deepStrictEqual(result, {
-    primary_interests: ["space", "dinosaurs"],
-    secondary_interests: ["cooking"],
-    notes: "loves rockets",
+    interests: ["space", "dinosaurs", "cooking"],
   });
   console.log("✅ Already correct shape");
 }
 
-// ─── Test: Correct shape without notes ──────────────────────────────────────
+// ─── Test: Legacy primary_interests + secondary_interests ───────────────────
 {
   const result = normalizeInterestProfile({
     primary_interests: ["soccer"],
     secondary_interests: ["art"],
   });
   assert.deepStrictEqual(result, {
-    primary_interests: ["soccer"],
-    secondary_interests: ["art"],
+    interests: ["soccer", "art"],
   });
-  console.log("✅ Correct shape without notes (no notes key added)");
+  console.log("✅ Legacy primary + secondary merged");
+}
+
+// ─── Test: Legacy with notes (notes dropped) ───────────────────────────────
+{
+  const result = normalizeInterestProfile({
+    primary_interests: ["space", "dinosaurs"],
+    secondary_interests: ["cooking"],
+    notes: "loves rockets",
+  });
+  assert.deepStrictEqual(result, {
+    interests: ["space", "dinosaurs", "cooking"],
+  });
+  console.log("✅ Legacy with notes — notes dropped");
+}
+
+// ─── Test: Deduplicates when merging primary + secondary (case-insensitive) ─
+{
+  const result = normalizeInterestProfile({
+    primary_interests: ["Space", "dinosaurs"],
+    secondary_interests: ["space", "cooking"],
+  });
+  assert.deepStrictEqual(result, {
+    interests: ["Space", "dinosaurs", "cooking"],
+  });
+  console.log("✅ Deduplicates primary + secondary (case-insensitive, first wins)");
 }
 
 // ─── Test: topics/categories format (Max's profile) ─────────────────────────
@@ -36,30 +56,27 @@ import { normalizeInterestProfile } from "./normalize-interests";
     categories: ["gaming", "tactical sports", "space exploration", "emergency services"],
   });
   assert.deepStrictEqual(result, {
-    primary_interests: ["StarCraft", "airsoft", "SpaceX", "firefighting", "fire suppression systems", "paramedics"],
-    secondary_interests: ["gaming", "tactical sports", "space exploration", "emergency services"],
+    interests: ["StarCraft", "airsoft", "SpaceX", "firefighting", "fire suppression systems", "paramedics", "gaming", "tactical sports", "space exploration", "emergency services"],
   });
   console.log("✅ topics/categories format (Max's profile)");
 }
 
-// ─── Test: Flat array — 5 or fewer all go to primary ────────────────────────
+// ─── Test: Flat array ───────────────────────────────────────────────────────
 {
   const result = normalizeInterestProfile(["space", "robots", "dogs"]);
   assert.deepStrictEqual(result, {
-    primary_interests: ["space", "robots", "dogs"],
-    secondary_interests: [],
+    interests: ["space", "robots", "dogs"],
   });
-  console.log("✅ Flat array (≤5 items)");
+  console.log("✅ Flat array");
 }
 
-// ─── Test: Flat array — more than 5, overflow to secondary ──────────────────
+// ─── Test: Flat array with duplicates ───────────────────────────────────────
 {
-  const result = normalizeInterestProfile(["a", "b", "c", "d", "e", "f", "g"]);
+  const result = normalizeInterestProfile(["space", "Space", "dogs", "DOGS"]);
   assert.deepStrictEqual(result, {
-    primary_interests: ["a", "b", "c", "d", "e"],
-    secondary_interests: ["f", "g"],
+    interests: ["space", "dogs"],
   });
-  console.log("✅ Flat array (>5 items splits at 5)");
+  console.log("✅ Flat array deduplicates");
 }
 
 // ─── Test: Unknown object with string arrays ────────────────────────────────
@@ -70,8 +87,7 @@ import { normalizeInterestProfile } from "./normalize-interests";
     age: 10, // non-array field, should be ignored
   });
   assert.deepStrictEqual(result, {
-    primary_interests: ["painting", "chess", "math", "science"],
-    secondary_interests: [],
+    interests: ["painting", "chess", "math", "science"],
   });
   console.log("✅ Unknown object with string arrays merged");
 }
@@ -79,39 +95,27 @@ import { normalizeInterestProfile } from "./normalize-interests";
 // ─── Test: null / undefined ─────────────────────────────────────────────────
 {
   const result = normalizeInterestProfile(null);
-  assert.deepStrictEqual(result, {
-    primary_interests: [],
-    secondary_interests: [],
-  });
+  assert.deepStrictEqual(result, { interests: [] });
   console.log("✅ null returns empty profile");
 }
 
 {
   const result = normalizeInterestProfile(undefined);
-  assert.deepStrictEqual(result, {
-    primary_interests: [],
-    secondary_interests: [],
-  });
+  assert.deepStrictEqual(result, { interests: [] });
   console.log("✅ undefined returns empty profile");
 }
 
 // ─── Test: Empty object ─────────────────────────────────────────────────────
 {
   const result = normalizeInterestProfile({});
-  assert.deepStrictEqual(result, {
-    primary_interests: [],
-    secondary_interests: [],
-  });
+  assert.deepStrictEqual(result, { interests: [] });
   console.log("✅ Empty object returns empty profile");
 }
 
 // ─── Test: String (unexpected primitive) ────────────────────────────────────
 {
   const result = normalizeInterestProfile("just a string");
-  assert.deepStrictEqual(result, {
-    primary_interests: [],
-    secondary_interests: [],
-  });
+  assert.deepStrictEqual(result, { interests: [] });
   console.log("✅ String returns empty profile");
 }
 
