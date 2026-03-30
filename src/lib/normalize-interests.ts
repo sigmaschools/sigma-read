@@ -1,60 +1,56 @@
 export interface NormalizedProfile {
-  primary_interests: string[];
-  secondary_interests: string[];
-  notes?: string;
+  interests: string[];
 }
 
 /**
- * Normalizes any interest profile shape into the canonical form expected
- * by the morning batch and other consumers.
+ * Normalizes any interest profile shape into the canonical form: { interests: string[] }.
  *
  * Handles:
- * - Already correct: {primary_interests, secondary_interests, notes?}
- * - topics/categories: {topics, categories}
+ * - Already correct: {interests: [...]}
+ * - Legacy: {primary_interests, secondary_interests, notes?} → merge, deduplicate
+ * - topics/categories: {topics, categories} → merge, deduplicate
  * - Flat array: ["interest1", "interest2", ...]
  * - Unknown object with string arrays: merges all string[] values
  * - null/undefined/primitives: returns empty profile
+ *
+ * Deduplication is case-insensitive; the first occurrence wins.
  */
 export function normalizeInterestProfile(raw: unknown): NormalizedProfile {
   if (raw == null || typeof raw !== "object") {
-    return { primary_interests: [], secondary_interests: [] };
+    return { interests: [] };
   }
 
-  // Flat array — first 5 primary, rest secondary
+  // Flat array
   if (Array.isArray(raw)) {
     const strings = raw.filter((v): v is string => typeof v === "string");
-    return {
-      primary_interests: strings.slice(0, 5),
-      secondary_interests: strings.slice(5),
-    };
+    return { interests: dedupe(strings) };
   }
 
   const obj = raw as Record<string, unknown>;
 
-  // Already canonical shape
-  if (Array.isArray(obj.primary_interests)) {
-    const result: NormalizedProfile = {
-      primary_interests: obj.primary_interests.filter((v): v is string => typeof v === "string"),
-      secondary_interests: Array.isArray(obj.secondary_interests)
-        ? obj.secondary_interests.filter((v): v is string => typeof v === "string")
-        : [],
-    };
-    if (typeof obj.notes === "string") {
-      result.notes = obj.notes;
-    }
-    return result;
+  // New canonical shape
+  if (Array.isArray(obj.interests)) {
+    return { interests: dedupe(obj.interests.filter((v): v is string => typeof v === "string")) };
   }
 
-  // topics/categories shape
+  // Legacy: primary_interests + secondary_interests
+  if (Array.isArray(obj.primary_interests)) {
+    const primary = obj.primary_interests.filter((v): v is string => typeof v === "string");
+    const secondary = Array.isArray(obj.secondary_interests)
+      ? obj.secondary_interests.filter((v): v is string => typeof v === "string")
+      : [];
+    return { interests: dedupe([...primary, ...secondary]) };
+  }
+
+  // Legacy: topics/categories
   if (Array.isArray(obj.topics) || Array.isArray(obj.categories)) {
-    return {
-      primary_interests: Array.isArray(obj.topics)
-        ? obj.topics.filter((v): v is string => typeof v === "string")
-        : [],
-      secondary_interests: Array.isArray(obj.categories)
-        ? obj.categories.filter((v): v is string => typeof v === "string")
-        : [],
-    };
+    const topics = Array.isArray(obj.topics)
+      ? obj.topics.filter((v): v is string => typeof v === "string")
+      : [];
+    const categories = Array.isArray(obj.categories)
+      ? obj.categories.filter((v): v is string => typeof v === "string")
+      : [];
+    return { interests: dedupe([...topics, ...categories]) };
   }
 
   // Unknown object — merge all string arrays
@@ -66,8 +62,19 @@ export function normalizeInterestProfile(raw: unknown): NormalizedProfile {
       }
     }
   }
-  return {
-    primary_interests: allStrings,
-    secondary_interests: [],
-  };
+  return { interests: dedupe(allStrings) };
+}
+
+/** Case-insensitive deduplicate, first occurrence wins. */
+function dedupe(items: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of items) {
+    const lower = item.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      result.push(item);
+    }
+  }
+  return result;
 }
