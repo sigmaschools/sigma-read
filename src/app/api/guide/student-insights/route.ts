@@ -6,15 +6,17 @@ import { eq, and, desc, sql } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session || session.role !== "guide") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || (session.role !== "guide" && session.role !== "admin")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const studentId = parseInt(req.nextUrl.searchParams.get("studentId") || "0");
   if (!studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 });
 
-  // Verify this student belongs to this guide
-  const [student] = await db.select().from(schema.students).where(
-    and(eq(schema.students.id, studentId), eq(schema.students.guideId, session.userId))
-  ).limit(1);
+  // Verify this student belongs to this guide (admins can view any student)
+  const [student] = session.role === "admin"
+    ? await db.select().from(schema.students).where(eq(schema.students.id, studentId)).limit(1)
+    : await db.select().from(schema.students).where(
+        and(eq(schema.students.id, studentId), eq(schema.students.guideId, session.userId))
+      ).limit(1);
   if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Self-assessment calibration

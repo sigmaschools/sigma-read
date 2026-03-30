@@ -66,20 +66,26 @@ export default function StudentDetailPage() {
   }, [id]);
 
   async function loadData() {
-    const studRes = await fetch("/api/students");
-    const studs = await studRes.json();
-    const s = studs.find((st: Student) => st.id === parseInt(id as string));
-    if (!s) { router.push("/guide"); return; }
-    setStudent(s);
+    try {
+      const studRes = await fetch("/api/students");
+      if (!studRes.ok) { router.push("/guide"); return; }
+      const studs = await studRes.json();
+      const s = Array.isArray(studs) && studs.find((st: Student) => st.id === parseInt(id as string));
+      if (!s) { router.push("/guide"); return; }
+      setStudent(s);
 
-    const [repRes, insightsRes] = await Promise.all([
-      fetch(`/api/reports?studentId=${id}`),
-      fetch(`/api/guide/student-insights?studentId=${id}`),
-    ]);
-    const reps = await repRes.json();
-    setSessions(reps);
-    const ins = await insightsRes.json();
-    if (!ins.error) setInsights(ins);
+      const [repRes, insightsRes] = await Promise.all([
+        fetch(`/api/reports?studentId=${id}`),
+        fetch(`/api/guide/student-insights?studentId=${id}`),
+      ]);
+      const reps = await repRes.json();
+      if (Array.isArray(reps)) setSessions(reps);
+      const ins = await insightsRes.json();
+      if (!ins.error) setInsights(ins);
+    } catch {
+      router.push("/guide");
+      return;
+    }
     setLoading(false);
   }
 
