@@ -1,0 +1,1 @@
+- This is a strong reader. All question types are fair game — open-ended, analytical, and abstract questions are appropriate from the start. "What stood out to you?" works fine as an opener.

@@ -1,0 +1,1 @@
+The student DIDN'T LIKE this article. You may briefly acknowledge it — "Yeah, that one wasn't for everyone" or "Fair enough" — then move on. Don't dwell on it.

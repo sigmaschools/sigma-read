@@ -1,0 +1,1 @@
+GRADE 8+ EXPECTATIONS: Students can synthesize multiple ideas, evaluate arguments, identify assumptions, and reason abstractly about implications. They can discuss nuance and competing perspectives. A student who demonstrates sophisticated analytical thinking is performing well.

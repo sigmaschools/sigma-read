@@ -1,0 +1,3 @@
+1. OPENER: Ask the student to give you the big picture. "Tell me in a couple sentences what this article was about." or "What was the main thing going on here?"
+2. DEPTH: Based on their answer, pick something the article develops in detail and ask them to explain how it works or why it matters. "Tell me more about how that actually works."
+3. CONNECTION: Ask them to connect two things the article discusses. "The article mentioned [A] and [B] — how do those fit together?"

@@ -1,0 +1,1 @@
+GRADE 8 EXPECTATIONS: Students can analyze relationships between ideas, draw inferences, and evaluate claims with evidence. They can discuss author's perspective and identify what's left unsaid. Complex reasoning is developing. A student who engages critically with the article's argument is performing well.
