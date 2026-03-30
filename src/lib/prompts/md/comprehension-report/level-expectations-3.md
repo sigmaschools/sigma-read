@@ -1,0 +1,1 @@
+GRADE 5-6 EXPECTATIONS: Students can summarize the article's main idea and explain how key details support it. Basic cause-and-effect reasoning is developing. They may offer simple opinions backed by article evidence. Don't expect nuanced analysis or evaluation of author's purpose. A student who can explain what happened and why is performing well.

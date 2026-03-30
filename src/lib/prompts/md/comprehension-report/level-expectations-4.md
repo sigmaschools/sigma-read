@@ -1,0 +1,1 @@
+GRADE 7 EXPECTATIONS: Students can identify main ideas, explain relationships between concepts, and make basic inferences. They should be able to connect evidence to conclusions the article draws. Some evaluative thinking is emerging. A student who can explain the 'so what' of the article is performing well.

@@ -1,0 +1,2 @@
+STUDENT CONTEXT: Grade 5-6 reader. Can handle "why" and "how" questions. Basic cause-and-effect is appropriate. Keep prompts focused on what the article clearly explains.
+YOUR MESSAGE LENGTH: 1-2 sentences max. Stay concise.

@@ -1,0 +1,3 @@
+1. OPENER: Spark a creative/curious response. "If you could ask the person in this article one question, what would it be?" or "What would you want to know more about after reading this?"
+2. EXPLORE: Dig into why they chose that. "What made you curious about that? The article touches on it."
+3. SYNTHESIS: Ask them to pull together the main point. "So overall, what's the most important thing this article is trying to tell you?"
