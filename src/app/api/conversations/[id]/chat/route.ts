@@ -113,7 +113,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await db.update(schema.readingSessions).set({ completedAt: new Date() }).where(eq(schema.readingSessions.id, readingSession.id));
 
     // Generate comprehension report
-    const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
+    const transcript = messages.filter(m => m.content !== "I just finished reading the article.").map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
     const reportResponse = await anthropic.messages.create({
       model: "claude-opus-4-6",
       max_tokens: 1024,
@@ -144,8 +144,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           conversationId,
           score: report.score,
           rating: report.rating,
-          understood: report.understood,
-          missed: report.missed,
+          understood: report.comprehension || report.understood,
+          missed: report.depth || report.missed,
           engagementNote: report.engagement,
           aiAvgWords,
           studentAvgWords,
