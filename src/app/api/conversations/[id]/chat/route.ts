@@ -47,9 +47,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     messages.push({ role: "user", content: "I just finished reading the article.", timestamp: now });
   }
 
-  // Safety backstop — force wrap-up after 8 student messages (generous limit, AI should wrap up naturally well before this)
+  // Exchange tracking: subtract synthetic "I just finished reading" to get real exchange number
   const studentMessageCount = messages.filter(m => m.role === "user").length;
-  const forceComplete = studentMessageCount >= 8;
+  const exchangeNumber = studentMessageCount - 1;
+
+  // Safety backstop — force wrap-up after 5 student messages (4 real exchanges, prompt targets 3)
+  const forceComplete = studentMessageCount >= 5;
 
   // Fetch previous articles for cross-article connections (last 5 read articles, excluding current)
   const previousArticles = await db.select({ title: schema.articles.title, topic: schema.articles.topic })
@@ -72,20 +75,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     JSON.stringify(student.interestProfile || {}),
     previousArticles.length > 0 ? previousArticles : undefined,
     article.liked,
-    conversationStyle
+    conversationStyle,
+    exchangeNumber
   );
 
-  // If we're at the hard limit, append instruction to force wrap-up
-  const aiMessages = messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+  // Build messages for AI — if at hard limit, inject force wrap-up instruction
+  const finalMessages = messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
   if (forceComplete) {
-    aiMessages.push({ role: "user" as const, content: "[SYSTEM: This is the student's final response. Wrap up now with brief positive feedback and output [CONVERSATION_COMPLETE].]" });
-    // Remove the injected system message from saved transcript
-    aiMessages.pop();
+    finalMessages.push({ role: "user" as const, content: "[SYSTEM: This is the student's final response. Wrap up now with brief positive feedback and output [CONVERSATION_COMPLETE].]" });
   }
-
-  const finalMessages = forceComplete
-    ? [...messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })), { role: "user" as const, content: "[SYSTEM: This is the student's final response. Wrap up now with brief positive feedback and output [CONVERSATION_COMPLETE].]" }]
-    : messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
 
   const response = await anthropic.messages.create({
     model: "claude-opus-4-6",

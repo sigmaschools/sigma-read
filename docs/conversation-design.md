@@ -10,7 +10,7 @@ This document describes how the AI-guided comprehension conversations work in Si
 
 After a student reads an article, they have a brief conversation with the AI about what they read. The article stays visible the entire time (side panel on desktop, bottom drawer on mobile). The AI assesses comprehension through conversation — no quizzes, no fill-in-the-blank.
 
-A typical conversation is **3 exchanges** (AI prompt → student response, three times). There's a hard backstop at **8 student messages** as a safety limit, but conversations usually wrap up around 3-4.
+A typical conversation is **3 exchanges** (AI prompt → student response, three times). There's a hard backstop at **5 student messages** (4 real exchanges) as a safety limit. The prompt now includes a turn counter so the AI knows exactly which exchange it's on and wraps up after Step 3.
 
 ---
 
