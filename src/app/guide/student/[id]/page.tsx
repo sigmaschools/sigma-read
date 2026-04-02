@@ -246,11 +246,11 @@ export default function StudentDetailPage() {
             <div className="mb-6 p-5 bg-[var(--surface)] border border-[var(--border)] rounded-xl space-y-3">
               <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Comprehension Report</h2>
               <div>
-                <p className="text-xs font-medium text-green-600 mb-1">Understood</p>
+                <p className="text-xs font-medium text-green-600 mb-1">Comprehension</p>
                 <p className="text-sm">{s.understood}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-red-500 mb-1">Missed</p>
+                <p className="text-xs font-medium text-blue-500 mb-1">Depth</p>
                 <p className="text-sm">{s.missed}</p>
               </div>
               <div>
@@ -265,7 +265,7 @@ export default function StudentDetailPage() {
             <div>
               <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">Conversation</h2>
               <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 space-y-3">
-                {s.messages.map((m, i) => (
+                {s.messages.filter((m) => m.content !== "I just finished reading the article.").map((m, i) => (
                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
                       m.role === "user"
