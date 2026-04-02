@@ -51,10 +51,29 @@ export default function ConversationPage() {
           setMessages(data.existingMessages);
           setStudentTurnCount(data.existingMessages.filter((m: Message) => m.role === "user").length);
           if (data.complete) setComplete(true);
-        } else {
+        } else if (data.message) {
           setMessages([{ role: "assistant", content: data.message }]);
         }
         setLoading(false);
+      })
+      .catch(() => {
+        // Retry once — the AI opener is critical for the conversation
+        fetch(`/api/conversations/${id}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "__resume_check__" }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.existingMessages && data.existingMessages.length > 0) {
+              setMessages(data.existingMessages);
+              if (data.complete) setComplete(true);
+            } else if (data.message) {
+              setMessages([{ role: "assistant", content: data.message }]);
+            }
+            setLoading(false);
+          })
+          .catch(() => setLoading(false));
       });
   }, [id]);
 

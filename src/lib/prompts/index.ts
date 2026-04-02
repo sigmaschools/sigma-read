@@ -115,7 +115,8 @@ export function comprehensionConversationPrompt(
   interestProfile: string,
   previousArticles?: { title: string; topic: string }[],
   articleLiked?: boolean | null,
-  fixedStyle?: string
+  fixedStyle?: string,
+  exchangeNumber?: number
 ) {
   const previousArticlesSection = previousArticles && previousArticles.length > 0
     ? "\nPrevious articles this student has read recently:\n" +
@@ -139,6 +140,15 @@ export function comprehensionConversationPrompt(
     ? questionTypeMid.trimEnd()
     : questionTypeHigh.trimEnd();
 
+  let exchangeContext: string;
+  if (exchangeNumber === undefined || exchangeNumber === 0) {
+    exchangeContext = "This is the start of the conversation. Begin with your Step 1 opener.";
+  } else if (exchangeNumber >= 3) {
+    exchangeContext = `This is exchange ${exchangeNumber} of 3. You MUST wrap up NOW and output [CONVERSATION_COMPLETE].`;
+  } else {
+    exchangeContext = `This is exchange ${exchangeNumber} of 3. You have ${3 - exchangeNumber} exchange(s) left before wrapping up.`;
+  }
+
   return interpolate(conversationBaseMd.trimEnd(), {
     levelContext: levelContextMap[level] || levelContextMap[3],
     likedSection,
@@ -151,6 +161,7 @@ export function comprehensionConversationPrompt(
     questionTypeInstructions,
     messageLengthRule: level <= 2 ? "One sentence, under 20 words." : level <= 4 ? "1-2 sentences max." : "2 sentences max.",
     messageLengthThreshold: level <= 2 ? "one sentence" : "two sentences",
+    exchangeContext,
   });
 }
 
