@@ -4,6 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
+import Anthropic from "@anthropic-ai/sdk";
 
 const MAX_INTERESTS = 10;
 
@@ -35,10 +36,28 @@ export async function POST(req: NextRequest) {
     metadata: metadata || {},
   });
 
-  // When a student suggests an interest, fold it into their profile
+  // When a student suggests an interest, normalize to a short tag and fold into their profile
   if (eventType === "interest_suggestion" && metadata?.text) {
-    const suggestion = metadata.text.trim();
+    let suggestion = metadata.text.trim();
     if (suggestion) {
+      // Normalize long/conversational interest text to a short tag (2-4 words)
+      if (suggestion.split(/\s+/).length > 4) {
+        try {
+          const anthropic = new Anthropic();
+          const resp = await anthropic.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 30,
+            messages: [{ role: "user", content: `Convert this student interest into a short topic tag (2-4 words, lowercase). Output ONLY the tag, nothing else.\n\nInput: "${suggestion}"\nTag:` }],
+          });
+          const tag = resp.content[0].type === "text" ? resp.content[0].text.trim().toLowerCase() : "";
+          if (tag && tag.split(/\s+/).length <= 5) {
+            suggestion = tag;
+          }
+        } catch {
+          // If normalization fails, use as-is but truncate
+          suggestion = suggestion.split(/\s+/).slice(0, 4).join(" ");
+        }
+      }
       const [student] = await db.select({ interestProfile: schema.students.interestProfile })
         .from(schema.students)
         .where(eq(schema.students.id, session.userId))

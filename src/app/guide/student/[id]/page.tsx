@@ -91,7 +91,9 @@ export default function StudentDetailPage() {
         fetch(`/api/guide/student-insights?studentId=${id}`),
       ]);
       const reps = await repRes.json();
-      if (Array.isArray(reps)) setSessions(reps);
+      // Use only completed sessions for display and scoring
+      if (reps.completed) setSessions(reps.completed);
+      else if (Array.isArray(reps)) setSessions(reps); // backward compat
       const ins = await insightsRes.json();
       if (!ins.error) setInsights(ins);
     } catch {
