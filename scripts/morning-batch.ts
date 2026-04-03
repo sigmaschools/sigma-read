@@ -275,7 +275,8 @@ async function grokipediaSearch(query: string): Promise<{ title: string; url: st
       results.push({ title, url: `https://grokipedia.com${path}` });
     }
     return results;
-  } catch {
+  } catch (e) {
+    console.log(`  ⚠️ Grokipedia search failed for "${query}": ${(e as Error).message}`);
     return [];
   }
 }
