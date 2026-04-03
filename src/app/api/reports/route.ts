@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, isNotNull } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -43,5 +43,9 @@ export async function GET(req: NextRequest) {
     .where(eq(schema.readingSessions.studentId, studentId))
     .orderBy(desc(schema.readingSessions.startedAt));
 
-  return NextResponse.json(sessions);
+  // Separate completed from in-progress for the client
+  const completed = sessions.filter(s => s.completedAt !== null);
+  const inProgress = sessions.filter(s => s.completedAt === null);
+
+  return NextResponse.json({ completed, inProgress });
 }
