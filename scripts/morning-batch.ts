@@ -406,8 +406,10 @@ async function sourceContent(plans: ArticlePlan[]): Promise<SourcedTopic[]> {
 
     console.log(`  🔎 Searching: "${plan.searchQuery}" (${plan.type})`);
 
-    // For news, search with freshness filter
-    const freshness = plan.type === "news" ? "pw" : undefined;
+    // For news: kid publisher site: queries skip freshness (they publish infrequently);
+    // topic fallback queries use past-week freshness to get current events
+    const isKidPublisher = plan.type === "news" && plan.searchQuery.startsWith("site:");
+    const freshness = (plan.type === "news" && !isKidPublisher) ? "pw" : undefined;
     const results = await braveSearch(plan.searchQuery, freshness);
 
     if (results.length === 0) {
