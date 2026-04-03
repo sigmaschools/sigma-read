@@ -178,7 +178,7 @@ async function planDailyArticles(
     plans.push({
       query: interest,
       type: "interest",
-      searchQuery: `${interest} explained for kids`,
+      searchQuery: interest,
     });
   }
 
@@ -243,7 +243,7 @@ Output ONLY a JSON array of strings:
     plans.push({
       query: topic,
       type: "horizon",
-      searchQuery: `${topic} interesting facts for kids`,
+      searchQuery: topic,
     });
   }
 
