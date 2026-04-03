@@ -112,8 +112,8 @@ async function planDailyArticles(
 
   // --- News (2 articles) ---
   const newsQueries = [
-    "trending news today for kids",
-    "interesting science or technology news this week",
+    "top news stories today",
+    "interesting news this week science technology sports",
   ];
   for (const q of newsQueries) {
     plans.push({ query: q, type: "news", searchQuery: q });
@@ -321,8 +321,11 @@ async function filterSources<T extends { url: string; text: string }>(
         role: "user",
         content: `You are a content filter for a children's reading app (ages 8-14).
 
-Review these article summaries. REJECT any that primarily discuss: ${CONTENT_BLOCKLIST}.
-KEEP everything else — science, technology, sports, animals, space, weather, human interest, arts, history, geography, etc.
+Review these article summaries. REJECT any that:
+1. Primarily discuss: ${CONTENT_BLOCKLIST}
+2. Are NOT actual articles — reject homepages, marketing/promotional copy, product pages, "about us" pages, app descriptions, podcast landing pages, or any page that is selling/promoting a service rather than reporting information
+
+KEEP only real articles that contain factual, informative content (news reports, encyclopedia entries, explainer articles, educational content).
 
 ${summaries}
 
