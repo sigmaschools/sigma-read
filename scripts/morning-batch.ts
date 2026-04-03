@@ -333,7 +333,7 @@ async function fetchSourceText(url: string): Promise<string | null> {
   }
 }
 
-const CONTENT_BLOCKLIST = "war, violence, weapons, murder, crime, partisan politics, religion, sexuality, gender identity, drugs, alcohol, self-harm, abortion";
+const CONTENT_BLOCKLIST = "real-world war or armed conflict, graphic violence, murder, crime, partisan politics, religion, sexuality, gender identity, drugs, alcohol, self-harm, abortion";
 
 async function filterSources<T extends { url: string; text: string }>(
   sources: T[]
@@ -354,10 +354,17 @@ async function filterSources<T extends { url: string; text: string }>(
         content: `You are a content filter for a children's reading app (ages 8-14).
 
 Review these article summaries. REJECT any that:
-1. Primarily discuss: ${CONTENT_BLOCKLIST}
+1. PRIMARILY discuss: ${CONTENT_BLOCKLIST}
 2. Are NOT actual articles — reject homepages, marketing/promotional copy, product pages, "about us" pages, app descriptions, podcast landing pages, or any page that is selling/promoting a service rather than reporting information
 
-KEEP only real articles that contain factual, informative content (news reports, encyclopedia entries, explainer articles, educational content).
+IMPORTANT — do NOT reject articles about:
+- Video games, strategy games, or esports (even if they involve in-game combat)
+- Sports and recreational activities (including airsoft, paintball, martial arts, archery)
+- Severe weather, natural disasters, or climate events
+- History topics that mention past conflicts in an educational context
+- Firefighting, emergency services, or rescue operations
+
+KEEP real articles with factual, informative content. Only reject when the PRIMARY focus is on the blocklist topics above.
 
 ${summaries}
 
