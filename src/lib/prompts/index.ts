@@ -7,6 +7,7 @@ import readingLevelAssessmentMd from "./md/reading-level-assessment.md";
 // Simple templates
 import articleGenerationMd from "./md/article-generation.md";
 import batchPlannerMd from "./md/batch-planner.md";
+import sourceRewriteMd from "./md/source-rewrite.md";
 import preReadingMd from "./md/pre-reading.md";
 import wordDefinitionMd from "./md/word-definition.md";
 
@@ -109,6 +110,20 @@ export function articleGenerationPrompt(level: number, topic: string, type: stri
   });
 }
 
+export function sourceRewritePrompt(level: number, type: string, sourceText: string) {
+  const guide = levelGuide[level] || levelGuide[3];
+  return interpolate(sourceRewriteMd.trimEnd(), {
+    level,
+    type,
+    sourceText,
+    lexile: guide.lexile,
+    grade: guide.grade,
+    words: guide.words,
+    vocab: guide.vocab,
+    estimatedReadTime: level <= 2 ? 2 : level <= 4 ? 3 : 4,
+  });
+}
+
 export function comprehensionConversationPrompt(
   articleText: string,
   level: number,
@@ -173,6 +188,7 @@ export function comprehensionReportPrompt(articleText: string, transcript: strin
     levelExpectations: levelExpectationsMap[level] || levelExpectationsMap[3],
   });
 }
+
 
 export function batchPlannerPrompt(level: number, interests: string, existingTitles: string[], count: number) {
   return interpolate(batchPlannerMd.trimEnd(), {
