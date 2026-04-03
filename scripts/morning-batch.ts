@@ -1,21 +1,20 @@
 /**
- * Morning Article Batch Generation
- * 
+ * Morning Article Batch Generation — Source-First Pipeline
+ *
  * Runs daily at 5 AM CT via cron job.
- * 
+ *
  * Process:
- * 1. Analyze active students: interests, reading levels, recent reading history
- * 2. Fetch today's kid-friendly news headlines
- * 3. Plan article topics: news (40%), interest-matched (35%), horizon-expanding (25%)
- * 4. Generate base articles at L4 using Opus
+ * 1. Analyze active students: interests, reading levels, aggregate interest pool
+ * 2. Plan daily mix: 60% interest / 20% news / 20% horizon per student
+ * 3. Source content: Brave Search → fetch → content filter → pick best source
+ * 4. Rewrite: Claude Sonnet rewrites source content at L4
  * 5. Adapt each article to all needed reading levels using Sonnet
- * 6. Fill each student's buffer to 12 unread articles
- * 
- * Efficiency: shared pool — one article serves all students at a given level.
+ * 6. Fill each student's buffer to 5 unread articles
+ * 7. Flag expired articles
+ *
+ * Every article is grounded in a real web source (source_url in article_cache).
+ * Shared pool — one base article serves all students at a given level.
  * Students never see the same article twice (tracked via student_article_history).
- * 
- * See docs/content-policy.md for selection principles.
- * See docs/article-pipeline.md for technical specification.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -24,9 +23,10 @@ import { normalizeInterestProfile } from "../src/lib/normalize-interests";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
-const OPUS_MODEL = "claude-opus-4-6";
+const BRAVE_API_KEY = process.env.BRAVE_API_KEY!;
 const SONNET_MODEL = "claude-sonnet-4-5";
-const BUFFER_TARGET = 12;
+const HAIKU_MODEL = "claude-haiku-4-5";
+const BUFFER_TARGET = 5;
 const BASE_LEVEL = 4;
 
 const sql = neon(DATABASE_URL);
@@ -37,7 +37,15 @@ interface Student {
   name: string;
   reading_level: number;
   interest_profile: any;
+  adjacent_interests: string[] | null;
   daily_article_cap: number;
+}
+
+interface SourcedTopic {
+  query: string;
+  type: "interest" | "news" | "horizon";
+  sourceUrl: string;
+  sourceText: string;
 }
 
 const levelGuide: Record<number, { lexile: string; grade: string; words: string; vocab: string }> = {
@@ -54,271 +62,376 @@ const levelGuide: Record<number, { lexile: string; grade: string; words: string;
 async function analyzeStudents(): Promise<{
   students: Student[];
   levelsNeeded: Set<number>;
-  commonInterests: string[];
-  recentDomains: Map<string, number>;
+  interestMap: Map<string, number[]>; // interest → [studentId, ...]
+  recentTopics: Set<string>;
 }> {
   const students = await sql`
-    SELECT id, name, reading_level, interest_profile, daily_article_cap
+    SELECT id, name, reading_level, interest_profile, adjacent_interests, daily_article_cap
     FROM students WHERE onboarding_complete = true AND reading_level IS NOT NULL
   ` as Student[];
 
   const levelsNeeded = new Set(students.map(s => s.reading_level));
 
-  // Aggregate interests across all students
-  const interestCounts = new Map<string, number>();
+  // Aggregate interests across students into weighted map
+  const interestMap = new Map<string, number[]>();
   for (const s of students) {
     const profile = normalizeInterestProfile(s.interest_profile);
-    const interests = profile.interests;
-    for (const i of interests) {
-      const lower = i.toLowerCase().trim();
-      interestCounts.set(lower, (interestCounts.get(lower) || 0) + 1);
+    for (const interest of profile.interests) {
+      const lower = interest.toLowerCase().trim();
+      const ids = interestMap.get(lower) || [];
+      ids.push(s.id);
+      interestMap.set(lower, ids);
     }
   }
-  // Sort by popularity
-  const commonInterests = [...interestCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
-    .map(([interest]) => interest);
 
-  // Check recent reading domains (last 7 days)
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  const recentTopics = await sql`
-    SELECT topic, COUNT(*) as c FROM articles
-    WHERE created_at >= ${weekAgo} AND read = true
-    GROUP BY topic ORDER BY c DESC LIMIT 20
-  `;
-  const recentDomains = new Map<string, number>();
-  for (const r of recentTopics) {
-    recentDomains.set(r.topic as string, parseInt(r.c as string));
-  }
+  // Recent topics (last 14 days) for dedup
+  const recent = await sql`SELECT topic FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
+  const recentTopics = new Set(recent.map(r => (r.topic as string).toLowerCase()));
 
-  return { students, levelsNeeded, commonInterests, recentDomains };
+  return { students, levelsNeeded, interestMap, recentTopics };
 }
 
-// ─── Step 2: Fetch News Headlines ───────────────────────────────────────────
+// ─── Step 2: Plan Daily Articles ────────────────────────────────────────────
 
-async function getNewsHeadlines(): Promise<{ topic: string; source: string }[]> {
-  const today = new Date().toISOString().split("T")[0];
-  console.log("📰 Fetching today's news headlines...");
+interface ArticlePlan {
+  query: string;
+  type: "interest" | "news" | "horizon";
+  searchQuery: string;
+}
 
-  // Primary: Brave Search across mainstream + kid-friendly sources
-  let allHeadlines = "";
-  const BRAVE_KEY = process.env.BRAVE_API_KEY || "";
+async function planDailyArticles(
+  interestMap: Map<string, number[]>,
+  students: Student[],
+  recentTopics: Set<string>,
+): Promise<ArticlePlan[]> {
+  console.log("📋 Planning daily article mix...");
 
-  if (BRAVE_KEY) {
-    const searches = [
-      // Mainstream news — Claude will filter for age-appropriateness
-      { q: "top news today", label: "Top News" },
-      { q: "science discovery news today", label: "Science" },
-      { q: "sports news today", label: "Sports" },
-      { q: "technology news today", label: "Technology" },
-      { q: "space NASA astronomy news", label: "Space" },
-      { q: "animals nature wildlife news", label: "Animals & Nature" },
-      { q: "interesting world news today", label: "World" },
-    ];
-    for (const { q, label } of searches) {
-      try {
-        // Try past 24h first, fall back to past week if too few results
-        let results: any[] = [];
-        for (const freshness of ["pd", "pw"]) {
-          const searchRes = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=5&freshness=${freshness}`, {
-            headers: { "X-Subscription-Token": BRAVE_KEY, Accept: "application/json" },
-          });
-          const data = await searchRes.json();
-          results = data.web?.results || [];
-          if (results.length >= 2) break; // enough results from this freshness window
-        }
-        if (results.length > 0) {
-          allHeadlines += `\n${label}:\n${results.map((r: any) => `- ${r.title}${r.published ? ` [${r.published}]` : ""} (${r.url})`).join("\n")}\n`;
-        }
-      } catch { console.log(`  ⚠️  Search failed: ${label}`); }
+  // Target: ~10 base articles for the pool
+  // 60% interest (6), 20% news (2), 20% horizon (2)
+  const plans: ArticlePlan[] = [];
+
+  // --- News (2 articles) ---
+  const newsQueries = [
+    "trending news today for kids",
+    "interesting science or technology news this week",
+  ];
+  for (const q of newsQueries) {
+    plans.push({ query: q, type: "news", searchQuery: q });
+  }
+
+  // --- Interest articles (6) ---
+  // Sort interests by student count, rotate through them
+  const sortedInterests = [...interestMap.entries()]
+    .sort((a, b) => b[1].length - a[1].length);
+
+  // Pick interests not recently covered, rotate
+  const pickedInterests: string[] = [];
+  for (const [interest] of sortedInterests) {
+    if (pickedInterests.length >= 6) break;
+    if (!recentTopics.has(interest)) {
+      pickedInterests.push(interest);
+    }
+  }
+  // Fill remaining from top interests even if recently covered
+  if (pickedInterests.length < 6) {
+    for (const [interest] of sortedInterests) {
+      if (pickedInterests.length >= 6) break;
+      if (!pickedInterests.includes(interest)) {
+        pickedInterests.push(interest);
+      }
     }
   }
 
-  // Fallback: scrape kid-friendly sites if Brave returns nothing
-  if (!allHeadlines.trim()) {
-    const kidSources = [
-      "https://newsforkids.net/",
-      "https://www.dogonews.com/",
-    ];
-    for (const url of kidSources) {
-      try {
-        const res = await fetch(url);
-        const html = await res.text();
-        const titleMatches = html.match(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/gi) || [];
-        const titles = titleMatches.map(t => t.replace(/<[^>]*>/g, "").trim()).filter(t => t.length > 10 && t.length < 200);
-        if (titles.length > 0) {
-          allHeadlines += `\nFrom ${url}:\n${titles.slice(0, 8).map(t => `- ${t}`).join("\n")}\n`;
-        }
-      } catch { console.log(`  ⚠️  Could not fetch ${url}`); }
+  for (const interest of pickedInterests) {
+    plans.push({
+      query: interest,
+      type: "interest",
+      searchQuery: `${interest} explained for kids`,
+    });
+  }
+
+  // --- Horizon articles (2) ---
+  // Use pre-computed adjacent interests; compute if missing
+  const allAdjacentInterests: string[] = [];
+  const studentsNeedingAdjacent: Student[] = [];
+
+  for (const s of students) {
+    if (s.adjacent_interests && s.adjacent_interests.length > 0) {
+      allAdjacentInterests.push(...s.adjacent_interests);
+    } else {
+      studentsNeedingAdjacent.push(s);
     }
   }
 
-  if (!allHeadlines.trim()) {
-    console.log("  ⚠️  No headlines fetched, using evergreen fallback");
-    return [
-      { topic: "A recent breakthrough in renewable energy technology", source: "Science News" },
-      { topic: "An unusual animal behavior discovered by researchers", source: "Nature" },
-      { topic: "A young person making a difference in their community", source: "Good News" },
-      { topic: "A new discovery about dinosaurs or prehistoric life", source: "Paleontology Today" },
-      { topic: "An innovation in space exploration or astronomy", source: "NASA" },
-    ];
+  // Compute adjacent interests for students who don't have them
+  for (const s of studentsNeedingAdjacent) {
+    const profile = normalizeInterestProfile(s.interest_profile);
+    if (profile.interests.length === 0) continue;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: HAIKU_MODEL,
+        max_tokens: 500,
+        messages: [{
+          role: "user",
+          content: `A student is interested in: ${profile.interests.join(", ")}
+
+Suggest 6 adjacent topics they might find fascinating — related but in different domains. Age-appropriate for kids 8-14.
+
+Output ONLY a JSON array of strings:
+["topic1", "topic2", ...]`,
+        }],
+      });
+      const text = response.content[0].type === "text" ? response.content[0].text : "";
+      const match = text.match(/\[[\s\S]*\]/);
+      if (match) {
+        const adjacent = JSON.parse(match[0]) as string[];
+        allAdjacentInterests.push(...adjacent);
+        // Store on student record for future batches
+        await sql`UPDATE students SET adjacent_interests = ${JSON.stringify(adjacent)} WHERE id = ${s.id}`;
+        console.log(`  🧭 Computed adjacent interests for ${s.name}: ${adjacent.slice(0, 3).join(", ")}...`);
+      }
+    } catch (e) {
+      console.log(`  ⚠️ Failed to compute adjacent interests for ${s.name}`);
+    }
   }
 
-  const response = await anthropic.messages.create({
-    model: OPUS_MODEL,
-    max_tokens: 2000,
-    messages: [{
-      role: "user",
-      content: `TODAY'S DATE: ${today}
+  // Pick 2 horizon topics from the adjacent pool, avoiding recent
+  const uniqueAdjacent = [...new Set(allAdjacentInterests.map(a => a.toLowerCase()))];
+  const horizonPicks = uniqueAdjacent
+    .filter(a => !recentTopics.has(a))
+    .slice(0, 2);
 
-Here are recent news headlines:\n\n${allHeadlines}\n\nSelect 5-6 stories using this framework:
+  // Fallback if we can't find unrepeated ones
+  if (horizonPicks.length < 2) {
+    horizonPicks.push(...uniqueAdjacent.slice(0, 2 - horizonPicks.length));
+  }
 
-CONTENT BUCKETS:
-- Bucket 1 (aim for 4-5): Universally safe — science, animals, sports, space, technology, weather, human interest, gaming. Almost no parent objects.
-- Bucket 2 (aim for 0-1): Factual current events with civic relevance. Report the WHAT, skip the WHY. Only if genuinely significant.
-- Bucket 3 (AVOID): Genuinely polarizing. Skip entirely.
+  for (const topic of horizonPicks) {
+    plans.push({
+      query: topic,
+      type: "horizon",
+      searchQuery: `${topic} interesting facts for kids`,
+    });
+  }
 
-CRITICAL — RECENCY RULES:
-- Only select stories about events from the PAST 3 DAYS (${today} and the 2 days before).
-- REJECT any headline about events from weeks, months, or years ago — even if the article was recently published. A "2025 Super Bowl recap" published today is NOT current news.
-- Look for date cues in headlines: year numbers, "last year", "last month", season references that don't match the current date.
-- When in doubt about recency, skip the story.
-- The goal is helping students understand what is happening in the world RIGHT NOW.
+  console.log(`  📊 Plan: ${plans.filter(p => p.type === "interest").length} interest, ${plans.filter(p => p.type === "news").length} news, ${plans.filter(p => p.type === "horizon").length} horizon`);
+  return plans;
+}
 
-RULES: Age-appropriate, factual framing, no editorializing, prioritize curiosity over anxiety.
+// ─── Step 3: Source Content ─────────────────────────────────────────────────
 
-Output as JSON array ONLY:
-[{"topic": "brief description of the CURRENT event", "source": "source name or URL"}]`
-    }],
+async function braveSearch(query: string, freshness?: string): Promise<{ title: string; url: string; description: string }[]> {
+  const params = new URLSearchParams({ q: query, count: "5" });
+  if (freshness) params.set("freshness", freshness);
+
+  const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
+    headers: { "X-Subscription-Token": BRAVE_API_KEY, Accept: "application/json" },
   });
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) return [];
-  try { return JSON.parse(jsonMatch[0]); } catch { return []; }
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.web?.results || []).map((r: any) => ({
+    title: r.title || "",
+    url: r.url || "",
+    description: r.description || "",
+  }));
 }
 
-// ─── Step 3: Plan Interest-Matched & Horizon Topics ─────────────────────────
+function extractArticleText(html: string): string {
+  // Remove script, style, nav, header, footer tags and their content
+  let text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+    .replace(/<header[\s\S]*?<\/header>/gi, "")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+    .replace(/<aside[\s\S]*?<\/aside>/gi, "");
 
-async function planInterestTopics(
-  commonInterests: string[],
-  recentDomains: Map<string, number>,
-): Promise<{ topic: string; type: "interest_matched" | "horizon_expanding" }[]> {
-  console.log("🎯 Planning interest-matched and horizon-expanding topics...");
+  // Try to extract article/main content first
+  const articleMatch = text.match(/<article[\s\S]*?<\/article>/i)
+    || text.match(/<main[\s\S]*?<\/main>/i);
+  if (articleMatch) {
+    text = articleMatch[0];
+  }
 
-  const recentList = [...recentDomains.entries()].map(([d, c]) => `${d} (${c} articles)`).join(", ");
+  // Strip all remaining HTML tags
+  text = text.replace(/<[^>]*>/g, " ");
+  // Decode common HTML entities
+  text = text.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+  // Collapse whitespace
+  text = text.replace(/\s+/g, " ").trim();
 
-  // Feedback loop: get recent favorites (last 7 days) — what students loved
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  const favorites = await sql`
-    SELECT a.title, a.topic, a.category FROM article_favorites af
-    JOIN articles a ON a.id = af.article_id
-    WHERE af.created_at >= ${weekAgo}
-    ORDER BY af.created_at DESC LIMIT 10
-  `;
-  const favoriteTopics = favorites.map((f: any) => `"${f.title}" (${f.topic})`);
+  // Truncate to ~3000 words to stay within reasonable prompt size
+  const words = text.split(/\s+/);
+  if (words.length > 3000) {
+    text = words.slice(0, 3000).join(" ") + "...";
+  }
 
-  // Feedback loop: get recent interest suggestions — what students asked for
-  const suggestions = await sql`
-    SELECT metadata FROM article_feed_events
-    WHERE event_type = 'interest_suggestion' AND created_at >= ${weekAgo}
-    ORDER BY created_at DESC LIMIT 10
-  `;
-  const interestSuggestions = suggestions
-    .map((s: any) => {
-      try { return (typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata)?.text; }
-      catch { return null; }
-    })
-    .filter(Boolean);
-
-  // Feedback loop: get recent ratings — overall satisfaction signal
-  const [ratingAvg] = await sql`
-    SELECT AVG(CASE rating WHEN 'love' THEN 4 WHEN 'okay' THEN 3 WHEN 'not_great' THEN 2 WHEN 'bad' THEN 1 END) as avg_rating,
-           COUNT(*) as count
-    FROM article_ratings WHERE created_at >= ${weekAgo}
-  `;
-
-  const feedbackSection = [
-    favoriteTopics.length > 0 ? `\nSTUDENT FAVORITES (articles they loved this week):\n${favoriteTopics.join("\n")}` : "",
-    interestSuggestions.length > 0 ? `\nSTUDENT REQUESTS (topics students explicitly asked for):\n${interestSuggestions.map((s: string) => `- "${s}"`).join("\n")}\nPrioritize these — students asked for them directly.` : "",
-    ratingAvg?.count > 0 ? `\nOVERALL SATISFACTION: ${parseFloat(ratingAvg.avg_rating).toFixed(1)}/4.0 (${ratingAvg.count} ratings this week)` : "",
-  ].filter(Boolean).join("\n");
-
-  console.log(`  📊 Feedback: ${favoriteTopics.length} favorites, ${interestSuggestions.length} suggestions, ${ratingAvg?.count || 0} ratings`);
-
-  const response = await anthropic.messages.create({
-    model: OPUS_MODEL,
-    max_tokens: 2000,
-    messages: [{
-      role: "user",
-      content: `You're planning articles for students at a reading app. Generate topic ideas based on their interests and feedback.
-
-STUDENT INTERESTS (aggregated, most popular first):
-${commonInterests.map((i, idx) => `${idx + 1}. ${i}`).join("\n")}
-
-RECENTLY COVERED DOMAINS (last 7 days):
-${recentList || "None — fresh start"}
-${feedbackSection}
-
-Generate exactly 6 article topics:
-- 4 INTEREST-MATCHED: directly connected to student interests listed above. If students explicitly requested topics, include at least one.
-- 2 HORIZON-EXPANDING: adjacent to their interests but in a NEW domain they haven't read about recently
-
-Rules:
-- Topics must be engaging for ages 8-14
-- Avoid topics already heavily covered recently
-- If students loved certain topics (favorites), lean into similar territory
-- If students asked for specific topics, honor those requests
-- Each topic should be specific enough to write a focused article (not just "science" — give a specific angle)
-- All topics must be age-appropriate and factual
-- NEVER generate topics about: violence (war, weapons, murder, crime), sexual content, drugs/alcohol, self-harm, abortion, partisan politics, or any other topic inappropriate for children. If a student requested an inappropriate topic, silently ignore it.
-
-Output as JSON array ONLY:
-[{"topic": "specific topic description", "type": "interest_matched"}, {"topic": "...", "type": "horizon_expanding"}]`
-    }],
-  });
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) return [];
-  try { return JSON.parse(jsonMatch[0]); } catch { return []; }
+  return text;
 }
 
-// ─── Step 4: Generate Base Article ──────────────────────────────────────────
+async function fetchSourceText(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "SigmaRead/1.0 (educational article bot)" },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const html = await res.text();
+    const text = extractArticleText(html);
+    // Skip if too short to be a real article
+    if (text.split(/\s+/).length < 100) return null;
+    return text;
+  } catch {
+    return null;
+  }
+}
 
-async function generateBaseArticle(topic: string, source: string, type: string): Promise<{
-  title: string; topic: string; bodyText: string; sources: string[]; estimatedReadTime: number; category: string;
+const CONTENT_BLOCKLIST = "war, violence, weapons, murder, crime, partisan politics, religion, sexuality, gender identity, drugs, alcohol, self-harm, abortion";
+
+async function filterSources<T extends { url: string; text: string }>(
+  sources: T[]
+): Promise<T[]> {
+  if (sources.length === 0) return [];
+
+  // Batch filter with Haiku for cost efficiency
+  const summaries = sources.map((s, i) =>
+    `[${i}] ${s.url}\n${s.text.substring(0, 500)}`
+  ).join("\n\n");
+
+  try {
+    const response = await anthropic.messages.create({
+      model: HAIKU_MODEL,
+      max_tokens: 500,
+      messages: [{
+        role: "user",
+        content: `You are a content filter for a children's reading app (ages 8-14).
+
+Review these article summaries. REJECT any that primarily discuss: ${CONTENT_BLOCKLIST}.
+KEEP everything else — science, technology, sports, animals, space, weather, human interest, arts, history, geography, etc.
+
+${summaries}
+
+Return ONLY a JSON array of indices to KEEP:
+[0, 2, 5, ...]`,
+      }],
+    });
+    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const match = text.match(/\[[\s\S]*?\]/);
+    if (match) {
+      const keepIndices = new Set(JSON.parse(match[0]) as number[]);
+      return sources.filter((_, i) => keepIndices.has(i));
+    }
+  } catch (e) {
+    console.log("  ⚠️ Content filter failed, keeping all sources");
+  }
+  return sources;
+}
+
+async function sourceContent(plans: ArticlePlan[]): Promise<SourcedTopic[]> {
+  console.log("\n🔍 Sourcing content from the web...\n");
+  const sourced: SourcedTopic[] = [];
+  const allCandidates: { url: string; text: string; query: string; type: "interest" | "news" | "horizon"; originalQuery: string }[] = [];
+
+  for (const plan of plans) {
+    console.log(`  🔎 Searching: "${plan.searchQuery}" (${plan.type})`);
+
+    // For news, search with freshness filter
+    const freshness = plan.type === "news" ? "pw" : undefined;
+    const results = await braveSearch(plan.searchQuery, freshness);
+
+    if (results.length === 0) {
+      console.log(`     ⚠️ No results`);
+      continue;
+    }
+
+    // Fetch top 3 results
+    let found = false;
+    for (const result of results.slice(0, 3)) {
+      const text = await fetchSourceText(result.url);
+      if (text) {
+        allCandidates.push({
+          url: result.url,
+          text,
+          query: plan.searchQuery,
+          type: plan.type,
+          originalQuery: plan.query,
+        });
+        console.log(`     ✅ Fetched: ${result.url.substring(0, 60)}...`);
+        found = true;
+        break; // One good source per topic is enough
+      }
+    }
+    if (!found) {
+      console.log(`     ⚠️ Could not fetch any source`);
+    }
+  }
+
+  // Batch content filter
+  console.log(`\n🛡️ Filtering ${allCandidates.length} sources for age-appropriateness...`);
+  const filtered = await filterSources(allCandidates);
+  const rejected = allCandidates.length - filtered.length;
+  if (rejected > 0) {
+    console.log(`  🚫 Rejected ${rejected} inappropriate sources`);
+  }
+
+  for (const c of filtered) {
+    sourced.push({
+      query: c.originalQuery,
+      type: c.type,
+      sourceUrl: c.url,
+      sourceText: c.text,
+    });
+  }
+
+  console.log(`  ✅ ${sourced.length} sources ready for rewriting`);
+  return sourced;
+}
+
+// ─── Step 4: Generate Base Articles (Rewrite from Source) ───────────────────
+
+async function rewriteFromSource(topic: SourcedTopic): Promise<{
+  title: string; topic: string; bodyText: string; sourceUrl: string;
+  sources: string[]; estimatedReadTime: number; category: string;
 } | null> {
   const guide = levelGuide[BASE_LEVEL];
 
+  // Truncate source text to ~2000 words to keep prompt reasonable
+  const sourceWords = topic.sourceText.split(/\s+/);
+  const truncatedSource = sourceWords.length > 2000
+    ? sourceWords.slice(0, 2000).join(" ") + "..."
+    : topic.sourceText;
+
   const response = await anthropic.messages.create({
-    model: OPUS_MODEL,
+    model: SONNET_MODEL,
     max_tokens: 2000,
     messages: [{
       role: "user",
-      content: `TODAY'S DATE: ${new Date().toISOString().split("T")[0]}
+      content: `Rewrite the following source material as an original nonfiction article for a student.
 
-Write an original nonfiction article for a student.
-
-Topic: ${topic}
-Source/context: ${source}
-Article type: ${type}
 Reading level: ${BASE_LEVEL} (Lexile ${guide.lexile}, Grade ${guide.grade})
+Article type: ${topic.type}
 Target length: ${guide.words} words
+
+SOURCE MATERIAL:
+${truncatedSource}
 
 VOCABULARY RULES: ${guide.vocab}
 
 Requirements:
-- Write an ORIGINAL article grounded in real, current information. Do not fabricate facts.
-- For NEWS articles: write about what is happening NOW (today's date above). Do not write about past events unless they are directly relevant context for a current story. If the topic references an event, make sure the article reflects the CURRENT state of that event.
+- Rewrite the source material as an ORIGINAL article. Keep all facts accurate. Do not add information not in the source.
+- Do NOT copy sentences verbatim from the source. Use your own words and structure.
 - Calibrate sentence length and complexity to the grade level.
 - Make it genuinely interesting. Strong opening that hooks the reader.
 - Short paragraphs (2-4 sentences each).
-- Age-appropriate content.
-- EDITORIAL NEUTRALITY: Report facts, not opinions. For any topic with political adjacency, present the what without editorializing the why. Never present contested claims as settled.
+- Age-appropriate for grade ${guide.grade} students.
+- EDITORIAL NEUTRALITY: Report facts, not opinions.
+${topic.type === "news" ? "- Frame around what is happening NOW." : ""}
+${topic.type === "horizon" ? "- Introduce the domain with curiosity — this should feel like a discovery." : ""}
 
 Output format:
 [ARTICLE]
@@ -326,11 +439,10 @@ Output format:
   "title": "Article title",
   "topic": "Topic tag (1-3 words)",
   "body": "The full article text.",
-  "sources": ["${source}"],
   "estimated_read_time_minutes": 3
 }
 
-No preamble or commentary outside the JSON.`
+No preamble or commentary outside the JSON.`,
     }],
   });
 
@@ -340,16 +452,14 @@ No preamble or commentary outside the JSON.`
 
   try {
     const parsed = JSON.parse(jsonMatch[0]);
-    const category = type === "interest_matched" ? "interest" :
-                     type === "horizon_expanding" ? "general" :
-                     type === "civic" ? "general" : "news";
     return {
       title: parsed.title,
       topic: parsed.topic,
       bodyText: parsed.body,
-      sources: parsed.sources || [source],
+      sourceUrl: topic.sourceUrl,
+      sources: [topic.sourceUrl],
       estimatedReadTime: parsed.estimated_read_time_minutes || 3,
-      category,
+      category: topic.type === "interest" ? "interest" : topic.type === "news" ? "news" : "general",
     };
   } catch { return null; }
 }
@@ -382,7 +492,7 @@ Rules:
 - Short paragraphs (2-4 sentences)
 
 Output ONLY JSON:
-{"title": "Article title", "body": "Adapted article text.", "estimated_read_time_minutes": ${targetLevel <= 2 ? 2 : targetLevel <= 4 ? 3 : 4}}`
+{"title": "Article title", "body": "Adapted article text.", "estimated_read_time_minutes": ${targetLevel <= 2 ? 2 : targetLevel <= 4 ? 3 : 4}}`,
     }],
   });
 
@@ -416,7 +526,7 @@ async function serveToStudents(students: Student[]) {
 
     // Get available articles from cache at student's level
     const available = await sql`
-      SELECT * FROM article_cache WHERE reading_level = ${student.reading_level}
+      SELECT * FROM article_cache WHERE reading_level = ${student.reading_level} AND flagged = false
       ORDER BY created_at DESC LIMIT 50
     `;
     const unseen = available.filter((a: any) => !seen.has(a.title));
@@ -452,18 +562,23 @@ async function flagExpiredArticles() {
 
 async function run() {
   const today = new Date().toISOString().split("T")[0];
-  console.log(`\n🌅 Morning Article Batch — ${today}\n`);
+  console.log(`\n🌅 Morning Article Batch — ${today} (source-first pipeline)\n`);
 
   // Step 1: Analyze students
-  const { students, levelsNeeded, commonInterests, recentDomains } = await analyzeStudents();
+  const { students, levelsNeeded, interestMap, recentTopics } = await analyzeStudents();
+  const topInterests = [...interestMap.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 8)
+    .map(([interest]) => interest);
+
   console.log(`📚 ${students.length} active students`);
   console.log(`📊 Reading levels needed: ${[...levelsNeeded].sort().join(", ")}`);
-  console.log(`🎯 Top interests: ${commonInterests.slice(0, 8).join(", ")}`);
+  console.log(`🎯 Top interests: ${topInterests.join(", ")}`);
 
   if (students.length === 0) { console.log("No active students. Skipping."); return; }
 
   // Check if we already have base articles from a partial run today
-  const TARGET_BASE_ARTICLES = 12;
+  const TARGET_BASE_ARTICLES = 10;
   const [existingToday] = await sql`
     SELECT COUNT(*) as c FROM article_cache
     WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false
@@ -472,10 +587,9 @@ async function run() {
 
   if (existingBaseCount >= TARGET_BASE_ARTICLES) {
     console.log(`✅ Already have ${existingBaseCount} base articles for today. Skipping generation.`);
-    // Still serve to students and flag expired
     await serveToStudents(students);
     await flagExpiredArticles();
-    console.log(`\n✅ Article generation complete (served existing articles)\n`);
+    console.log(`\n✅ Batch complete (served existing articles)\n`);
     return;
   }
 
@@ -484,105 +598,43 @@ async function run() {
     console.log(`📋 Found ${existingBaseCount} base articles from earlier run. Generating ${articlesNeeded} more.`);
   }
 
-  // Step 2: Fetch news headlines
-  const headlines = await getNewsHeadlines();
-  console.log(`📰 Got ${headlines.length} news headlines`);
+  // Step 2: Plan daily mix
+  const plans = await planDailyArticles(interestMap, students, recentTopics);
 
-  // Step 3: Plan interest-matched + horizon topics
-  const interestTopics = await planInterestTopics(commonInterests, recentDomains);
-  console.log(`💡 Got ${interestTopics.length} interest/horizon topics`);
+  // Limit to what we actually need
+  const plansToSource = plans.slice(0, articlesNeeded);
 
-  // Combine all topics
-  const allTopicsRaw: { topic: string; source: string; type: string }[] = [
-    ...headlines.map(h => ({ topic: h.topic, source: h.source, type: "news" })),
-    ...interestTopics.map(t => ({ topic: t.topic, source: "Student interests", type: t.type })),
-  ];
+  // Step 3: Source content from the web
+  const sourcedTopics = await sourceContent(plansToSource);
 
   // Filter out blocked topics
   const blockedTopics = await sql`SELECT topic FROM blocked_topics`;
-  const blockedSet = new Set(blockedTopics.map(b => b.topic.toLowerCase()));
-  const allTopics = allTopicsRaw.filter(t => !blockedSet.has(t.topic.toLowerCase()));
-  if (allTopicsRaw.length !== allTopics.length) {
-    console.log(`🚫 Filtered out ${allTopicsRaw.length - allTopics.length} blocked topics`);
-  }
+  const blockedSet = new Set(blockedTopics.map(b => (b.topic as string).toLowerCase()));
 
-  // Filter out topics already generated today (from partial run)
-  const todaysTopics = await sql`SELECT topic FROM generated_topics WHERE generated_date = ${today}`;
-  const todaysSet = new Set(todaysTopics.map((t: any) => t.topic.toLowerCase()));
+  console.log(`\n📝 Rewriting ${sourcedTopics.length} sourced articles...\n`);
 
-  // Check for recent topic duplicates (last 14 days)
-  const recentTopics = await sql`SELECT topic FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
-  const recentList = recentTopics.map(t => t.topic as string);
-
-  // Semantic dedup via Claude — catch near-duplicates like "Animal Architects" vs "Animal Architecture"
-  let dedupedTopics = allTopics.filter(t => !todaysSet.has(t.topic.toLowerCase()));
-  if (recentList.length > 0 && dedupedTopics.length > 0) {
-    try {
-      const dedupResponse = await anthropic.messages.create({
-        model: SONNET_MODEL,
-        max_tokens: 1000,
-        messages: [{
-          role: "user",
-          content: `I have candidate article topics and recently published topics. Remove any candidate that is semantically too similar to a recent topic (same subject, just different wording).
-
-RECENT TOPICS (last 14 days):
-${recentList.map(t => `- ${t}`).join("\n")}
-
-CANDIDATE TOPICS:
-${dedupedTopics.map((t, i) => `${i}: ${t.topic}`).join("\n")}
-
-Return ONLY a JSON array of the candidate indices to KEEP (not duplicates):
-[0, 2, 5, ...]`
-        }],
-      });
-      const dedupText = dedupResponse.content[0].type === "text" ? dedupResponse.content[0].text : "";
-      const keepMatch = dedupText.match(/\[[\s\S]*?\]/);
-      if (keepMatch) {
-        const keepIndices = new Set(JSON.parse(keepMatch[0]) as number[]);
-        const before = dedupedTopics.length;
-        dedupedTopics = dedupedTopics.filter((_, i) => keepIndices.has(i));
-        if (before !== dedupedTopics.length) {
-          console.log(`♻️ Semantic dedup removed ${before - dedupedTopics.length} near-duplicate topics`);
-        }
-      }
-    } catch (e) {
-      console.log(`⚠️ Semantic dedup failed, falling back to exact match`);
-      const recentSet = new Set(recentList.map(t => t.toLowerCase()));
-      dedupedTopics = dedupedTopics.filter(t => !recentSet.has(t.topic.toLowerCase()));
-    }
-  }
-
-  if (allTopics.length !== dedupedTopics.length) {
-    console.log(`♻️ Total skipped: ${allTopics.length - dedupedTopics.length} duplicate/recent topics`);
-  }
-  const finalTopics = (dedupedTopics.length > 0 ? dedupedTopics : allTopics).slice(0, articlesNeeded);
-
-  console.log(`\n📝 Generating ${finalTopics.length} base articles...\n`);
-
-  // Step 4: Generate base articles
+  // Step 4: Rewrite from sources
   const baseArticles: { id: number; title: string; topic: string; bodyText: string; sources: string[]; category: string }[] = [];
 
-  for (let i = 0; i < finalTopics.length; i++) {
-    const t = finalTopics[i];
-    console.log(`  ✍️  [${i + 1}/${finalTopics.length}] ${t.type}: ${t.topic.substring(0, 55)}...`);
+  for (let i = 0; i < sourcedTopics.length; i++) {
+    const t = sourcedTopics[i];
+    console.log(`  ✍️  [${i + 1}/${sourcedTopics.length}] ${t.type}: ${t.query.substring(0, 50)}...`);
 
-    const article = await generateBaseArticle(t.topic, t.source, t.type);
-    if (article) {
-      const [inserted] = await sql`
-        INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source)
-        VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${t.source})
-        RETURNING id
-      `;
-      baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
-      // Log topic for dedup
-      await sql`INSERT INTO generated_topics (topic, category, generated_date) VALUES (${article.topic}, ${article.category}, ${today})`;
-      console.log(`     ✅ "${article.title}"`);
-    } else {
-      console.log(`     ❌ Failed`);
-    }
+    const article = await rewriteFromSource(t);
+    if (!article) { console.log(`     ❌ Failed to rewrite`); continue; }
+    if (blockedSet.has(article.topic.toLowerCase())) { console.log(`     🚫 Blocked topic`); continue; }
+
+    const [inserted] = await sql`
+      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url)
+      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${t.sourceUrl}, ${t.sourceUrl})
+      RETURNING id
+    `;
+    baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
+    await sql`INSERT INTO generated_topics (topic, category, generated_date) VALUES (${article.topic}, ${article.category}, ${today})`;
+    console.log(`     ✅ "${article.title}" (source: ${t.sourceUrl.substring(0, 50)}...)`);
   }
 
-  console.log(`\n📝 Generated ${baseArticles.length} base articles`);
+  console.log(`\n📝 Generated ${baseArticles.length} base articles from real sources`);
 
   // Step 5: Adapt to needed levels
   console.log("\n📐 Adapting to reading levels...\n");
@@ -633,7 +685,7 @@ Return ONLY a JSON array of the candidate indices to KEEP (not duplicates):
   // Step 7: Flag expired articles
   await flagExpiredArticles();
 
-  console.log(`\n✅ Article generation complete! Generated ${baseArticles.length} base articles × ${levelsNeeded.size} levels\n`);
+  console.log(`\n✅ Batch complete! ${baseArticles.length} source-backed articles × ${levelsNeeded.size} levels\n`);
 }
 
 run().catch(console.error);
