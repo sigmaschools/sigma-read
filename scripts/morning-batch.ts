@@ -178,7 +178,7 @@ async function planDailyArticles(
     plans.push({
       query: interest,
       type: "interest",
-      searchQuery: `${interest} article`,
+      searchQuery: interest,
     });
   }
 
@@ -243,7 +243,7 @@ Output ONLY a JSON array of strings:
     plans.push({
       query: topic,
       type: "horizon",
-      searchQuery: `${topic} article`,
+      searchQuery: topic,
     });
   }
 
@@ -252,6 +252,55 @@ Output ONLY a JSON array of strings:
 }
 
 // ─── Step 3: Source Content ─────────────────────────────────────────────────
+
+// ─── Grokipedia Search (for interest & horizon articles) ────────────────────
+
+async function grokipediaSearch(query: string): Promise<{ title: string; url: string }[]> {
+  try {
+    const res = await fetch(`https://grokipedia.com/search?q=${encodeURIComponent(query)}`, {
+      headers: { "User-Agent": "SigmaRead/1.0 (educational article bot)" },
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+
+    // Parse search results — links are in format /page/Title
+    const matches = [...html.matchAll(/href="(\/page\/[^"]+)"/g)];
+    const seen = new Set<string>();
+    const results: { title: string; url: string }[] = [];
+    for (const m of matches) {
+      const path = m[1];
+      if (seen.has(path)) continue;
+      seen.add(path);
+      const title = decodeURIComponent(path.replace("/page/", "").replace(/_/g, " "));
+      results.push({ title, url: `https://grokipedia.com${path}` });
+    }
+    return results;
+  } catch (e) {
+    console.log(`  ⚠️ Grokipedia search failed for "${query}": ${(e as Error).message}`);
+    return [];
+  }
+}
+
+async function fetchGrokipediaArticle(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "SigmaRead/1.0 (educational article bot)" },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const html = await res.text();
+    const text = extractArticleText(html);
+    if (text.split(/\s+/).length < 50) return null;
+    return text;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Brave Search (for news articles only) ──────────────────────────────────
 
 async function braveSearch(query: string, freshness?: string): Promise<{ title: string; url: string; description: string }[]> {
   const params = new URLSearchParams({ q: query, count: "5" });
@@ -384,32 +433,81 @@ Return ONLY a JSON array of indices to KEEP:
   return sources;
 }
 
-async function sourceContent(plans: ArticlePlan[]): Promise<SourcedTopic[]> {
-  console.log("\n🔍 Sourcing content from the web...\n");
+async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): Promise<SourcedTopic[]> {
+  console.log("\n🔍 Sourcing content...\n");
   const sourced: SourcedTopic[] = [];
-  const allCandidates: { url: string; text: string; query: string; type: "interest" | "news" | "horizon"; originalQuery: string }[] = [];
+  const newsCandidates: { url: string; text: string; query: string; type: "news"; originalQuery: string }[] = [];
 
-  // Track how many news sources we've found — stop searching once we have enough
-  const NEWS_TARGET = 2;
-  let newsSourcedCount = 0;
+  // Track recently used Grokipedia URLs (from generated_topics) to pick different angles
+  const usedUrls = new Set<string>();
 
-  for (let planIdx = 0; planIdx < plans.length; planIdx++) {
-    const plan = plans[planIdx];
+  // ─── Interest & Horizon: Grokipedia ───────────────────────────────────────
 
-    // Skip remaining news searches if we already have enough news candidates
-    if (plan.type === "news" && newsSourcedCount >= NEWS_TARGET) {
+  const grokPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
+  for (const plan of grokPlans) {
+    console.log(`  📖 Grokipedia: "${plan.query}" (${plan.type})`);
+
+    const results = await grokipediaSearch(plan.query);
+    if (results.length === 0) {
+      // Fallback to Brave Search
+      console.log(`     ⚠️ No Grokipedia results, trying Brave...`);
+      const braveResults = await braveSearch(`${plan.query} article`);
+      for (const r of braveResults.slice(0, 3)) {
+        const text = await fetchSourceText(r.url);
+        if (text) {
+          sourced.push({ query: plan.query, type: plan.type, sourceUrl: r.url, sourceText: text });
+          console.log(`     ✅ Brave fallback: ${r.url.substring(0, 60)}...`);
+          break;
+        }
+      }
       continue;
     }
 
+    // Pick a result not recently used for angle variety
+    let fetched = false;
+    for (const result of results.slice(0, 8)) {
+      const titleLower = result.title.toLowerCase();
+      if (usedUrls.has(result.url) || recentTopics.has(titleLower)) continue;
+
+      const text = await fetchGrokipediaArticle(result.url);
+      if (text) {
+        sourced.push({ query: plan.query, type: plan.type, sourceUrl: result.url, sourceText: text });
+        usedUrls.add(result.url);
+        console.log(`     ✅ ${result.title} (${result.url.substring(0, 55)}...)`);
+        fetched = true;
+        break;
+      }
+    }
+
+    // If all recent-filtered results failed, try the first result regardless
+    if (!fetched && results.length > 0) {
+      const text = await fetchGrokipediaArticle(results[0].url);
+      if (text) {
+        sourced.push({ query: plan.query, type: plan.type, sourceUrl: results[0].url, sourceText: text });
+        console.log(`     ✅ ${results[0].title} (${results[0].url.substring(0, 55)}...)`);
+      } else {
+        console.log(`     ⚠️ Could not fetch any Grokipedia article`);
+      }
+    }
+  }
+
+  // ─── News: Brave Search (kid publishers + topic fallback) ─────────────────
+
+  const newsPlans = plans.filter(p => p.type === "news");
+  const NEWS_TARGET = 2;
+  let newsSourcedCount = 0;
+
+  for (let i = 0; i < newsPlans.length; i++) {
+    if (newsSourcedCount >= NEWS_TARGET) break;
+
+    const plan = newsPlans[i];
     // Rate limit: Brave free tier allows ~1 req/sec
-    if (planIdx > 0) await new Promise(r => setTimeout(r, 1500));
+    if (i > 0) await new Promise(r => setTimeout(r, 1500));
 
-    console.log(`  🔎 Searching: "${plan.searchQuery}" (${plan.type})`);
+    console.log(`  🔎 Brave: "${plan.searchQuery}" (news)`);
 
-    // For news: kid publisher site: queries skip freshness (they publish infrequently);
-    // topic fallback queries use past-week freshness to get current events
-    const isKidPublisher = plan.type === "news" && plan.searchQuery.startsWith("site:");
-    const freshness = (plan.type === "news" && !isKidPublisher) ? "pw" : undefined;
+    const isKidPublisher = plan.searchQuery.startsWith("site:");
+    const freshness = isKidPublisher ? undefined : "pw";
     const results = await braveSearch(plan.searchQuery, freshness);
 
     if (results.length === 0) {
@@ -417,47 +515,30 @@ async function sourceContent(plans: ArticlePlan[]): Promise<SourcedTopic[]> {
       continue;
     }
 
-    // Fetch up to 5 results until we find a usable source
-    let found = false;
     for (const result of results.slice(0, 5)) {
       const text = await fetchSourceText(result.url);
       if (text) {
-        allCandidates.push({
-          url: result.url,
-          text,
-          query: plan.searchQuery,
-          type: plan.type,
-          originalQuery: plan.query,
-        });
+        newsCandidates.push({ url: result.url, text, query: plan.searchQuery, type: "news", originalQuery: plan.query });
         console.log(`     ✅ Fetched: ${result.url.substring(0, 60)}...`);
-        found = true;
-        if (plan.type === "news") newsSourcedCount++;
-        break; // One good source per topic is enough
+        newsSourcedCount++;
+        break;
       }
     }
-    if (!found) {
-      console.log(`     ⚠️ Could not fetch any source`);
+  }
+
+  // Content filter only on news (Grokipedia content is inherently appropriate)
+  if (newsCandidates.length > 0) {
+    console.log(`\n🛡️ Filtering ${newsCandidates.length} news sources for age-appropriateness...`);
+    const filtered = await filterSources(newsCandidates);
+    const rejected = newsCandidates.length - filtered.length;
+    if (rejected > 0) console.log(`  🚫 Rejected ${rejected} inappropriate sources`);
+
+    for (const c of filtered) {
+      sourced.push({ query: c.originalQuery, type: c.type, sourceUrl: c.url, sourceText: c.text });
     }
   }
 
-  // Batch content filter
-  console.log(`\n🛡️ Filtering ${allCandidates.length} sources for age-appropriateness...`);
-  const filtered = await filterSources(allCandidates);
-  const rejected = allCandidates.length - filtered.length;
-  if (rejected > 0) {
-    console.log(`  🚫 Rejected ${rejected} inappropriate sources`);
-  }
-
-  for (const c of filtered) {
-    sourced.push({
-      query: c.originalQuery,
-      type: c.type,
-      sourceUrl: c.url,
-      sourceText: c.text,
-    });
-  }
-
-  console.log(`  ✅ ${sourced.length} sources ready for rewriting`);
+  console.log(`\n  ✅ ${sourced.length} sources ready for rewriting (${sourced.filter(s => s.type === "interest" || s.type === "horizon").length} grokipedia, ${sourced.filter(s => s.type === "news").length} news)`);
   return sourced;
 }
 
@@ -671,10 +752,14 @@ async function run() {
   const plans = await planDailyArticles(interestMap, students, recentTopics);
 
   // Limit to what we actually need
-  const plansToSource = plans.slice(0, articlesNeeded);
+  // Preserve category mix when slicing: take all interest/horizon first, then fill with news
+  const interestHorizonPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
+  const newsPlans = plans.filter(p => p.type === "news");
+  const remainingSlots = Math.max(0, articlesNeeded - interestHorizonPlans.length);
+  const plansToSource = [...interestHorizonPlans, ...newsPlans.slice(0, remainingSlots)];
 
   // Step 3: Source content from the web
-  const sourcedTopics = await sourceContent(plansToSource);
+  const sourcedTopics = await sourceContent(plansToSource, recentTopics);
 
   // Filter out blocked topics
   const blockedTopics = await sql`SELECT topic FROM blocked_topics`;
