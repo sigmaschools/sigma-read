@@ -225,16 +225,26 @@ async function braveSearch(query: string, freshness?: string): Promise<{ title: 
   const params = new URLSearchParams({ q: query, count: "5" });
   if (freshness) params.set("freshness", freshness);
 
-  const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
-    headers: { "X-Subscription-Token": BRAVE_API_KEY, Accept: "application/json" },
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return (data.web?.results || []).map((r: any) => ({
-    title: r.title || "",
-    url: r.url || "",
-    description: r.description || "",
-  }));
+  // Retry with backoff on rate limits (429)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
+      headers: { "X-Subscription-Token": BRAVE_API_KEY, Accept: "application/json" },
+    });
+    if (res.status === 429) {
+      const wait = (attempt + 1) * 3000;
+      console.log(`     ⏳ Rate limited, waiting ${wait / 1000}s...`);
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.web?.results || []).map((r: any) => ({
+      title: r.title || "",
+      url: r.url || "",
+      description: r.description || "",
+    }));
+  }
+  return [];
 }
 
 function extractArticleText(html: string): string {
@@ -337,7 +347,11 @@ async function sourceContent(plans: ArticlePlan[]): Promise<SourcedTopic[]> {
   const sourced: SourcedTopic[] = [];
   const allCandidates: { url: string; text: string; query: string; type: "interest" | "news" | "horizon"; originalQuery: string }[] = [];
 
-  for (const plan of plans) {
+  for (let planIdx = 0; planIdx < plans.length; planIdx++) {
+    const plan = plans[planIdx];
+    // Rate limit: Brave free tier allows ~1 req/sec
+    if (planIdx > 0) await new Promise(r => setTimeout(r, 1500));
+
     console.log(`  🔎 Searching: "${plan.searchQuery}" (${plan.type})`);
 
     // For news, search with freshness filter
