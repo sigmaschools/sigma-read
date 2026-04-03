@@ -283,8 +283,8 @@ async function fetchSourceText(url: string): Promise<string | null> {
     if (!res.ok) return null;
     const html = await res.text();
     const text = extractArticleText(html);
-    // Skip if too short to be a real article
-    if (text.split(/\s+/).length < 100) return null;
+    // Skip if too short to be a real article (50 words minimum — many kid sites have shorter content)
+    if (text.split(/\s+/).length < 50) return null;
     return text;
   } catch {
     return null;
@@ -349,9 +349,9 @@ async function sourceContent(plans: ArticlePlan[]): Promise<SourcedTopic[]> {
       continue;
     }
 
-    // Fetch top 3 results
+    // Fetch up to 5 results until we find a usable source
     let found = false;
-    for (const result of results.slice(0, 3)) {
+    for (const result of results.slice(0, 5)) {
       const text = await fetchSourceText(result.url);
       if (text) {
         allCandidates.push({
