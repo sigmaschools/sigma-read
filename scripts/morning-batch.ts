@@ -110,12 +110,44 @@ async function planDailyArticles(
   // 60% interest (6), 20% news (2), 20% horizon (2)
   const plans: ArticlePlan[] = [];
 
-  // --- News (2 articles) ---
-  const newsQueries = [
-    "top news stories today",
-    "interesting news this week science technology sports",
+  // --- News (2 articles) — two-tier sourcing ---
+  // Tier 1: Kid-friendly news publishers (reliable age-appropriate sources)
+  const kidPublishers = [
+    "site:sciencenewsforstudents.org",
+    "site:tweentribune.com",
+    "site:dogonews.com",
+    "site:youngzine.org",
+    "site:timeforkids.com",
+    "site:newsela.com",
   ];
-  for (const q of newsQueries) {
+  // Pick 3-4 random publishers per batch for variety
+  const shuffledPublishers = kidPublishers.sort(() => Math.random() - 0.5).slice(0, 4);
+  for (const site of shuffledPublishers) {
+    plans.push({ query: site, type: "news", searchQuery: `${site} news this week` });
+  }
+
+  // Tier 2 fallback: topic-specific safe-domain queries (used if Tier 1 yields < 2)
+  // These are added as extra candidates — sourceContent will stop once we have enough news
+  const safeNewsPool = [
+    "new scientific discovery this week",
+    "world record sports achievement this week",
+    "new animal species discovered",
+    "NASA space mission news this week",
+    "new technology invention this week",
+    "extreme weather event this week",
+    "young person achievement news this week",
+    "archaeological discovery news",
+    "ocean exploration discovery news",
+    "new dinosaur fossil discovery",
+    "robotics competition news this week",
+    "renewable energy milestone news",
+    "international sports tournament results this week",
+    "national park or wildlife news this week",
+    "medical breakthrough news this week",
+  ];
+  // Shuffle and pick 3 fallback queries
+  const fallbackQueries = safeNewsPool.sort(() => Math.random() - 0.5).slice(0, 3);
+  for (const q of fallbackQueries) {
     plans.push({ query: q, type: "news", searchQuery: q });
   }
 
@@ -350,8 +382,18 @@ async function sourceContent(plans: ArticlePlan[]): Promise<SourcedTopic[]> {
   const sourced: SourcedTopic[] = [];
   const allCandidates: { url: string; text: string; query: string; type: "interest" | "news" | "horizon"; originalQuery: string }[] = [];
 
+  // Track how many news sources we've found — stop searching once we have enough
+  const NEWS_TARGET = 2;
+  let newsSourcedCount = 0;
+
   for (let planIdx = 0; planIdx < plans.length; planIdx++) {
     const plan = plans[planIdx];
+
+    // Skip remaining news searches if we already have enough news candidates
+    if (plan.type === "news" && newsSourcedCount >= NEWS_TARGET) {
+      continue;
+    }
+
     // Rate limit: Brave free tier allows ~1 req/sec
     if (planIdx > 0) await new Promise(r => setTimeout(r, 1500));
 
@@ -380,6 +422,7 @@ async function sourceContent(plans: ArticlePlan[]): Promise<SourcedTopic[]> {
         });
         console.log(`     ✅ Fetched: ${result.url.substring(0, 60)}...`);
         found = true;
+        if (plan.type === "news") newsSourcedCount++;
         break; // One good source per topic is enough
       }
     }
