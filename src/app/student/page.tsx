@@ -106,8 +106,8 @@ export default function StudentHome() {
     let arts = await artRes.json();
     const unread = arts.filter((a: Article) => !a.read);
 
-    // If fewer than 3 unread, auto-serve from cache
-    if (unread.length < 3) {
+    // If fewer than 5 unread, auto-serve from cache
+    if (unread.length < 5) {
       await fetch("/api/articles/serve-cached", { method: "POST" });
       const refreshRes = await fetch("/api/articles");
       arts = await refreshRes.json();
@@ -117,11 +117,10 @@ export default function StudentHome() {
     setLoading(false);
   }
 
-  const [noMore, setNoMore] = useState(false);
+  // noMore state removed — articles now cycle instead of dead-ending
 
   async function getNewArticles() {
     setGenerating(true);
-    setNoMore(false);
     // Track the "show me different" click
     fetch("/api/articles/feed-event", {
       method: "POST",
@@ -139,8 +138,11 @@ export default function StudentHome() {
     const newArts = await artRes.json();
     setArticles(newArts);
     if (!data.count || data.count === 0) {
-      setNoMore(true);
-      setTimeout(() => setNoMore(false), 5000);
+      // No new articles from cache — cycle through existing unread articles
+      setViewOffset((prev) => prev + ARTICLES_PER_PAGE);
+    } else {
+      // New articles loaded — reset to show the latest
+      setViewOffset(0);
     }
     setGenerating(false);
   }
@@ -164,9 +166,14 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Always show the 3 most recent unread articles
+  // Always show 5 unread articles, cycling through when "show me different" is clicked
   const unread = articles.filter((a) => !a.read);
-  const visible = unread.slice(-3);
+  const [viewOffset, setViewOffset] = useState(0);
+  const ARTICLES_PER_PAGE = 5;
+  const start = unread.length > 0 ? viewOffset % unread.length : 0;
+  const visible = unread.length > 0
+    ? Array.from({ length: Math.min(ARTICLES_PER_PAGE, unread.length) }, (_, i) => unread[(start + i) % unread.length])
+    : [];
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
 
@@ -406,9 +413,7 @@ export default function StudentHome() {
                   Show me different articles
                 </button>
               )}
-              {noMore && (
-                <p className="text-sm text-[var(--muted)] mt-2">You&apos;ve seen all available articles! Check back later for new ones.</p>
-              )}
+              
             </div>
           </>
         )}
