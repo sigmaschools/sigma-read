@@ -751,7 +751,11 @@ async function run() {
   const plans = await planDailyArticles(interestMap, students, recentTopics);
 
   // Limit to what we actually need
-  const plansToSource = plans.slice(0, articlesNeeded);
+  // Preserve category mix when slicing: take all interest/horizon first, then fill with news
+  const interestHorizonPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
+  const newsPlans = plans.filter(p => p.type === "news");
+  const remainingSlots = Math.max(0, articlesNeeded - interestHorizonPlans.length);
+  const plansToSource = [...interestHorizonPlans, ...newsPlans.slice(0, remainingSlots)];
 
   // Step 3: Source content from the web
   const sourcedTopics = await sourceContent(plansToSource, recentTopics);
