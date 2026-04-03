@@ -42,6 +42,7 @@ export const students = pgTable("students", {
   gradeLevel: integer("grade_level"), // actual grade (2-8+)
   age: integer("age"), // student age
   interestProfile: jsonb("interest_profile"),
+  adjacentInterests: jsonb("adjacent_interests").$type<string[]>(), // pre-computed horizon interests
   onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
   dailyArticleCap: integer("daily_article_cap").default(5),
   weeklySessionTarget: integer("weekly_session_target"), // null = auto-calculate from dailyArticleCap × 5
@@ -87,6 +88,7 @@ export const articleCache = pgTable("article_cache", {
   baseArticleId: integer("base_article_id"), // links level adaptations to their source
   generatedDate: date("generated_date"), // which batch date this was generated for
   headlineSource: text("headline_source"), // source URL for news articles
+  sourceUrl: text("source_url"), // URL of the real web source this article was rewritten from
   flagged: boolean("flagged").default(false).notNull(), // flagged = won't be served to new students
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
