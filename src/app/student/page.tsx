@@ -60,7 +60,7 @@ function categoryStyle(article: Article) {
 export default function StudentHome() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  
   const [userName, setUserName] = useState("");
   const [completedToday, setCompletedToday] = useState<{title: string, id: number}[]>([]);
   const [goalReached, setGoalReached] = useState(false);
@@ -117,35 +117,7 @@ export default function StudentHome() {
     setLoading(false);
   }
 
-  // noMore state removed — articles now cycle instead of dead-ending
-
-  async function getNewArticles() {
-    setGenerating(true);
-    // Track the "show me different" click
-    fetch("/api/articles/feed-event", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventType: "show_me_different" }),
-    });
-    const res = await fetch("/api/articles/serve-cached", { method: "POST" });
-    const data = await res.json();
-    if (data.goalReached) {
-      setGoalReached(true);
-      setGenerating(false);
-      return;
-    }
-    const artRes = await fetch("/api/articles");
-    const newArts = await artRes.json();
-    setArticles(newArts);
-    if (!data.count || data.count === 0) {
-      // No new articles from cache — cycle through existing unread articles
-      setViewOffset((prev) => prev + ARTICLES_PER_PAGE);
-    } else {
-      // New articles loaded — reset to show the latest
-      setViewOffset(0);
-    }
-    setGenerating(false);
-  }
+  
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -166,14 +138,9 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Always show 5 unread articles, cycling through when "show me different" is clicked
+  // Show up to 5 unread articles
   const unread = articles.filter((a) => !a.read);
-  const [viewOffset, setViewOffset] = useState(0);
-  const ARTICLES_PER_PAGE = 5;
-  const start = unread.length > 0 ? viewOffset % unread.length : 0;
-  const visible = unread.length > 0
-    ? Array.from({ length: Math.min(ARTICLES_PER_PAGE, unread.length) }, (_, i) => unread[(start + i) % unread.length])
-    : [];
+  const visible = unread.slice(-5);
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
 
@@ -398,23 +365,7 @@ export default function StudentHome() {
               ))}
             </div>
 
-            {/* Get new articles */}
-            <div className="mt-4 text-center">
-              {generating ? (
-                <span className="text-sm text-[var(--muted)] inline-flex items-center gap-2">
-                  <span className="w-3 h-3 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-                  Loading new articles…
-                </span>
-              ) : (
-                <button
-                  onClick={getNewArticles}
-                  className="text-sm px-4 py-2 border border-[var(--border)] rounded-lg text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)] transition"
-                >
-                  Show me different articles
-                </button>
-              )}
-              
-            </div>
+            
           </>
         )}
 

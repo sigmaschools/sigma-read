@@ -26,7 +26,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
 const BRAVE_API_KEY = process.env.BRAVE_API_KEY!;
 const SONNET_MODEL = "claude-sonnet-4-5";
 const HAIKU_MODEL = "claude-haiku-4-5";
-const BUFFER_TARGET = 5;
+const BUFFER_TARGET = 10; // 2-day buffer in case batch fails
 const BASE_LEVEL = 4;
 
 const sql = neon(DATABASE_URL);
@@ -107,7 +107,7 @@ async function planDailyArticles(
   console.log("📋 Planning daily article mix...");
 
   // Target: ~10 base articles for the pool
-  // 60% interest (6), 20% news (2), 20% horizon (2)
+  // 60% interest (3), 20% news (1), 20% horizon (1) — 5 articles/day
   const plans: ArticlePlan[] = [];
 
   // --- News (2 articles) — two-tier sourcing ---
@@ -120,8 +120,8 @@ async function planDailyArticles(
     "site:timeforkids.com",
     "site:newsela.com",
   ];
-  // Pick 3-4 random publishers per batch for variety
-  const shuffledPublishers = kidPublishers.sort(() => Math.random() - 0.5).slice(0, 4);
+  // Pick 2 random publishers per batch for variety
+  const shuffledPublishers = kidPublishers.sort(() => Math.random() - 0.5).slice(0, 2);
   for (const site of shuffledPublishers) {
     plans.push({ query: site, type: "news", searchQuery: `${site} news this week` });
   }
@@ -145,8 +145,8 @@ async function planDailyArticles(
     "national park or wildlife news this week",
     "medical breakthrough news this week",
   ];
-  // Shuffle and pick 3 fallback queries
-  const fallbackQueries = safeNewsPool.sort(() => Math.random() - 0.5).slice(0, 3);
+  // Shuffle and pick 2 fallback queries
+  const fallbackQueries = safeNewsPool.sort(() => Math.random() - 0.5).slice(0, 2);
   for (const q of fallbackQueries) {
     plans.push({ query: q, type: "news", searchQuery: q });
   }
@@ -159,7 +159,7 @@ async function planDailyArticles(
   // Pick interests not recently covered, rotate
   const pickedInterests: string[] = [];
   for (const [interest] of sortedInterests) {
-    if (pickedInterests.length >= 6) break;
+    if (pickedInterests.length >= 3) break;
     if (!recentTopics.has(interest)) {
       pickedInterests.push(interest);
     }
@@ -167,7 +167,7 @@ async function planDailyArticles(
   // Fill remaining from top interests even if recently covered
   if (pickedInterests.length < 6) {
     for (const [interest] of sortedInterests) {
-      if (pickedInterests.length >= 6) break;
+      if (pickedInterests.length >= 3) break;
       if (!pickedInterests.includes(interest)) {
         pickedInterests.push(interest);
       }
@@ -228,15 +228,15 @@ Output ONLY a JSON array of strings:
     }
   }
 
-  // Pick 2 horizon topics from the adjacent pool, avoiding recent
+  // Pick 1 horizon topic from the adjacent pool, avoiding recent
   const uniqueAdjacent = [...new Set(allAdjacentInterests.map(a => a.toLowerCase()))];
   const horizonPicks = uniqueAdjacent
     .filter(a => !recentTopics.has(a))
-    .slice(0, 2);
+    .slice(0, 1);
 
   // Fallback if we can't find unrepeated ones
-  if (horizonPicks.length < 2) {
-    horizonPicks.push(...uniqueAdjacent.slice(0, 2 - horizonPicks.length));
+  if (horizonPicks.length < 1) {
+    horizonPicks.push(...uniqueAdjacent.slice(0, 1));
   }
 
   for (const topic of horizonPicks) {
@@ -494,7 +494,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
   // ─── News: Brave Search (kid publishers + topic fallback) ─────────────────
 
   const newsPlans = plans.filter(p => p.type === "news");
-  const NEWS_TARGET = 2;
+  const NEWS_TARGET = 1;
   let newsSourcedCount = 0;
 
   for (let i = 0; i < newsPlans.length; i++) {
@@ -728,7 +728,7 @@ async function run() {
   if (students.length === 0) { console.log("No active students. Skipping."); return; }
 
   // Check if we already have base articles from a partial run today
-  const TARGET_BASE_ARTICLES = 10;
+  const TARGET_BASE_ARTICLES = 5; // 5 articles/day = 3 interest, 1 news, 1 horizon
   const [existingToday] = await sql`
     SELECT COUNT(*) as c FROM article_cache
     WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false
