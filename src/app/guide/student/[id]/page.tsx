@@ -155,7 +155,7 @@ export default function StudentDetailPage() {
   // SVG trendline — only meaningful when scores vary
   function renderTrendline() {
     if (scoredSessions.length < 2) return null;
-    const scores = scoredSessions.map((s) => s.score!);
+    const scores = [...scoredSessions].reverse().map((s) => s.score!);
     const w = 600, h = 100, padX = 40, padY = 12;
     const chartW = w - padX * 2, chartH = h - padY * 2;
     const min = Math.max(0, Math.min(...scores) - 10);
