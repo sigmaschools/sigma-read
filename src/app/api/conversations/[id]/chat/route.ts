@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle } from "@/lib/prompts";
+import { parseProgressResponse, clampDelta, isConversationComplete } from "@/lib/progress-scoring";
 
 const anthropic = new Anthropic();
 
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({
         existingMessages: existing,
         complete: conversation.complete,
+        progressScore: conversation.progressScore || 0,
       });
     }
     // No existing messages — fall through to generate opener
@@ -51,8 +53,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const studentMessageCount = messages.filter(m => m.role === "user").length;
   const exchangeNumber = studentMessageCount - 1;
 
-  // Safety backstop — force wrap-up after 5 student messages (4 real exchanges, prompt targets 3)
-  const forceComplete = studentMessageCount >= 5;
+  // Safety backstop — force wrap-up after 7 student messages (6 real exchanges)
+  const forceComplete = studentMessageCount >= 7;
 
   // Fetch previous articles for cross-article connections (last 5 read articles, excluding current)
   const previousArticles = await db.select({ title: schema.articles.title, topic: schema.articles.topic })
@@ -82,7 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Build messages for AI — if at hard limit, inject force wrap-up instruction
   const finalMessages = messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
   if (forceComplete) {
-    finalMessages.push({ role: "user" as const, content: "[SYSTEM: This is the student's final response. Wrap up now with brief positive feedback and output [CONVERSATION_COMPLETE].]" });
+    finalMessages.push({ role: "user" as const, content: `[SYSTEM: The student has now had ${studentMessageCount - 1} exchanges. Generate a final closing message, then output {"message": "your closing text", "progressDelta": 0}]` });
   }
 
   const response = await anthropic.messages.create({
@@ -93,13 +95,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
 
   const assistantText = response.content[0].type === "text" ? response.content[0].text : "";
-  const isComplete = assistantText.includes("[CONVERSATION_COMPLETE]") || forceComplete;
-  const cleanText = assistantText.replace("[CONVERSATION_COMPLETE]", "").trim();
+  const parsedResponse = parseProgressResponse(assistantText);
+  const clampedDelta = clampDelta(parsedResponse.progressDelta);
+  const newProgressScore = (conversation.progressScore || 0) + clampedDelta;
+  const isComplete = isConversationComplete({ progressScore: newProgressScore, exchangeNumber, forceComplete });
+  const cleanText = parsedResponse.message.replace("[CONVERSATION_COMPLETE]", "").trim();
 
   messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
 
-  // Save updated messages and conversation style
-  const updateData: any = { messages, complete: isComplete };
+  // Save updated messages, conversation style, and progress score
+  const updateData: any = { messages, complete: isComplete, progressScore: newProgressScore };
   if (!conversation.conversationStyle) {
     updateData.conversationStyle = conversationStyle;
   }
@@ -168,5 +173,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  return NextResponse.json({ message: cleanText, complete: isComplete });
+  return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore });
 }

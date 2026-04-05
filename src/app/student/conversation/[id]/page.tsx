@@ -23,6 +23,7 @@ export default function ConversationPage() {
   const [complete, setComplete] = useState(false);
   const [selfAssessment, setSelfAssessment] = useState<string | null>(null);
   const [studentTurnCount, setStudentTurnCount] = useState(0);
+  const [progressScore, setProgressScore] = useState(0);
   const [article, setArticle] = useState<ArticleData | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -50,6 +51,7 @@ export default function ConversationPage() {
         if (data.existingMessages && data.existingMessages.length > 0) {
           setMessages(data.existingMessages);
           setStudentTurnCount(data.existingMessages.filter((m: Message) => m.role === "user").length);
+          if (data.progressScore !== undefined) setProgressScore(data.progressScore);
           if (data.complete) setComplete(true);
         } else if (data.message) {
           setMessages([{ role: "assistant", content: data.message }]);
@@ -94,6 +96,7 @@ export default function ConversationPage() {
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
+      if (data.progressScore !== undefined) setProgressScore(data.progressScore);
       if (data.complete) setComplete(true);
     } catch (e) {
       console.error(e);
@@ -137,7 +140,7 @@ export default function ConversationPage() {
         {article && (
           <>
             {/* Desktop: side panel */}
-            <div className="hidden lg:flex w-[440px] border-r border-[var(--border)] flex-col bg-[#fafafa] flex-shrink-0">
+            <div className="hidden lg:flex w-[580px] border-r border-[var(--border)] flex-col bg-[#fafafa] flex-shrink-0">
               <div className="flex-1 overflow-y-auto px-8 py-8">
                 <h2 className="text-xl font-semibold mb-1 leading-snug">{article.title}</h2>
                 <p className="text-xs text-[var(--muted)] mb-6 uppercase tracking-wider">{article.topic}</p>
@@ -211,25 +214,44 @@ export default function ConversationPage() {
                 )}
               </div>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                  placeholder="Type your response…"
-                  className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
-                  disabled={loading}
-                  autoFocus
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={loading || !input.trim()}
-                  className="px-5 py-2.5 bg-[var(--accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
-                >
-                  Send
-                </button>
-              </div>
+              <>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                    placeholder="Type your response…"
+                    className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
+                    disabled={loading}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={loading || !input.trim()}
+                    className="px-5 py-2.5 bg-[var(--accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
+                  >
+                    Send
+                  </button>
+                </div>
+                {/* Progress bar */}
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 ease-out"
+                      style={{
+                        width: `${Math.min(100, progressScore)}%`,
+                        backgroundColor: progressScore >= 100
+                          ? "#22c55e"
+                          : progressScore >= 50
+                          ? "#86efac"
+                          : "#d1d5db",
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-gray-400 tracking-wide flex-shrink-0">DONE</span>
+                </div>
+              </>
             )}
           </div>
         </div>
