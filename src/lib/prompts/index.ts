@@ -158,10 +158,10 @@ export function comprehensionConversationPrompt(
   let exchangeContext: string;
   if (exchangeNumber === undefined || exchangeNumber === 0) {
     exchangeContext = "This is the start of the conversation. Begin with your Step 1 opener.";
-  } else if (exchangeNumber >= 3) {
-    exchangeContext = `This is exchange ${exchangeNumber} of 3. You MUST wrap up NOW and output [CONVERSATION_COMPLETE].`;
+  } else if (exchangeNumber >= 4) {
+    exchangeContext = `This is exchange ${exchangeNumber}. The student has completed all 3 steps. Continue with follow-up questions if progress is not yet complete.`;
   } else {
-    exchangeContext = `This is exchange ${exchangeNumber} of 3. You have ${3 - exchangeNumber} exchange(s) left before wrapping up.`;
+    exchangeContext = `This is exchange ${exchangeNumber} of 3. You have ${3 - exchangeNumber} step(s) left.`;
   }
 
   return interpolate(conversationBaseMd.trimEnd(), {
