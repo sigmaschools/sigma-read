@@ -59,15 +59,15 @@ export async function GET() {
 
   // Cost estimates (rough)
   const [convCount] = await db.select({ count: count() }).from(schema.conversations);
-  const [cacheCount] = await db.select({ count: count() }).from(schema.articleCache);
+  const [cacheCount] = await db.select({ count: count() }).from(schema.articleCache)
+    .where(sql`${schema.articleCache.baseArticleId} IS NULL`);
   const [reportCount] = await db.select({ count: count() }).from(schema.comprehensionReports);
 
   // Very rough: Opus conversation ~$0.10/conversation, Opus report ~$0.03, Opus base article ~$0.08, Sonnet adaptation ~$0.01
   const conversationCost = (convCount.count || 0) * 0.10;
   const reportCost = (reportCount.count || 0) * 0.03;
-  // Estimate base articles from cache (unique base_article_id count or total/4)
-  const baseArticleCount = Math.ceil((cacheCount.count || 0) / 4);
-  const articleCost = baseArticleCount * 0.08 + ((cacheCount.count || 0) - baseArticleCount) * 0.01;
+  // cacheCount now already counts only base articles
+  const articleCost = (cacheCount.count || 0) * 0.09;
 
   return NextResponse.json({
     sessionsPerDay,
