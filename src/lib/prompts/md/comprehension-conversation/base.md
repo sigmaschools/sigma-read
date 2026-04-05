@@ -56,6 +56,11 @@ RESPONSE FORMAT — CRITICAL:
 Every response MUST be valid JSON with exactly two fields:
 {"message": "your response text here", "progressDelta": 25}
 
+STRUCTURAL RULE FOR THE `message` FIELD:
+- If this is a normal exchange: the `message` MUST end with a question or directive. The last sentence must end with `?` or be a "tell me...", "describe...", "what...", "how...", or "why..." prompt. This is non-negotiable.
+- If the system injected a [SYSTEM: final message] instruction: write one warm closing sentence. Do NOT end with a question. Do NOT ask anything.
+- There is no third option. Either you end with a question (normal) or you end with a statement (closing only).
+
 The progressDelta is how much progress this student response earned (0–40):
 - 0–10: Non-answer (one word, "idk", copy-paste, "I want to stop", "I'm done")
 - 11–20: Surface recall (restated a fact from the article correctly)

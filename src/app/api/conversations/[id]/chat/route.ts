@@ -99,8 +99,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const parsedResponse = parseProgressResponse(assistantText);
   const clampedDelta = clampDelta(parsedResponse.progressDelta);
   const newProgressScore = (conversation.progressScore || 0) + clampedDelta;
-  const isComplete = isConversationComplete({ progressScore: newProgressScore, exchangeNumber, forceComplete });
-  const cleanText = parsedResponse.message.replace("[CONVERSATION_COMPLETE]", "").trim();
+  let isComplete = isConversationComplete({ progressScore: newProgressScore, exchangeNumber, forceComplete });
+  let cleanText = parsedResponse.message.replace("[CONVERSATION_COMPLETE]", "").trim();
+
+  // Safety net: if AI's closing instruction was active and the AI still asked a question,
+  // replace with a canned closing so the session doesn't end on an unanswerable question.
+  if ((forceComplete || alreadyComplete) && cleanText.trim().endsWith("?")) {
+    cleanText = "You've clearly engaged with this article thoughtfully — great work today.";
+  }
+
+  // Defer completion if the AI asked a question (ends with ?) and closing wasn't explicitly injected.
+  // Let the student answer, then alreadyComplete will trigger on the next exchange with proper closing.
+  if (isComplete && !forceComplete && !alreadyComplete && cleanText.trim().endsWith("?")) {
+    isComplete = false;
+  }
 
   messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
 
