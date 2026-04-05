@@ -140,7 +140,7 @@ export default function ConversationPage() {
         {article && (
           <>
             {/* Desktop: side panel */}
-            <div className="hidden lg:flex w-[440px] border-r border-[var(--border)] flex-col bg-[#fafafa] flex-shrink-0">
+            <div className="hidden lg:flex w-[580px] border-r border-[var(--border)] flex-col bg-[#fafafa] flex-shrink-0">
               <div className="flex-1 overflow-y-auto px-8 py-8">
                 <h2 className="text-xl font-semibold mb-1 leading-snug">{article.title}</h2>
                 <p className="text-xs text-[var(--muted)] mb-6 uppercase tracking-wider">{article.topic}</p>
@@ -243,7 +243,7 @@ export default function ConversationPage() {
                         width: `${Math.min(100, progressScore)}%`,
                         backgroundColor: progressScore >= 100
                           ? "#22c55e"
-                          : progressScore >= 60
+                          : progressScore >= 50
                           ? "#86efac"
                           : "#d1d5db",
                       }}
