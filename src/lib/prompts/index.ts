@@ -159,7 +159,7 @@ export function comprehensionConversationPrompt(
   if (exchangeNumber === undefined || exchangeNumber === 0) {
     exchangeContext = "This is the start of the conversation. Begin with your Step 1 opener.";
   } else if (exchangeNumber >= 4) {
-    exchangeContext = `This is exchange ${exchangeNumber}. The student has completed all 3 steps. Continue with follow-up questions if progress is not yet complete.`;
+    exchangeContext = `This is exchange ${exchangeNumber}. The student has completed all 3 steps. Continue with follow-up questions until the system signals completion.`;
   } else {
     exchangeContext = `This is exchange ${exchangeNumber} of 3. You have ${3 - exchangeNumber} step(s) left.`;
   }
