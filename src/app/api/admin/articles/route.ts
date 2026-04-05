@@ -27,13 +27,23 @@ async function handleQueue({ page, category, offset, params }: { page: number; c
   const flagged = params.get("flagged") || "all";
   const level = params.get("level") || "all";
 
-  const conditions = [];
+  // Step 1: Query base articles only (baseArticleId IS NULL)
+  const conditions = [sql`${schema.articleCache.baseArticleId} IS NULL`];
   if (category !== "all") conditions.push(sql`${schema.articleCache.category} = ${category}`);
   if (flagged === "active") conditions.push(sql`${schema.articleCache.flagged} = false`);
   else if (flagged === "blocked") conditions.push(sql`${schema.articleCache.flagged} = true`);
-  if (level !== "all") conditions.push(sql`${schema.articleCache.readingLevel} = ${parseInt(level)}`);
+  if (level !== "all") {
+    conditions.push(sql`(
+      ${schema.articleCache.readingLevel} = ${parseInt(level)}
+      OR EXISTS (
+        SELECT 1 FROM article_cache v
+        WHERE v.base_article_id = ${schema.articleCache.id}
+        AND v.reading_level = ${parseInt(level)}
+      )
+    )`);
+  }
 
-  const where = conditions.length > 0 ? sql.join(conditions, sql` AND `) : sql`true`;
+  const where = sql.join(conditions, sql` AND `);
 
   const [{ total }] = await db.select({ total: count() }).from(schema.articleCache).where(where);
   const totalNum = Number(total);
@@ -54,8 +64,30 @@ async function handleQueue({ page, category, offset, params }: { page: number; c
     .limit(PAGE_SIZE)
     .offset(offset);
 
+  // Step 2: Get all adaptations for this page of base articles
+  const baseIds = rows.map(r => r.id);
+  let adaptations: { id: number; baseArticleId: number | null; readingLevel: number }[] = [];
+  if (baseIds.length > 0) {
+    adaptations = await db.select({
+      id: schema.articleCache.id,
+      baseArticleId: schema.articleCache.baseArticleId,
+      readingLevel: schema.articleCache.readingLevel,
+    }).from(schema.articleCache)
+      .where(sql`${schema.articleCache.baseArticleId} = ANY(ARRAY[${sql.join(baseIds.map(id => sql`${id}`), sql`, `)}]::int[])`);
+  }
+
+  // Step 3: Merge into grouped rows
+  const grouped = rows.map(base => {
+    const variants = adaptations.filter(a => a.baseArticleId === base.id);
+    const levels = [
+      { id: base.id, level: base.readingLevel },
+      ...variants.map(v => ({ id: v.id, level: v.readingLevel }))
+    ].sort((a, b) => a.level - b.level);
+    return { ...base, levels };
+  });
+
   return NextResponse.json({
-    rows,
+    rows: grouped,
     total: totalNum,
     page,
     pageCount: Math.ceil(totalNum / PAGE_SIZE),
