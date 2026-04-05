@@ -143,6 +143,7 @@ export const conversations = pgTable("conversations", {
   messages: jsonb("messages").$type<{ role: string; content: string; timestamp?: string }[]>().default([]),
   conversationStyle: varchar("conversation_style", { length: 30 }), // which of 6 styles was used
   complete: boolean("complete").default(false).notNull(),
+  progressScore: integer("progress_score").default(0), // quality-based progress toward conversation completion (0-100+)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
