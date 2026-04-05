@@ -9,11 +9,11 @@ interface QueueRow {
   title: string;
   topic: string;
   category: string;
-  readingLevel: number;
   generatedDate: string | null;
   sourceUrl: string | null;
   flagged: boolean;
   createdAt: string;
+  levels: Array<{ id: number; level: number }>;
 }
 
 interface LibraryRow {
@@ -325,9 +325,17 @@ export default function AdminArticlesPage() {
                     >
                       {catLabel(row.category)}
                     </span>
-                    <span className="text-xs font-medium text-[var(--muted)] bg-gray-100 px-1.5 py-0.5 rounded">
-                      L{row.readingLevel}
-                    </span>
+                    <div className="flex gap-1">
+                      {row.levels.map(lv => (
+                        <button
+                          key={lv.id}
+                          onClick={(e) => { e.stopPropagation(); openPreview(lv.id); }}
+                          className="px-2 py-0.5 text-xs font-medium rounded border border-[var(--border)] text-[var(--fg)] bg-white hover:border-[var(--accent)] hover:text-[var(--accent)] transition"
+                        >
+                          L{lv.level}
+                        </button>
+                      ))}
+                    </div>
                     <span className="text-[11px] text-[var(--muted)] w-20 text-right">
                       {row.generatedDate
                         ? new Date(row.generatedDate + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })
