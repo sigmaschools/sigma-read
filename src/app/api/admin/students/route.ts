@@ -28,6 +28,15 @@ export async function GET() {
   const guideMap: Record<number, string> = {};
   guides.forEach(g => { guideMap[g.id] = g.name; });
 
+  // Get total sessions per student (live count — do not use stored totalSessionsCompleted which is never incremented)
+  const totalSessions = await db.select({
+    studentId: schema.readingSessions.studentId,
+    cnt: count(),
+  }).from(schema.readingSessions)
+    .groupBy(schema.readingSessions.studentId);
+  const totalMap: Record<number, number> = {};
+  totalSessions.forEach(t => { totalMap[t.studentId] = t.cnt; });
+
   // Get weekly sessions per student
   const weekSessions = await db.select({
     studentId: schema.readingSessions.studentId,
@@ -80,6 +89,7 @@ export async function GET() {
       guideName: guideMap[s.guideId] || "Unknown",
       avgScore,
       sessionsThisWeek,
+      totalSessionsCompleted: totalMap[s.id] || 0,
       lastActive: lastMap[s.id] || null,
       status,
     };
