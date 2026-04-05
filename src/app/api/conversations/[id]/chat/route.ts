@@ -81,10 +81,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     exchangeNumber
   );
 
-  // Build messages for AI — if at hard limit, inject force wrap-up instruction
+  // Build messages for AI — if at hard limit OR already at threshold, inject closing instruction
+  const alreadyComplete = (conversation.progressScore || 0) >= 100 && exchangeNumber >= 3;
   const finalMessages = messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
-  if (forceComplete) {
-    finalMessages.push({ role: "user" as const, content: `[SYSTEM: The student has now had ${studentMessageCount - 1} exchanges. Generate a final closing message, then output {"message": "your closing text", "progressDelta": 0}]` });
+  if (forceComplete || alreadyComplete) {
+    finalMessages.push({ role: "user" as const, content: `[SYSTEM: The student has demonstrated sufficient understanding. This is your final message. Wrap up in one warm sentence acknowledging what they got right. Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]` });
   }
 
   const response = await anthropic.messages.create({
