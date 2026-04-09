@@ -8,6 +8,13 @@
       "when": 1775755579257,
       "tag": "0000_faulty_darkstar",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775757114723,
+      "tag": "0001_perpetual_mojo",
+      "breakpoints": true
     }
   ]
 }
