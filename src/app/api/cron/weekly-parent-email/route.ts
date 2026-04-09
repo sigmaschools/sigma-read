@@ -8,7 +8,6 @@ import { eq, and, gte, inArray } from "drizzle-orm";
 import { getScoreZone, getScoreTrend } from "@/lib/score-zones";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   // Authenticate via CRON_SECRET
@@ -16,6 +15,8 @@ export async function POST(req: NextRequest) {
   if (!auth || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
