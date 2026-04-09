@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -146,6 +146,25 @@ export async function GET(req: NextRequest) {
     else avgEngagement = "Low — brief responses";
   }
 
+  // Parent feedback (guide/admin only)
+  let parentFeedbackItems: any[] = [];
+  if (session.role === "guide" || session.role === "admin") {
+    parentFeedbackItems = await db.select({
+      id: schema.parentFeedback.id,
+      category: schema.parentFeedback.category,
+      sentiment: schema.parentFeedback.sentiment,
+      summary: schema.parentFeedback.summary,
+      parentName: schema.parents.name,
+      createdAt: schema.parentFeedback.createdAt,
+      acknowledgedAt: schema.parentFeedback.acknowledgedAt,
+    })
+      .from(schema.parentFeedback)
+      .innerJoin(schema.parents, eq(schema.parentFeedback.parentId, schema.parents.id))
+      .where(eq(schema.parentFeedback.studentId, studentId))
+      .orderBy(desc(schema.parentFeedback.createdAt))
+      .limit(20);
+  }
+
   return NextResponse.json({
     calibration,
     avgReadingTime,
@@ -158,5 +177,6 @@ export async function GET(req: NextRequest) {
     levelHistory: levelHist,
     conversationStyles,
     avgEngagement,
+    parentFeedback: parentFeedbackItems,
   });
 }
