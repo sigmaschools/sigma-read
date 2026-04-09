@@ -163,6 +163,23 @@ export const comprehensionReports = pgTable("comprehension_reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const parents = pgTable("parents", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const studentParents = pgTable("student_parents", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  parentId: integer("parent_id").references(() => parents.id).notNull(),
+  relationship: varchar("relationship", { length: 30 }).default("parent"),
+  isPrimary: boolean("is_primary").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const levelHistory = pgTable("level_history", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").references(() => students.id).notNull(),
