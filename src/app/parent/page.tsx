@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ScoreZoneChart from "@/components/ScoreZoneChart";
 
@@ -252,7 +252,15 @@ function ChatPanel({ childName, studentId, chatOpen, onClose }: {
 }
 
 // --- Main Page ---
-export default function ParentPortal() {
+export default function ParentPortalPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="text-[var(--muted)]">Loading…</div></div>}>
+      <ParentPortal />
+    </Suspense>
+  );
+}
+
+function ParentPortal() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [parentName, setParentName] = useState("");
