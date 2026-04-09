@@ -10,6 +10,7 @@ import batchPlannerMd from "./md/batch-planner.md";
 import sourceRewriteMd from "./md/source-rewrite.md";
 import preReadingMd from "./md/pre-reading.md";
 import wordDefinitionMd from "./md/word-definition.md";
+import parentChatMd from "./md/parent-chat.md";
 
 // Comprehension conversation fragments
 import conversationBaseMd from "./md/comprehension-conversation/base.md";
@@ -205,4 +206,22 @@ export function preReadingPrompt(title: string, topic: string, level: number) {
 
 export function wordDefinitionPrompt(word: string, sentence: string) {
   return interpolate(wordDefinitionMd.trimEnd(), { word, sentence });
+}
+
+export function parentChatPrompt(vars: {
+  parentName: string;
+  studentName: string;
+  gradeLevel: string;
+  levelLabel: string;
+  lexileRange: string;
+  interests: string;
+  recentScores: string;
+  avgScore: string;
+  levelHistory: string;
+  totalSessions: string;
+  calibration: string;
+  avgEngagement: string;
+  recentSessions: string;
+}) {
+  return interpolate(parentChatMd.trimEnd(), vars);
 }

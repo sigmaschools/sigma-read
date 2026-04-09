@@ -180,6 +180,27 @@ export const studentParents = pgTable("student_parents", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const parentConversations = pgTable("parent_conversations", {
+  id: serial("id").primaryKey(),
+  parentId: integer("parent_id").references(() => parents.id).notNull(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  messages: jsonb("messages").$type<{ role: string; content: string; timestamp?: string }[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const parentFeedback = pgTable("parent_feedback", {
+  id: serial("id").primaryKey(),
+  parentId: integer("parent_id").references(() => parents.id).notNull(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  parentConversationId: integer("parent_conversation_id").references(() => parentConversations.id).notNull(),
+  category: varchar("category", { length: 30 }).notNull(),
+  sentiment: varchar("sentiment", { length: 15 }).notNull(),
+  summary: text("summary").notNull(),
+  sourceMessageIndex: integer("source_message_index"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const levelHistory = pgTable("level_history", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").references(() => students.id).notNull(),

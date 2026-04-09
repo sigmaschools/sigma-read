@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import ScoreZoneChart from "@/components/ScoreZoneChart";
 
@@ -53,6 +53,12 @@ interface StudentInsights {
   avgEngagement: string | null;
 }
 
+interface ChatMessage {
+  role: string;
+  content: string;
+  timestamp?: string;
+}
+
 const levelLabel = (level: number | null) => {
   if (!level) return "Not assessed";
   const labels: Record<number, string> = {
@@ -81,6 +87,171 @@ const selfAssessLabel = (sa: string | null) => {
   return labels[sa] || sa;
 };
 
+function formatTimestamp(ts?: string) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+// --- Chat Panel Component ---
+function ChatPanel({ childName, studentId, chatOpen, onClose }: {
+  childName: string;
+  studentId: number;
+  chatOpen: boolean;
+  onClose: () => void;
+}) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  // Load existing conversation when studentId changes
+  useEffect(() => {
+    setMessages([]);
+    setConversationId(null);
+    setInitialLoad(true);
+    fetch(`/api/parent/chat?studentId=${studentId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.messages?.length) setMessages(data.messages);
+        if (data.conversationId) setConversationId(data.conversationId);
+        setInitialLoad(false);
+      })
+      .catch(() => setInitialLoad(false));
+  }, [studentId]);
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  async function handleSend() {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    setInput("");
+    const userMsg: ChatMessage = { role: "user", content: text, timestamp: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/parent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, message: text }),
+      });
+      const data = await res.json();
+      if (data.message) {
+        setMessages(prev => [...prev, { role: "assistant", content: data.message, timestamp: new Date().toISOString() }]);
+      }
+      if (data.conversationId) setConversationId(data.conversationId);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, something went wrong. Please try again.", timestamp: new Date().toISOString() }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const chatContent = (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between shrink-0">
+        <p className="text-sm text-[var(--muted)]">Ask about {childName}&apos;s reading</p>
+        {/* Close button only on mobile overlay */}
+        <button onClick={onClose} className="md:hidden text-sm text-[var(--muted)] hover:text-[var(--fg)]">
+          Close
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {initialLoad ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-[var(--muted)]">Ask anything about {childName}&apos;s reading progress, scores, or interests.</p>
+          </div>
+        ) : (
+          messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className="max-w-[85%]">
+                <div className={`px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed whitespace-pre-wrap ${
+                  m.role === "user"
+                    ? "bg-[var(--accent)] text-white rounded-br-md"
+                    : "bg-[var(--surface)] text-[var(--fg)] rounded-bl-md"
+                }`}>
+                  {m.content}
+                </div>
+                <p className={`text-[11px] text-[var(--muted)] mt-1 ${m.role === "user" ? "text-right" : "text-left"}`}>
+                  {formatTimestamp(m.timestamp)}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-[var(--surface)] px-4 py-3 rounded-2xl rounded-bl-md">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="px-4 py-3 border-t border-[var(--border)] shrink-0">
+        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1 px-3.5 py-2 text-sm border border-[var(--border)] rounded-xl outline-none focus:border-[var(--accent)] transition bg-white"
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || loading}
+            className="px-4 py-2 bg-[var(--accent)] text-white text-sm font-medium rounded-xl disabled:opacity-40 transition hover:opacity-90"
+          >
+            Send
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop: inline panel */}
+      <div className="hidden md:flex flex-col w-[40%] border-l border-[var(--border)] bg-white h-[calc(100vh-49px)] sticky top-[49px]">
+        {chatContent}
+      </div>
+
+      {/* Mobile: full-screen overlay */}
+      {chatOpen && (
+        <div className="md:hidden fixed inset-0 z-50 bg-white flex flex-col">
+          {chatContent}
+        </div>
+      )}
+    </>
+  );
+}
+
+// --- Main Page ---
 export default function ParentPortal() {
   const router = useRouter();
   const [parentName, setParentName] = useState("");
@@ -91,6 +262,7 @@ export default function ParentPortal() {
   const [selectedSession, setSelectedSession] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [childLoading, setChildLoading] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -117,6 +289,7 @@ export default function ParentPortal() {
   async function loadChild(child: Child) {
     setSelectedChild(child);
     setSelectedSession(null);
+    setChatOpen(false);
     setChildLoading(true);
     const [repRes, insRes] = await Promise.all([
       fetch(`/api/reports?studentId=${child.id}`),
@@ -150,9 +323,9 @@ export default function ParentPortal() {
   const header = (
     <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-[var(--border)] px-6 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        {selectedChild && hasMultipleChildren && (
+        {selectedChild && hasMultipleChildren && !selectedSession && (
           <button
-            onClick={() => { setSelectedChild(null); setSessions([]); setInsights(null); setSelectedSession(null); }}
+            onClick={() => { setSelectedChild(null); setSessions([]); setInsights(null); setSelectedSession(null); setChatOpen(false); }}
             className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
           >
             ←
@@ -269,7 +442,7 @@ export default function ParentPortal() {
     );
   }
 
-  // Student detail view
+  // Student detail view with chat panel
   if (selectedChild) {
     const scoredSessions = sessions.filter((s) => s.score !== null);
     const chartScores = [...scoredSessions].reverse().map((s) => s.score!);
@@ -278,76 +451,102 @@ export default function ParentPortal() {
     return (
       <div className="min-h-screen">
         {header}
-        <main className="max-w-3xl mx-auto px-6 py-8">
-          {childLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
-            <>
-              <div className="mb-6">
-                <h1 className="text-xl font-semibold">{selectedChild.name}</h1>
-                <p className="text-sm text-[var(--muted)]">
-                  {selectedChild.gradeLevel ? `Grade ${selectedChild.gradeLevel}` : ""}{selectedChild.gradeLevel && selectedChild.readingLevel ? " · " : ""}{selectedChild.readingLevel ? levelLabel(selectedChild.readingLevel) : ""}
-                </p>
-              </div>
-
-              {/* Interests */}
-              {interests?.interests && interests.interests.length > 0 && (
-                <div className="mb-6">
-                  <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Interests</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {interests.interests.map((t: string) => (
-                      <span key={t} className="px-3 py-1 bg-[var(--accent)]/10 text-[var(--accent)] text-sm rounded-full font-medium">{t}</span>
-                    ))}
-                  </div>
+        <div className="flex">
+          {/* Left: student detail */}
+          <main className="flex-1 md:w-[60%] px-6 py-8">
+            <div className="max-w-3xl mx-auto md:mx-0">
+              {childLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
                 </div>
-              )}
-
-              {/* Score Trend */}
-              {chartScores.length >= 2 && (
-                <div className="mb-6">
-                  <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Score Trend</h2>
-                  <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
-                    <ScoreZoneChart scores={chartScores} />
+              ) : (
+                <>
+                  <div className="mb-6">
+                    <h1 className="text-xl font-semibold">{selectedChild.name}</h1>
+                    <p className="text-sm text-[var(--muted)]">
+                      {selectedChild.gradeLevel ? `Grade ${selectedChild.gradeLevel}` : ""}{selectedChild.gradeLevel && selectedChild.readingLevel ? " · " : ""}{selectedChild.readingLevel ? levelLabel(selectedChild.readingLevel) : ""}
+                    </p>
                   </div>
-                </div>
-              )}
 
-              {/* Sessions list */}
-              <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">Reading Sessions</h2>
-              <div className="space-y-2">
-                {sessions.map((s) => (
-                  <button
-                    key={s.sessionId}
-                    onClick={() => setSelectedSession(s)}
-                    className="w-full text-left p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-[15px]">{s.articleTitle || "Untitled"}</h3>
-                        <p className="text-sm text-[var(--muted)] mt-1">
-                          {s.articleTopic} · {s.completedAt ? new Date(s.completedAt).toLocaleDateString() : "In progress"}
-                          {s.articleLiked === true && " · 👍"}
-                          {s.articleLiked === false && " · 👎"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {s.score !== null && (
-                          <span className={`text-lg font-semibold ${scoreColor(s.score)}`}>{s.score}</span>
-                        )}
-                        <span className="text-[var(--muted)]">→</span>
+                  {/* Interests */}
+                  {interests?.interests && interests.interests.length > 0 && (
+                    <div className="mb-6">
+                      <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Interests</h2>
+                      <div className="flex flex-wrap gap-2">
+                        {interests.interests.map((t: string) => (
+                          <span key={t} className="px-3 py-1 bg-[var(--accent)]/10 text-[var(--accent)] text-sm rounded-full font-medium">{t}</span>
+                        ))}
                       </div>
                     </div>
-                  </button>
-                ))}
-                {sessions.length === 0 && (
-                  <p className="text-[var(--muted)] text-sm">No sessions yet.</p>
-                )}
-              </div>
-            </>
-          )}
-        </main>
+                  )}
+
+                  {/* Score Trend */}
+                  {chartScores.length >= 2 && (
+                    <div className="mb-6">
+                      <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Score Trend</h2>
+                      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
+                        <ScoreZoneChart scores={chartScores} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sessions list */}
+                  <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">Reading Sessions</h2>
+                  <div className="space-y-2">
+                    {sessions.map((s) => (
+                      <button
+                        key={s.sessionId}
+                        onClick={() => setSelectedSession(s)}
+                        className="w-full text-left p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium text-[15px]">{s.articleTitle || "Untitled"}</h3>
+                            <p className="text-sm text-[var(--muted)] mt-1">
+                              {s.articleTopic} · {s.completedAt ? new Date(s.completedAt).toLocaleDateString() : "In progress"}
+                              {s.articleLiked === true && " · 👍"}
+                              {s.articleLiked === false && " · 👎"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {s.score !== null && (
+                              <span className={`text-lg font-semibold ${scoreColor(s.score)}`}>{s.score}</span>
+                            )}
+                            <span className="text-[var(--muted)]">→</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                    {sessions.length === 0 && (
+                      <p className="text-[var(--muted)] text-sm">No sessions yet.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </main>
+
+          {/* Right: chat panel (desktop) */}
+          <ChatPanel
+            childName={selectedChild.name}
+            studentId={selectedChild.id}
+            chatOpen={chatOpen}
+            onClose={() => setChatOpen(false)}
+          />
+        </div>
+
+        {/* Mobile FAB */}
+        {!chatOpen && (
+          <button
+            onClick={() => setChatOpen(true)}
+            className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[var(--accent)] text-white rounded-full shadow-lg flex items-center justify-center z-40 hover:opacity-90 transition"
+            aria-label="Open chat"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
+        )}
       </div>
     );
   }
