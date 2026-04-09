@@ -6,13 +6,20 @@ import { eq, and, desc, sql } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session || (session.role !== "guide" && session.role !== "admin")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || (session.role !== "guide" && session.role !== "admin" && session.role !== "parent")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const studentId = parseInt(req.nextUrl.searchParams.get("studentId") || "0");
   if (!studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 });
 
-  // Verify this student belongs to this guide (admins can view any student)
-  const [student] = session.role === "admin"
+  // Verify access: guides see their students, admins see all, parents see linked children
+  if (session.role === "parent") {
+    const [link] = await db.select({ id: schema.studentParents.id })
+      .from(schema.studentParents)
+      .where(and(eq(schema.studentParents.parentId, session.userId), eq(schema.studentParents.studentId, studentId)))
+      .limit(1);
+    if (!link) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const [student] = session.role === "admin" || session.role === "parent"
     ? await db.select().from(schema.students).where(eq(schema.students.id, studentId)).limit(1)
     : await db.select().from(schema.students).where(
         and(eq(schema.students.id, studentId), eq(schema.students.guideId, session.userId))
