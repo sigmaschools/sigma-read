@@ -1,0 +1,1 @@
+ALTER TABLE "parent_feedback" ADD COLUMN "acknowledged_at" timestamp;
