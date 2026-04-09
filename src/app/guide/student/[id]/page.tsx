@@ -39,6 +39,16 @@ interface Student {
   onboardingComplete: boolean;
 }
 
+interface ParentFeedbackItem {
+  id: number;
+  category: string;
+  sentiment: string;
+  summary: string;
+  parentName: string;
+  createdAt: string;
+  acknowledgedAt: string | null;
+}
+
 interface StudentInsights {
   calibration: { pattern: string; detail: string } | null;
   avgReadingTime: number | null;
@@ -51,6 +61,7 @@ interface StudentInsights {
   levelHistory: { fromLevel: number; toLevel: number; changedAt: string }[];
   conversationStyles: Record<string, number>;
   avgEngagement: string | null;
+  parentFeedback: ParentFeedbackItem[];
 }
 
 export default function StudentDetailPage() {
@@ -119,6 +130,33 @@ export default function StudentDetailPage() {
     if (score >= 60) return "text-amber-500";
     return "text-red-500";
   };
+
+  const sentimentDot = (sentiment: string) => {
+    switch (sentiment) {
+      case "positive": return { dot: "\u{1F7E2}", color: "#22c55e" };
+      case "neutral": return { dot: "\u26AA", color: "#6c757d" };
+      case "negative": return { dot: "\u{1F7E1}", color: "#f59e0b" };
+      case "concern": return { dot: "\u{1F534}", color: "#ef4444" };
+      default: return { dot: "\u26AA", color: "#6c757d" };
+    }
+  };
+
+  async function acknowledgeFeedback(feedbackId: number) {
+    await fetch("/api/guide/acknowledge-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedbackId }),
+    });
+    // Update local state
+    if (insights) {
+      setInsights({
+        ...insights,
+        parentFeedback: insights.parentFeedback.map(f =>
+          f.id === feedbackId ? { ...f, acknowledgedAt: new Date().toISOString() } : f
+        ),
+      });
+    }
+  }
 
   const selfAssessLabel = (sa: string | null) => {
     if (!sa) return null;
@@ -291,6 +329,65 @@ export default function StudentDetailPage() {
             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
               <ScoreZoneChart scores={chartScores} />
             </div>
+          </div>
+        )}
+
+        {/* Parent Feedback */}
+        {insights && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Parent Feedback</h2>
+              {insights.parentFeedback.filter(f => !f.acknowledgedAt).length > 0 && (
+                <span style={{
+                  backgroundColor: "#ef4444",
+                  color: "white",
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                  padding: "1px 7px",
+                  borderRadius: "9999px",
+                }}>
+                  {insights.parentFeedback.filter(f => !f.acknowledgedAt).length}
+                </span>
+              )}
+            </div>
+            {insights.parentFeedback.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">No parent feedback yet</p>
+            ) : (
+              <div className="space-y-2">
+                {insights.parentFeedback.map(f => {
+                  const { dot } = sentimentDot(f.sentiment);
+                  const ago = (() => {
+                    const days = Math.floor((Date.now() - new Date(f.createdAt).getTime()) / 86400000);
+                    if (days === 0) return "today";
+                    if (days === 1) return "1 day ago";
+                    return `${days} days ago`;
+                  })();
+                  return (
+                    <div key={f.id} className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span>{dot}</span>
+                        <span className="text-xs font-medium text-[var(--fg)]">{f.category.replace(/_/g, " ")}</span>
+                        <span className="text-xs text-[var(--muted)]">from {f.parentName}</span>
+                        <span className="text-xs text-[var(--muted)]">&middot; {ago}</span>
+                      </div>
+                      <p className="text-sm text-[var(--fg)] leading-relaxed mb-2">&ldquo;{f.summary}&rdquo;</p>
+                      <div className="flex justify-end">
+                        {f.acknowledgedAt ? (
+                          <span className="text-xs text-[var(--muted)]">&check; Acknowledged</span>
+                        ) : (
+                          <button
+                            onClick={() => acknowledgeFeedback(f.id)}
+                            className="text-xs font-medium text-[var(--accent)] hover:underline"
+                          >
+                            Acknowledge
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
