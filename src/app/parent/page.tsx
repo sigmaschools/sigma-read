@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ScoreZoneChart from "@/components/ScoreZoneChart";
 
 interface Child {
@@ -254,6 +254,7 @@ function ChatPanel({ childName, studentId, chatOpen, onClose }: {
 // --- Main Page ---
 export default function ParentPortal() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [parentName, setParentName] = useState("");
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
@@ -277,8 +278,14 @@ export default function ParentPortal() {
       const kids: Child[] = await childRes.json();
       setChildren(kids);
 
-      // Auto-select if single child
-      if (kids.length === 1) {
+      // Auto-select from query param or if single child
+      const childParam = searchParams.get("child");
+      const targetChild = childParam
+        ? kids.find((k: Child) => k.id === Number(childParam))
+        : null;
+      if (targetChild) {
+        await loadChild(targetChild);
+      } else if (kids.length === 1) {
         await loadChild(kids[0]);
       }
       setLoading(false);
