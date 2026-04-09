@@ -2,14 +2,23 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq, desc, isNotNull } from "drizzle-orm";
+import { eq, and, desc, isNotNull } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session || (session.role !== "guide" && session.role !== "admin")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || (session.role !== "guide" && session.role !== "admin" && session.role !== "parent")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const studentId = parseInt(req.nextUrl.searchParams.get("studentId") || "0");
   if (!studentId) return NextResponse.json({ error: "Student ID required" }, { status: 400 });
+
+  // Parent must own this student
+  if (session.role === "parent") {
+    const [link] = await db.select({ id: schema.studentParents.id })
+      .from(schema.studentParents)
+      .where(and(eq(schema.studentParents.parentId, session.userId), eq(schema.studentParents.studentId, studentId)))
+      .limit(1);
+    if (!link) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   // Get all reading sessions for this student with their reports
   const sessions = await db.select({
