@@ -25,6 +25,15 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
+  // Try parent (email-based)
+  const [parent] = await db.select().from(schema.parents).where(eq(schema.parents.email, username)).limit(1);
+  if (parent && await verifyPassword(password, parent.passwordHash)) {
+    const token = createToken({ userId: parent.id, role: "parent" });
+    const res = NextResponse.json({ role: "parent", userId: parent.id, name: parent.name });
+    res.cookies.set("session", token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
+    return res;
+  }
+
   // Try student (username-based)
   const [student] = await db.select().from(schema.students).where(eq(schema.students.username, username)).limit(1);
   if (student && await verifyPassword(password, student.passwordHash)) {
