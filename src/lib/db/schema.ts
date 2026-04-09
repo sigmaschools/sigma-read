@@ -198,6 +198,7 @@ export const parentFeedback = pgTable("parent_feedback", {
   sentiment: varchar("sentiment", { length: 15 }).notNull(),
   summary: text("summary").notNull(),
   sourceMessageIndex: integer("source_message_index"),
+  acknowledgedAt: timestamp("acknowledged_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
