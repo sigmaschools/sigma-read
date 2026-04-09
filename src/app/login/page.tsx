@@ -33,6 +33,8 @@ export default function LoginPage() {
         router.push("/admin");
       } else if (data.role === "guide") {
         router.push("/guide");
+      } else if (data.role === "parent") {
+        router.push("/parent");
       } else if (data.role === "student") {
         if (!data.onboardingComplete) {
           router.push("/student/onboarding");
