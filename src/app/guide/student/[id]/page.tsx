@@ -113,9 +113,9 @@ export default function StudentDetailPage() {
 
   const scoreColor = (score: number | null) => {
     if (score === null) return "text-[var(--muted)]";
-    if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-blue-600";
-    if (score >= 45) return "text-yellow-600";
+    if (score >= 85) return "text-blue-500";
+    if (score >= 70) return "text-green-600";
+    if (score >= 60) return "text-amber-500";
     return "text-red-500";
   };
 
@@ -152,35 +152,101 @@ export default function StudentDetailPage() {
   const scoredSessions = sessions.filter((s) => s.score !== null);
   const interests = student.interestProfile;
 
-  // SVG trendline — only meaningful when scores vary
+  // Score zone chart with color-coded difficulty bands and SMA
   function renderTrendline() {
     if (scoredSessions.length < 2) return null;
     const scores = [...scoredSessions].reverse().map((s) => s.score!);
-    const w = 600, h = 100, padX = 40, padY = 12;
-    const chartW = w - padX * 2, chartH = h - padY * 2;
-    const min = Math.max(0, Math.min(...scores) - 10);
-    const max = Math.min(100, Math.max(...scores) + 10);
-    const range = max - min || 1;
-    const points = scores.map((s, i) => ({
-      x: padX + (i / (scores.length - 1)) * chartW,
-      y: padY + chartH - ((s - min) / range) * chartH,
-      score: s,
-    }));
+    const w = 600, h = 250, padL = 36, padR = 100, padY = 16;
+    const chartW = w - padL - padR, chartH = h - padY * 2;
+
+    const toX = (i: number) => padL + (i / (scores.length - 1)) * chartW;
+    const toY = (v: number) => padY + chartH - (v / 100) * chartH;
+
+    const dotColor = (s: number) => {
+      if (s >= 85) return "#3b82f6";
+      if (s >= 70) return "#22c55e";
+      if (s >= 60) return "#f59e0b";
+      return "#ef4444";
+    };
+
+    const zones = [
+      { y0: 0, y1: 59, color: "#ef4444", label: "Struggling" },
+      { y0: 60, y1: 69, color: "#f59e0b", label: "Needs attention" },
+      { y0: 70, y1: 84, color: "#22c55e", label: "Growth zone", opacity: 0.10 },
+      { y0: 85, y1: 100, color: "#3b82f6", label: "Ready to advance" },
+    ];
+
+    // 5-session simple moving average
+    const smaPoints: { x: number; y: number }[] = [];
+    for (let i = 0; i < scores.length; i++) {
+      if (i < 4) continue;
+      const avg = (scores[i] + scores[i - 1] + scores[i - 2] + scores[i - 3] + scores[i - 4]) / 5;
+      smaPoints.push({ x: toX(i), y: toY(avg) });
+    }
 
     return (
       <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
-        {[min, min + range * 0.5, max].map((v, i) => {
-          const y = padY + chartH - ((v - min) / range) * chartH;
-          return (
-            <g key={i}>
-              <line x1={padX} y1={y} x2={w - padX} y2={y} stroke="var(--border)" strokeWidth="0.5" />
-              <text x={padX - 8} y={y + 4} textAnchor="end" fill="var(--muted)" fontSize="10">{Math.round(v)}</text>
-            </g>
-          );
-        })}
-        <polyline points={points.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r="3" fill="var(--accent)" stroke="white" strokeWidth="1.5" />
+        {/* Zone bands */}
+        {zones.map((z) => (
+          <rect
+            key={z.label}
+            x={padL}
+            y={toY(z.y1)}
+            width={chartW}
+            height={toY(z.y0) - toY(z.y1)}
+            fill={z.color}
+            opacity={z.opacity ?? 0.08}
+          />
+        ))}
+
+        {/* Zone labels (right side) */}
+        {zones.map((z) => (
+          <text
+            key={`label-${z.label}`}
+            x={padL + chartW + 8}
+            y={(toY(z.y1) + toY(z.y0)) / 2 + 4}
+            fill="var(--muted)"
+            fontSize="9"
+          >
+            {z.label}
+          </text>
+        ))}
+
+        {/* Y axis ticks */}
+        {[0, 20, 40, 60, 80, 100].map((v) => (
+          <g key={v}>
+            <line x1={padL} y1={toY(v)} x2={padL + chartW} y2={toY(v)} stroke="var(--border)" strokeWidth="0.5" />
+            <text x={padL - 8} y={toY(v) + 4} textAnchor="end" fill="var(--muted)" fontSize="10">{v}</text>
+          </g>
+        ))}
+
+        {/* Connecting line between raw dots */}
+        <polyline
+          points={scores.map((s, i) => `${toX(i)},${toY(s)}`).join(" ")}
+          fill="none"
+          stroke="var(--muted)"
+          strokeWidth="1"
+          strokeOpacity="0.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* SMA line */}
+        {smaPoints.length >= 2 && (
+          <polyline
+            points={smaPoints.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill="none"
+            stroke="#22c55e"
+            strokeWidth="2.5"
+            strokeOpacity="0.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {/* Raw score dots */}
+        {scores.map((s, i) => (
+          <circle key={i} cx={toX(i)} cy={toY(s)} r="3.5" fill={dotColor(s)} stroke="white" strokeWidth="1.5" />
         ))}
       </svg>
     );
@@ -321,6 +387,9 @@ export default function StudentDetailPage() {
             <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Score Trend</h2>
             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
               {renderTrendline()}
+              <p className="text-xs text-[var(--muted)] italic mt-2">
+                Growth zone (70–84) means the content is the right challenge — hard enough to build skills, not so hard it causes frustration. SigmaRead adjusts difficulty automatically.
+              </p>
             </div>
           </div>
         )}
