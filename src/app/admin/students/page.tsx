@@ -3,6 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+interface Guide {
+  id: number;
+  name: string;
+}
+
 interface AdminStudent {
   id: number;
   name: string;
@@ -28,13 +33,27 @@ export default function AdminStudentsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
   const [loading, setLoading] = useState(true);
+  const [guidesList, setGuidesList] = useState<Guide[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newGrade, setNewGrade] = useState("");
+  const [newAge, setNewAge] = useState("");
+  const [newGuideId, setNewGuideId] = useState("");
+  const [adding, setAdding] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
+  function loadStudents() {
     fetch("/api/admin/students").then(r => r.json()).then(data => {
       setStudents(data);
       setLoading(false);
     });
+  }
+
+  useEffect(() => {
+    loadStudents();
+    fetch("/api/admin/guides").then(r => r.json()).then(setGuidesList);
   }, []);
 
   useEffect(() => {
@@ -72,6 +91,28 @@ export default function AdminStudentsPage() {
     return "text-red-500";
   };
 
+  async function addStudent(e: React.FormEvent) {
+    e.preventDefault();
+    setAdding(true);
+    await fetch("/api/students", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newName,
+        username: newUsername,
+        password: newPassword,
+        gradeLevel: newGrade ? parseInt(newGrade) : undefined,
+        age: newAge ? parseInt(newAge) : undefined,
+        guideId: parseInt(newGuideId),
+      }),
+    });
+    setShowAdd(false);
+    setNewName(""); setNewUsername(""); setNewPassword("");
+    setNewGrade(""); setNewAge(""); setNewGuideId("");
+    setAdding(false);
+    loadStudents();
+  }
+
   async function handleImpersonate(id: number, role: "student" | "guide", guideId?: number) {
     const targetId = role === "guide" ? guideId : id;
     await fetch("/api/admin/impersonate", {
@@ -94,7 +135,38 @@ export default function AdminStudentsPage() {
     <div className="p-8 max-w-7xl">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">All Students ({students.length})</h1>
+        <button onClick={() => setShowAdd(!showAdd)} className="text-sm px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition">
+          + Add Student
+        </button>
       </div>
+
+      {showAdd && (
+        <form onSubmit={addStudent} className="mb-6 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl space-y-3">
+          <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
+          <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="Username" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
+          <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Password" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
+          <div className="grid grid-cols-3 gap-3">
+            <select value={newGrade} onChange={e => setNewGrade(e.target.value)} required className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white outline-none focus:border-[var(--accent)]">
+              <option value="">Grade</option>
+              <option value="2">2nd</option>
+              <option value="3">3rd</option>
+              <option value="4">4th</option>
+              <option value="5">5th</option>
+              <option value="6">6th</option>
+              <option value="7">7th</option>
+              <option value="8">8th</option>
+            </select>
+            <input type="number" value={newAge} onChange={e => setNewAge(e.target.value)} placeholder="Age" min="5" max="18" required className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
+            <select value={newGuideId} onChange={e => setNewGuideId(e.target.value)} required className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white outline-none focus:border-[var(--accent)]">
+              <option value="">Guide</option>
+              {guidesList.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </div>
+          <button type="submit" disabled={adding} className="px-4 py-2 bg-[var(--accent)] text-white text-sm rounded-lg disabled:opacity-50">
+            {adding ? "Creating…" : "Create Student"}
+          </button>
+        </form>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">

@@ -16,10 +16,14 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session || session.role !== "guide") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || (session.role !== "guide" && session.role !== "admin")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, username, password, gradeLevel, age } = await req.json();
+  const { name, username, password, gradeLevel, age, guideId: bodyGuideId } = await req.json();
   if (!name || !username || !password) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+
+  // Admin must provide guideId; guide uses own userId
+  const guideId = session.role === "admin" ? bodyGuideId : session.userId;
+  if (!guideId) return NextResponse.json({ error: "guideId required" }, { status: 400 });
 
   // Set initial reading level from grade level
   const gradeToLevel: Record<number, number> = {
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
     name,
     username,
     passwordHash,
-    guideId: session.userId,
+    guideId,
     gradeLevel: gradeLevel || null,
     age: age || null,
     readingLevel: initialLevel,
