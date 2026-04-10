@@ -42,19 +42,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Build messages (with timestamps)
   const messages = [...(conversation.messages || [])];
   const now = new Date().toISOString();
-  if (message !== "__resume_check__") {
-    messages.push({ role: "user", content: message, timestamp: now });
-  } else {
-    // Resume check with no messages — generate opener with a synthetic first message
-    messages.push({ role: "user", content: "I just finished reading the article.", timestamp: now });
+  const isOpener = message === "__resume_check__" && messages.length === 0;
+  if (!isOpener) {
+    if (message !== "__resume_check__") {
+      messages.push({ role: "user", content: message, timestamp: now });
+    }
   }
 
-  // Exchange tracking: subtract synthetic "I just finished reading" to get real exchange number
+  // Exchange tracking: count real student messages only (no synthetic offset)
   const studentMessageCount = messages.filter(m => m.role === "user").length;
-  const exchangeNumber = studentMessageCount - 1;
+  const exchangeNumber = studentMessageCount;
 
-  // Safety backstop — force wrap-up after 7 student messages (6 real exchanges)
-  const forceComplete = studentMessageCount >= 7;
+  // Safety backstop — force wrap-up after 6 real student messages
+  const forceComplete = studentMessageCount >= 6;
 
   // Fetch previous articles for cross-article connections (last 5 read articles, excluding current)
   const previousArticles = await db.select({ title: schema.articles.title, topic: schema.articles.topic })
@@ -83,7 +83,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Build messages for AI — if at hard limit OR already at threshold, inject closing instruction
   const alreadyComplete = (conversation.progressScore || 0) >= 100 && exchangeNumber >= 3;
-  const finalMessages = messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+  const finalMessages = messages.length > 0
+    ? messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
+    : [{ role: "user" as const, content: "[Begin the conversation with your Step 1 opener. The student has not said anything yet.]" }];
   if (forceComplete || alreadyComplete) {
     finalMessages.push({ role: "user" as const, content: `[SYSTEM: The student has demonstrated sufficient understanding. This is your final message. Wrap up in one warm sentence acknowledging what they got right. Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]` });
   }
@@ -131,7 +133,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await db.update(schema.readingSessions).set({ completedAt: new Date() }).where(eq(schema.readingSessions.id, readingSession.id));
 
     // Generate comprehension report
-    const transcript = messages.filter(m => m.content !== "I just finished reading the article.").map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
+    const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
     const reportResponse = await anthropic.messages.create({
       model: "claude-opus-4-6",
       max_tokens: 1024,

@@ -76,6 +76,15 @@ export default function StudentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "sessions">("overview");
 
+  const styleTooltips: Record<string, string> = {
+    "overview_then_depth": "Starts with big picture, then digs into specifics",
+    "surprise": "Explores what surprised or was new to the student",
+    "opinion": "Asks for the student's take on claims in the article",
+    "perspective_shift": "Puts the student in someone's shoes from the article",
+    "detail_to_big_picture": "Starts with a specific detail, then zooms out",
+    "creative": "Sparks curiosity with creative/hypothetical questions",
+  };
+
   useEffect(() => {
     loadData();
   }, [id]);
@@ -212,7 +221,14 @@ export default function StudentDetailPage() {
             {s.articleTopic} · {s.completedAt ? new Date(s.completedAt).toLocaleDateString() : "In progress"}
             {s.articleLiked === true && " · 👍 Liked"}
             {s.articleLiked === false && " · 👎 Disliked"}
-            {s.conversationStyle && ` · Style: ${s.conversationStyle.toLowerCase().replace(/_/g, " ")}`}
+            {s.conversationStyle && (
+              <span
+                title={styleTooltips[s.conversationStyle.toLowerCase()] || s.conversationStyle}
+                className="cursor-help"
+              >
+                {` · Style: ${s.conversationStyle.toLowerCase().replace(/_/g, " ")}`}
+              </span>
+            )}
           </p>
           {/* Time + Quality insights */}
           <div className="flex gap-4 text-xs text-[var(--muted)] mb-6">
