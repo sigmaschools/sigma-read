@@ -7,6 +7,8 @@ import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { INTEREST_INTERVIEW, READING_LEVEL_ASSESSMENT } from "@/lib/prompts";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
+import { gradeToReadingLevel } from "@/lib/grade-to-level";
+import { getWelcomeArticle } from "@/lib/welcome-article";
 
 const anthropic = new Anthropic();
 
@@ -40,23 +42,31 @@ export async function POST(req: NextRequest) {
   if (profileMatch) {
     try {
       const profile = normalizeInterestProfile(JSON.parse(profileMatch[1]));
-      // Save profile, set default reading level 2 (grade 5-6), mark onboarding complete
-      // Reading level will be calibrated from their first comprehension session
+      // Map grade level to initial reading level (calibrated from first session)
+      const level = gradeToReadingLevel(student?.gradeLevel);
       await db.update(schema.students)
         .set({
           interestProfile: profile,
-          readingLevel: 2,
+          readingLevel: level,
           onboardingComplete: true,
         })
         .where(eq(schema.students.id, session.userId));
 
       // Pre-fill articles immediately so there's no delay on first page load
-      const level = 2;
       const { sql: sqlTag } = await import("drizzle-orm");
-      const cached = await db.select().from(schema.articleCache)
+      let cached = await db.select().from(schema.articleCache)
         .where(eq(schema.articleCache.readingLevel, level))
         .orderBy(sqlTag`RANDOM()`)
         .limit(12); // Buffer of 12
+
+      // Fallback: if no cache at this level, try adjacent levels
+      if (cached.length === 0) {
+        const fallbackLevel = level < 6 ? level + 1 : level - 1;
+        cached = await db.select().from(schema.articleCache)
+          .where(eq(schema.articleCache.readingLevel, fallbackLevel))
+          .orderBy(sqlTag`RANDOM()`)
+          .limit(12);
+      }
 
       for (const c of cached) {
         await db.insert(schema.articles).values({
@@ -76,6 +86,19 @@ export async function POST(req: NextRequest) {
           articleTitle: c.title,
         });
       }
+
+      // Insert welcome tutorial article last so it appears in the visible set
+      const welcome = getWelcomeArticle(level);
+      await db.insert(schema.articles).values({
+        studentId: session.userId,
+        title: welcome.title,
+        topic: welcome.topic,
+        bodyText: welcome.bodyText,
+        readingLevel: level,
+        sources: [],
+        estimatedReadTime: welcome.estimatedReadTime,
+        category: welcome.category,
+      });
 
       return NextResponse.json({
         message: assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim(),
