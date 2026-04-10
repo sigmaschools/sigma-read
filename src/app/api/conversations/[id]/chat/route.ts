@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
-import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle } from "@/lib/prompts";
+import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle } from "@/lib/prompts";
 import { parseProgressResponse, clampDelta, isConversationComplete } from "@/lib/progress-scoring";
 import { MODELS } from "@/lib/models";
 
@@ -187,6 +187,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         console.error("Report parse error:", e);
       }
     }
+
+    // Generate coaching feedback for the student
+    const feedbackResponse = await anthropic.messages.create({
+      model: MODELS.standard,
+      max_tokens: 256,
+      messages: [{
+        role: "user",
+        content: coachingFeedbackPrompt(article.bodyText, transcript, student.readingLevel || 2),
+      }],
+    });
+    const coachingFeedback = feedbackResponse.content[0].type === "text" ? feedbackResponse.content[0].text.trim() : null;
+
+    // Persist coaching feedback as a message so it appears on resume
+    if (coachingFeedback) {
+      messages.push({ role: "assistant", content: coachingFeedback, timestamp: new Date().toISOString(), type: "coaching" });
+      await db.update(schema.conversations).set({ messages }).where(eq(schema.conversations.id, conversationId));
+    }
+
+    return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore, coachingFeedback });
   }
 
   return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore });
