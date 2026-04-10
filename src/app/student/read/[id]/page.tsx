@@ -26,11 +26,20 @@ export default function ReaderPage() {
   const [transitioning, setTransitioning] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [readingSessionId, setReadingSessionId] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/articles/${id}`).then((r) => r.json()).then((a) => {
       setArticle(a);
       setLiked(a.liked);
+    });
+    // Create a reading session when the student opens the article
+    fetch("/api/reading-sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articleId: parseInt(id as string) }),
+    }).then((r) => r.json()).then((data) => {
+      setReadingSessionId(data.readingSessionId);
     });
   }, [id]);
 
@@ -102,7 +111,7 @@ export default function ReaderPage() {
       const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId: parseInt(id as string) }),
+        body: JSON.stringify({ readingSessionId }),
       });
       const data = await res.json();
       router.push(`/student/conversation/${data.conversationId}`);
