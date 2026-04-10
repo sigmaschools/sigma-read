@@ -140,7 +140,7 @@ export const readingSessions = pgTable("reading_sessions", {
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   readingSessionId: integer("reading_session_id").references(() => readingSessions.id).notNull(),
-  messages: jsonb("messages").$type<{ role: string; content: string; timestamp?: string }[]>().default([]),
+  messages: jsonb("messages").$type<{ role: string; content: string; timestamp?: string; type?: string }[]>().default([]),
   conversationStyle: varchar("conversation_style", { length: 30 }), // which of 6 styles was used
   complete: boolean("complete").default(false).notNull(),
   progressScore: integer("progress_score").default(0).notNull(), // quality-based progress toward conversation completion (0-100+)

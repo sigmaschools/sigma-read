@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 interface Message {
   role: "user" | "assistant";
   content: string;
+  type?: string;
 }
 
 interface ArticleData {
@@ -25,11 +26,20 @@ export default function ConversationPage() {
   const [studentTurnCount, setStudentTurnCount] = useState(0);
   const [progressScore, setProgressScore] = useState(0);
   const [article, setArticle] = useState<ArticleData | null>(null);
+  const [coachingFeedback, setCoachingFeedback] = useState<string | null>(null);
+  const [feedbackSecondsLeft, setFeedbackSecondsLeft] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, coachingFeedback]);
+
+  // Coaching feedback countdown timer
+  useEffect(() => {
+    if (feedbackSecondsLeft === null || feedbackSecondsLeft <= 0) return;
+    const timer = setTimeout(() => setFeedbackSecondsLeft(feedbackSecondsLeft - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [feedbackSecondsLeft]);
 
   // Load article data
   useEffect(() => {
@@ -52,7 +62,12 @@ export default function ConversationPage() {
           setMessages(data.existingMessages);
           setStudentTurnCount(data.existingMessages.filter((m: Message) => m.role === "user").length);
           if (data.progressScore !== undefined) setProgressScore(data.progressScore);
-          if (data.complete) setComplete(true);
+          if (data.complete) {
+            setComplete(true);
+            // Check if coaching feedback already persisted — no timer on resume
+            const coachingMsg = data.existingMessages.find((m: Message & { type?: string }) => m.type === "coaching");
+            if (coachingMsg) setCoachingFeedback(coachingMsg.content);
+          }
         } else if (data.message) {
           setMessages([{ role: "assistant", content: data.message }]);
         }
@@ -97,7 +112,13 @@ export default function ConversationPage() {
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
       if (data.progressScore !== undefined) setProgressScore(data.progressScore);
-      if (data.complete) setComplete(true);
+      if (data.complete) {
+        setComplete(true);
+        if (data.coachingFeedback) {
+          setCoachingFeedback(data.coachingFeedback);
+          setFeedbackSecondsLeft(15);
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -155,7 +176,7 @@ export default function ConversationPage() {
         {/* Chat column */}
         <div className="flex-1 flex flex-col min-w-0 max-w-2xl mx-auto w-full">
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-            {messages.filter((msg) => msg.content !== "I just finished reading the article.").map((msg, i) => (
+            {messages.filter((msg) => msg.content !== "I just finished reading the article." && msg.type !== "coaching").map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
                   className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed ${
@@ -185,10 +206,17 @@ export default function ConversationPage() {
           <div className="px-6 py-4 border-t border-[var(--border)]">
             {complete ? (
               <div className="space-y-4">
+                {coachingFeedback && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[85%] px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] rounded-bl-md">
+                      {coachingFeedback}
+                    </div>
+                  </div>
+                )}
                 {!selfAssessment ? (
                   <div className="text-center">
                     <p className="text-[15px] font-medium text-[var(--fg)] mb-4">How well do you think you understood this article?</p>
-                    <div className="flex gap-3 justify-center flex-wrap">
+                    <div className={`flex gap-3 justify-center flex-wrap ${feedbackSecondsLeft != null && feedbackSecondsLeft > 0 ? "opacity-40 pointer-events-none" : ""}`}>
                       {[
                         { value: "really_well", label: "Really well", bg: "bg-green-500 hover:bg-green-600" },
                         { value: "pretty_well", label: "Pretty well", bg: "bg-blue-500 hover:bg-blue-600" },
@@ -204,7 +232,11 @@ export default function ConversationPage() {
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-[var(--muted)] mt-3">Click to finish</p>
+                    {feedbackSecondsLeft != null && feedbackSecondsLeft > 0 ? (
+                      <p className="text-xs text-[var(--muted)] mt-3">Take a moment to read your feedback ({feedbackSecondsLeft}s)</p>
+                    ) : (
+                      <p className="text-xs text-[var(--muted)] mt-3">Click to finish</p>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-2">
