@@ -20,6 +20,12 @@ export async function GET() {
     return NextResponse.json({ role: "guide", userId: guide.id, name: guide.name, email: guide.email });
   }
 
+  if (session.role === "parent") {
+    const [parent] = await db.select().from(schema.parents).where(eq(schema.parents.id, session.userId)).limit(1);
+    if (!parent) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ role: "parent", userId: parent.id, name: parent.name, email: parent.email });
+  }
+
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
   if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({
