@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { preReadingPrompt } from "@/lib/prompts";
 
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!article.preReadingPrompt) {
     try {
       const response = await anthropic.messages.create({
-        model: "claude-haiku-4-5",
+        model: MODELS.light,
         max_tokens: 100,
         messages: [{ role: "user", content: preReadingPrompt(article.title, article.topic, article.readingLevel) }],
       });

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, and, desc } from "drizzle-orm";
+import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { parentChatPrompt } from "@/lib/prompts";
 
@@ -203,7 +204,7 @@ export async function POST(req: NextRequest) {
   }));
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: MODELS.standard,
     max_tokens: 1024,
     system: systemPrompt,
     messages: contextMessages,
