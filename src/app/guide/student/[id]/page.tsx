@@ -74,6 +74,7 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "sessions">("overview");
 
   useEffect(() => {
     loadData();
@@ -199,7 +200,7 @@ export default function StudentDetailPage() {
     return (
       <div className="min-h-screen">
         <header className="border-b border-[var(--border)] px-8 py-4 flex items-center gap-4">
-          <button onClick={() => setSelectedSession(null)} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">
+          <button onClick={() => { setActiveTab("sessions"); setSelectedSession(null); }} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">
             ← Back to {student.name}
           </button>
         </header>
@@ -293,7 +294,7 @@ export default function StudentDetailPage() {
     );
   }
 
-  // Main student overview
+  // Main student overview (tabbed)
   return (
     <div className="min-h-screen">
       <header className="border-b border-[var(--border)] px-8 py-4">
@@ -303,127 +304,189 @@ export default function StudentDetailPage() {
       </header>
 
       <div className="max-w-3xl mx-auto px-8 py-6">
-        <div className="mb-6">
+        <div className="mb-2">
           <h1 className="text-xl font-semibold">{student.name}</h1>
           <p className="text-sm text-[var(--muted)]">
             {student.gradeLevel ? `Grade ${student.gradeLevel}` : ""}{student.gradeLevel && student.readingLevel ? " · " : ""}{student.readingLevel ? levelLabel(student.readingLevel) : ""}
           </p>
         </div>
 
-        {/* Interests */}
-        {interests?.interests?.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Interests</h2>
-            <div className="flex flex-wrap gap-2">
-              {interests.interests.map((t: string) => (
-                <span key={t} className="px-3 py-1 bg-[var(--accent)]/10 text-[var(--accent)] text-sm rounded-full font-medium">{t}</span>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Tabs */}
+        <div className="flex border-b border-[var(--border)] mb-6">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === "overview"
+                ? "text-[var(--accent)] border-[var(--accent)]"
+                : "text-[var(--muted)] border-transparent hover:text-[var(--fg)]"
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab("sessions")}
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === "sessions"
+                ? "text-[var(--accent)] border-[var(--accent)]"
+                : "text-[var(--muted)] border-transparent hover:text-[var(--fg)]"
+            }`}
+          >
+            Sessions <span className="text-[var(--muted)] font-normal">({sessions.length})</span>
+          </button>
+        </div>
 
-        {/* Score Trend — only when meaningful variation exists */}
-        {chartScores.length >= 2 && (
-          <div className="mb-6">
-            <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Score Trend</h2>
-            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
-              <ScoreZoneChart scores={chartScores} />
-            </div>
-          </div>
-        )}
-
-        {/* Parent Feedback */}
-        {insights && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Parent Feedback</h2>
-              {insights.parentFeedback.filter(f => !f.acknowledgedAt).length > 0 && (
-                <span style={{
-                  backgroundColor: "#ef4444",
-                  color: "white",
-                  fontSize: "0.7rem",
-                  fontWeight: 600,
-                  padding: "1px 7px",
-                  borderRadius: "9999px",
-                }}>
-                  {insights.parentFeedback.filter(f => !f.acknowledgedAt).length}
-                </span>
-              )}
-            </div>
-            {insights.parentFeedback.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">No parent feedback yet</p>
-            ) : (
-              <div className="space-y-2">
-                {insights.parentFeedback.map(f => {
-                  const { dot } = sentimentDot(f.sentiment);
-                  const ago = (() => {
-                    const days = Math.floor((Date.now() - new Date(f.createdAt).getTime()) / 86400000);
-                    if (days === 0) return "today";
-                    if (days === 1) return "1 day ago";
-                    return `${days} days ago`;
-                  })();
-                  return (
-                    <div key={f.id} className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span>{dot}</span>
-                        <span className="text-xs font-medium text-[var(--fg)]">{f.category.replace(/_/g, " ")}</span>
-                        <span className="text-xs text-[var(--muted)]">from {f.parentName}</span>
-                        <span className="text-xs text-[var(--muted)]">&middot; {ago}</span>
-                      </div>
-                      <p className="text-sm text-[var(--fg)] leading-relaxed mb-2">&ldquo;{f.summary}&rdquo;</p>
-                      <div className="flex justify-end">
-                        {f.acknowledgedAt ? (
-                          <span className="text-xs text-[var(--muted)]">&check; Acknowledged</span>
-                        ) : (
-                          <button
-                            onClick={() => acknowledgeFeedback(f.id)}
-                            className="text-xs font-medium text-[var(--accent)] hover:underline"
-                          >
-                            Acknowledge
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+        {/* Overview Tab */}
+        {activeTab === "overview" && (
+          <>
+            {/* Interests */}
+            {interests?.interests?.length > 0 && (
+              <div className="mb-6">
+                <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Interests</h2>
+                <div className="flex flex-wrap gap-2">
+                  {interests.interests.map((t: string) => (
+                    <span key={t} className="px-3 py-1 bg-[var(--accent)]/10 text-[var(--accent)] text-sm rounded-full font-medium">{t}</span>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Score Trend — only when meaningful variation exists */}
+            {chartScores.length >= 2 && (
+              <div className="mb-6">
+                <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Score Trend</h2>
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
+                  <ScoreZoneChart scores={chartScores} />
+                </div>
+              </div>
+            )}
+
+            {/* Insights Grid */}
+            {insights && (
+              <div className="mb-6">
+                <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Insights</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                    <p className="text-[11px] uppercase tracking-wider text-[var(--muted)] font-medium mb-1">Calibration</p>
+                    <p className="text-[15px] font-semibold">{insights.calibration?.pattern ?? "—"}</p>
+                    {insights.calibration?.detail && (
+                      <p className="text-xs text-[var(--muted)] mt-1">{insights.calibration.detail}</p>
+                    )}
+                  </div>
+                  <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                    <p className="text-[11px] uppercase tracking-wider text-[var(--muted)] font-medium mb-1">Engagement</p>
+                    <p className="text-[15px] font-semibold">{insights.avgEngagement ?? "—"}</p>
+                  </div>
+                  <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                    <p className="text-[11px] uppercase tracking-wider text-[var(--muted)] font-medium mb-1">Avg Reading Time</p>
+                    <p className="text-[15px] font-semibold">
+                      {insights.avgReadingTime != null ? `${(insights.avgReadingTime / 60).toFixed(1)} min` : "—"}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                    <p className="text-[11px] uppercase tracking-wider text-[var(--muted)] font-medium mb-1">Avg Discussion Time</p>
+                    <p className="text-[15px] font-semibold">
+                      {insights.avgDiscussionTime != null ? `${(insights.avgDiscussionTime / 60).toFixed(1)} min` : "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Parent Feedback */}
+            {insights && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Parent Feedback</h2>
+                  {insights.parentFeedback.filter(f => !f.acknowledgedAt).length > 0 && (
+                    <span style={{
+                      backgroundColor: "#ef4444",
+                      color: "white",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      padding: "1px 7px",
+                      borderRadius: "9999px",
+                    }}>
+                      {insights.parentFeedback.filter(f => !f.acknowledgedAt).length}
+                    </span>
+                  )}
+                </div>
+                {insights.parentFeedback.length === 0 ? (
+                  <p className="text-sm text-[var(--muted)]">No parent feedback yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {insights.parentFeedback.map(f => {
+                      const { dot } = sentimentDot(f.sentiment);
+                      const ago = (() => {
+                        const days = Math.floor((Date.now() - new Date(f.createdAt).getTime()) / 86400000);
+                        if (days === 0) return "today";
+                        if (days === 1) return "1 day ago";
+                        return `${days} days ago`;
+                      })();
+                      return (
+                        <div key={f.id} className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <span>{dot}</span>
+                            <span className="text-xs font-medium text-[var(--fg)]">{f.category.replace(/_/g, " ")}</span>
+                            <span className="text-xs text-[var(--muted)]">from {f.parentName}</span>
+                            <span className="text-xs text-[var(--muted)]">&middot; {ago}</span>
+                          </div>
+                          <p className="text-sm text-[var(--fg)] leading-relaxed mb-2">&ldquo;{f.summary}&rdquo;</p>
+                          <div className="flex justify-end">
+                            {f.acknowledgedAt ? (
+                              <span className="text-xs text-[var(--muted)]">&check; Acknowledged</span>
+                            ) : (
+                              <button
+                                onClick={() => acknowledgeFeedback(f.id)}
+                                className="text-xs font-medium text-[var(--accent)] hover:underline"
+                              >
+                                Acknowledge
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Sessions Tab */}
+        {activeTab === "sessions" && (
+          <div className="space-y-2">
+            {sessions.map((s) => (
+              <button
+                key={s.sessionId}
+                onClick={() => setSelectedSession(s)}
+                className="w-full text-left p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium text-[15px]">{s.articleTitle || "Untitled"}</h3>
+                    <p className="text-sm text-[var(--muted)] mt-1">
+                      {s.articleTopic} · {s.completedAt ? new Date(s.completedAt).toLocaleDateString() : "In progress"}
+                      {s.articleLiked === true && " · 👍"}
+                      {s.articleLiked === false && " · 👎"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {s.score !== null && (
+                      <div className="text-right">
+                        <span className={`text-lg font-semibold ${scoreColor(s.score)}`}>{s.score}</span>
+                      </div>
+                    )}
+                    <span className="text-[var(--muted)]">→</span>
+                  </div>
+                </div>
+              </button>
+            ))}
+            {sessions.length === 0 && (
+              <p className="text-[var(--muted)] text-sm">No sessions yet.</p>
             )}
           </div>
         )}
-
-        {/* Sessions */}
-        <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-3">Reading Sessions</h2>
-        <div className="space-y-2">
-          {sessions.map((s) => (
-            <button
-              key={s.sessionId}
-              onClick={() => setSelectedSession(s)}
-              className="w-full text-left p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] transition"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-[15px]">{s.articleTitle || "Untitled"}</h3>
-                  <p className="text-sm text-[var(--muted)] mt-1">
-                    {s.articleTopic} · {s.completedAt ? new Date(s.completedAt).toLocaleDateString() : "In progress"}
-                    {s.articleLiked === true && " · 👍"}
-                    {s.articleLiked === false && " · 👎"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {s.score !== null && (
-                    <div className="text-right">
-                      <span className={`text-lg font-semibold ${scoreColor(s.score)}`}>{s.score}</span>
-                    </div>
-                  )}
-                  <span className="text-[var(--muted)]">→</span>
-                </div>
-              </div>
-            </button>
-          ))}
-          {sessions.length === 0 && (
-            <p className="text-[var(--muted)] text-sm">No sessions yet.</p>
-          )}
-        </div>
       </div>
     </div>
   );
