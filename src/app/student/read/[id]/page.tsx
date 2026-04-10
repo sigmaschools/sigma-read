@@ -13,6 +13,7 @@ interface Article {
   read: boolean;
   liked: boolean | null;
   preReadingPrompt: string | null;
+  readingLevel: number;
 }
 
 export default function ReaderPage() {
@@ -27,6 +28,7 @@ export default function ReaderPage() {
   const [showSources, setShowSources] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [readingSessionId, setReadingSessionId] = useState<number | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/articles/${id}`).then((r) => r.json()).then((a) => {
@@ -42,6 +44,29 @@ export default function ReaderPage() {
       setReadingSessionId(data.readingSessionId);
     });
   }, [id]);
+
+  useEffect(() => {
+    if (!article) return;
+
+    const wordCount = article.bodyText.split(/\s+/).length;
+    const level = article.readingLevel || 2;
+    const wpm = level <= 2 ? 100 : level <= 4 ? 150 : 200;
+    const minSeconds = Math.max(30, Math.min(180, Math.round((wordCount / wpm) * 60)));
+
+    setSecondsLeft(minSeconds);
+
+    const interval = setInterval(() => {
+      setSecondsLeft(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [article]);
 
   const handleWordClick = useCallback(async (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -180,9 +205,16 @@ export default function ReaderPage() {
         <div className="mt-12 flex flex-col items-center gap-4 pb-4">
           <button
             onClick={() => setShowFeedbackModal(true)}
-            className="px-10 py-3.5 rounded-xl text-[15px] font-medium transition bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm"
+            disabled={secondsLeft === null || secondsLeft > 0}
+            className={`px-10 py-3.5 rounded-xl text-[15px] font-medium transition shadow-sm ${
+              secondsLeft === null || secondsLeft > 0
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
+            }`}
           >
-            I&apos;m done reading
+            {secondsLeft !== null && secondsLeft > 0
+              ? `Done reading (${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")})`
+              : <>I&apos;m done reading</>}
           </button>
         </div>
       </article>
