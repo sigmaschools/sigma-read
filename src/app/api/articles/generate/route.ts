@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { batchPlannerPrompt, articleGenerationPrompt } from "@/lib/prompts";
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   // Step 1: Plan the batch (fast model)
   const planResponse = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: MODELS.light,
     max_tokens: 1024,
     messages: [{ role: "user", content: batchPlannerPrompt(student.readingLevel, interests, existingArticles.map(a => a.title), count) }],
   });
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
   const results = await Promise.allSettled(
     topics.slice(0, count).map(async (t) => {
       const artResponse = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
+        model: MODELS.standard,
         max_tokens: 2048,
         messages: [{ role: "user", content: articleGenerationPrompt(student.readingLevel || 2, t.topic, t.type) }],
       });

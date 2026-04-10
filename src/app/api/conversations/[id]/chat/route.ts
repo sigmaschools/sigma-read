@@ -6,6 +6,7 @@ import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle } from "@/lib/prompts";
 import { parseProgressResponse, clampDelta, isConversationComplete } from "@/lib/progress-scoring";
+import { MODELS } from "@/lib/models";
 
 const anthropic = new Anthropic();
 
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-6",
+    model: MODELS.heavy,
     max_tokens: 1024,
     system: systemPrompt,
     messages: finalMessages,
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Generate comprehension report
     const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
     const reportResponse = await anthropic.messages.create({
-      model: "claude-opus-4-6",
+      model: MODELS.heavy,
       max_tokens: 1024,
       messages: [{
         role: "user",

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import { MODELS } from "@/lib/models";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
         try {
           const anthropic = new Anthropic();
           const resp = await anthropic.messages.create({
-            model: "claude-haiku-4-5",
+            model: MODELS.light,
             max_tokens: 30,
             messages: [{ role: "user", content: `Convert this student interest into a short topic tag (2-4 words, lowercase). Output ONLY the tag, nothing else.\n\nInput: "${suggestion}"\nTag:` }],
           });
