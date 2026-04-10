@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { INTEREST_INTERVIEW, READING_LEVEL_ASSESSMENT } from "@/lib/prompts";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     + `\n\nThe student's name is ${studentName}.`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: MODELS.standard,
     max_tokens: 2048,
     system: systemPrompt,
     messages: messages.map((m: { role: string; content: string }) => ({

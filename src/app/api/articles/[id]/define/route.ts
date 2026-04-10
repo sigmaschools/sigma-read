@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { wordDefinitionPrompt } from "@/lib/prompts";
+import { MODELS } from "@/lib/models";
 
 const anthropic = new Anthropic();
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!word) return NextResponse.json({ error: "Word required" }, { status: 400 });
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: MODELS.standard,
     max_tokens: 256,
     messages: [{ role: "user", content: wordDefinitionPrompt(word, sentence || "") }],
   });
