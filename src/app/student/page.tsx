@@ -16,6 +16,7 @@ interface Article {
 }
 
 function categoryLabel(article: Article) {
+  if (article.category === "tutorial") return "Welcome";
   if (article.category === "news") return "News";
   if (article.category === "interest") return "For You";
   return "Explore";
@@ -52,6 +53,7 @@ function articleSummary(text: string, title: string): string {
 }
 
 function categoryStyle(article: Article) {
+  if (article.category === "tutorial") return "text-amber-600";
   if (article.category === "news") return "text-blue-600";
   if (article.category === "interest") return "text-violet-600";
   return "text-emerald-600";
@@ -138,9 +140,14 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Show up to 5 unread articles
+  // Show up to 5 unread articles, with tutorial articles sorted to top
   const unread = articles.filter((a) => !a.read);
-  const visible = unread.slice(-5);
+  const visibleSlice = unread.slice(-5);
+  const visible = [...visibleSlice].sort((a, b) => {
+    if (a.category === "tutorial" && b.category !== "tutorial") return -1;
+    if (a.category !== "tutorial" && b.category === "tutorial") return 1;
+    return 0;
+  });
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
 

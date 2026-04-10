@@ -75,7 +75,22 @@ export async function POST(req: NextRequest) {
       .orderBy(sql`RANDOM()`)
       .limit(20);
 
-    const available = cached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
+    let available = cached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
+
+    // Fallback: if no articles at this level, try adjacent levels
+    if (available.length === 0) {
+      const fallbackLevel = serveLevel < 6 ? serveLevel + 1 : serveLevel - 1;
+      const fallbackCached = await db.select().from(schema.articleCache)
+        .where(and(
+          eq(schema.articleCache.readingLevel, fallbackLevel),
+          eq(schema.articleCache.flagged, false),
+          sql`(${schema.articleCache.category} != 'news' OR ${schema.articleCache.generatedDate} IS NULL OR ${schema.articleCache.generatedDate} >= ${sevenDaysAgo.toISOString().split('T')[0]})`,
+        ))
+        .orderBy(sql`RANDOM()`)
+        .limit(20);
+      available = fallbackCached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
+    }
+
     for (const a of available.slice(0, count)) {
       toServe.push({ ...a, _serveLevel: serveLevel });
     }
