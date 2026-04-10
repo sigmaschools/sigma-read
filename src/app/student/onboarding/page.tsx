@@ -98,7 +98,7 @@ function OnboardingPage() {
       setMessages([...newMessages, { role: "assistant", content: data.message }]);
 
       if (data.profileComplete) {
-        setTimeout(() => router.push("/student"), 1500);
+        setTimeout(() => router.push("/student"), 6000);
         return;
       }
 
