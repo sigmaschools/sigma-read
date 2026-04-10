@@ -237,7 +237,7 @@ function ChatPanel({ childName, studentId, chatOpen, onClose }: {
   return (
     <>
       {/* Desktop: inline panel */}
-      <div className="hidden md:flex flex-col w-[40%] border-l border-[var(--border)] bg-white h-[calc(100vh-49px)] sticky top-[49px]">
+      <div className="hidden md:flex flex-col w-[40%] border-l border-[var(--border)] bg-white h-[calc(100dvh-49px)] sticky top-[49px]">
         {chatContent}
       </div>
 
