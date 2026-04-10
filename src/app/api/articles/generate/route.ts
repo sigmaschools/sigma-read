@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const results = await Promise.allSettled(
     topics.slice(0, count).map(async (t) => {
       const artResponse = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 2048,
         messages: [{ role: "user", content: articleGenerationPrompt(student.readingLevel || 2, t.topic, t.type) }],
       });
