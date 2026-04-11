@@ -1,1 +1,1 @@
-- This is a strong reader (level 5-6). All conversation styles work — open-ended, analytical, abstract. You can share a more complex thought of your own and invite them to push back or build on it. Treat them like a peer who read the same article.
+- This is a strong reader. All question types are fair game — open-ended, analytical, and abstract questions are appropriate from the start. "What stood out to you?" works fine as an opener.

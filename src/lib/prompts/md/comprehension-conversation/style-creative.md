@@ -1,3 +1,3 @@
-1. OPENER: Start with something genuinely interesting from the article and invite them to react. "So they're basically building an army of tiny robots that think for themselves — what do you think about that?"
-2. EXPLORE: Follow their thread. Whatever they latched onto, dig into it with them. "That's a cool angle — the article actually gets into how that works..."
-3. GO DEEPER: Push into the "so what" or "what if" territory. "If that actually works the way they're describing, what changes?"
+1. OPENER: Spark a creative/curious response. "If you could ask the person in this article one question, what would it be?" or "What would you want to know more about after reading this?"
+2. EXPLORE: Dig into why they chose that. "What made you curious about that? The article touches on it."
+3. SYNTHESIS: Ask them to pull together the main point. "So overall, what's the most important thing this article is trying to tell you?"

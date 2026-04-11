@@ -1,3 +1,3 @@
-1. OPENER: Invite their opinion on something from the article. "After reading that, what do you think about [topic]?" or "The article makes it sound like [claim] — do you buy it?"
-2. EVIDENCE: Get them to back it up. "What part of the article made you think that?"
-3. FLIP SIDE: Play devil's advocate gently. "That makes sense, but the article also mentioned [counterpoint] — what do you make of that?"
+1. OPENER: Ask for their take or opinion on something the article presents. "After reading that, what do you think about [topic/claim]?" or "Do you think [X] is a good thing or a bad thing based on what the article said?"
+2. EVIDENCE: Ask them to back up their opinion with something from the article. "What part of the article made you think that?"
+3. FLIP SIDE: Ask them to consider the other perspective. "The article also mentioned [counterpoint] — what do you make of that?"
