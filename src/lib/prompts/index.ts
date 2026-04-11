@@ -162,7 +162,7 @@ export function comprehensionConversationPrompt(
   if (exchangeNumber === undefined || exchangeNumber === 0) {
     exchangeContext = "This is the start of the conversation. Begin with your Step 1 opener.";
   } else if (exchangeNumber >= 4) {
-    exchangeContext = `This is exchange ${exchangeNumber}. The student has completed all 3 steps. Continue with follow-up questions until the system signals completion.`;
+    exchangeContext = `This is exchange ${exchangeNumber}. The student has completed all 3 steps. You MUST continue asking follow-up questions — the system will inject a [SYSTEM] message when it is time to stop. Until you see that [SYSTEM] message, every response MUST end with a new question or directive. Do NOT wrap up, summarize, or give pure praise. Acknowledge briefly, then ask the next question in the same message.`;
   } else {
     exchangeContext = `This is exchange ${exchangeNumber} of 3. You have ${3 - exchangeNumber} step(s) left.`;
   }
