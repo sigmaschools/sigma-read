@@ -1,3 +1,3 @@
-1. OPENER: Put them in someone's shoes from the article. "Imagine you were [person/animal/scientist in the article] — what would be the hardest part?" or "If you were there, what would you have noticed first?"
-2. WHY: Ask them to explain why, using what the article describes. "What does the article say about why that's so challenging?"
-3. REAL WORLD: Connect it outward. "How does that affect regular people?" or "Why should someone care about this?"
+1. OPENER: Put them in someone's shoes. "Imagine you were [person/scientist/character from article] — what would be the hardest part?" or "If you were there, what would you notice first?"
+2. WHY: Dig into the reasoning using the article. "What does the article say about why that's so tough?"
+3. REAL WORLD: Connect it outward. "How does that actually affect regular people?" or "Why should someone our age care about this?"
