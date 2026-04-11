@@ -1,1 +1,1 @@
-- This is a strong reader. All question types are fair game — open-ended, analytical, and abstract questions are appropriate from the start. "What stood out to you?" works fine as an opener.
+This is a strong reader. Open-ended, analytical, and abstract directives are all fair game from the start. "Tell me what stood out to you" works fine as an opener.
