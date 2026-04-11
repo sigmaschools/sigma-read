@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { INTEREST_INTERVIEW, READING_LEVEL_ASSESSMENT } from "@/lib/prompts";
@@ -52,19 +52,32 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(schema.students.id, session.userId));
 
-      // Insert only the welcome tutorial article — serve-cached will
-      // backfill real articles after the student completes it.
+      // Insert welcome tutorial article only if one doesn't already exist
+      // (prevents duplicates on account reset + re-onboarding).
       const welcome = getWelcomeArticle(level);
-      await db.insert(schema.articles).values({
-        studentId: session.userId,
-        title: welcome.title,
-        topic: welcome.topic,
-        bodyText: welcome.bodyText,
-        readingLevel: level,
-        sources: [],
-        estimatedReadTime: welcome.estimatedReadTime,
-        category: welcome.category,
-      });
+      const existing = await db
+        .select({ id: schema.articles.id })
+        .from(schema.articles)
+        .where(
+          and(
+            eq(schema.articles.studentId, session.userId),
+            eq(schema.articles.category, "tutorial")
+          )
+        )
+        .limit(1);
+
+      if (existing.length === 0) {
+        await db.insert(schema.articles).values({
+          studentId: session.userId,
+          title: welcome.title,
+          topic: welcome.topic,
+          bodyText: welcome.bodyText,
+          readingLevel: level,
+          sources: [],
+          estimatedReadTime: welcome.estimatedReadTime,
+          category: welcome.category,
+        });
+      }
 
       return NextResponse.json({
         message: assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim(),
