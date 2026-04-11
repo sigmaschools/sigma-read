@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
-import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle } from "@/lib/prompts";
+import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt } from "@/lib/prompts";
 import { parseProgressResponse, clampDelta, isConversationComplete } from "@/lib/progress-scoring";
 import { MODELS } from "@/lib/models";
 
@@ -70,17 +70,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Pick conversation style once per conversation, reuse on subsequent messages
   const conversationStyle = conversation.conversationStyle || pickConversationStyle();
+  const isTutorial = article.category === "tutorial";
 
-  // Get AI response
-  const systemPrompt = comprehensionConversationPrompt(
-    article.bodyText,
-    student.readingLevel || 2,
-    JSON.stringify(student.interestProfile || {}),
-    previousArticles.length > 0 ? previousArticles : undefined,
-    article.liked,
-    conversationStyle,
-    exchangeNumber
-  );
+  // Get AI response — use tutorial prompt for tutorial articles
+  const systemPrompt = isTutorial
+    ? tutorialConversationPrompt(article.bodyText, student.readingLevel || 2)
+    : comprehensionConversationPrompt(
+        article.bodyText,
+        student.readingLevel || 2,
+        JSON.stringify(student.interestProfile || {}),
+        previousArticles.length > 0 ? previousArticles : undefined,
+        article.liked,
+        conversationStyle,
+        exchangeNumber
+      );
 
   // Build messages for AI — if at hard limit OR already at threshold, inject closing instruction
   const alreadyComplete = (conversation.progressScore || 0) >= 100 && exchangeNumber >= 3;
@@ -133,58 +136,62 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await db.update(schema.articles).set({ read: true, summary: summaryText }).where(eq(schema.articles.id, article.id));
     await db.update(schema.readingSessions).set({ completedAt: new Date() }).where(eq(schema.readingSessions.id, readingSession.id));
 
-    // Generate comprehension report
     const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
-    const reportResponse = await anthropic.messages.create({
-      model: MODELS.heavy,
-      max_tokens: 1024,
-      messages: [{
-        role: "user",
-        content: comprehensionReportPrompt(article.bodyText, transcript, student.readingLevel || 2),
-      }],
-    });
 
-    const reportText = reportResponse.content[0].type === "text" ? reportResponse.content[0].text : "";
-    const reportMatch = reportText.match(/\[REPORT\]\s*(\{[\s\S]*?\})/);
-    if (reportMatch) {
-      try {
-        const report = JSON.parse(reportMatch[1]);
+    // Skip comprehension report and level progression for tutorials
+    if (!isTutorial) {
+      // Generate comprehension report
+      const reportResponse = await anthropic.messages.create({
+        model: MODELS.heavy,
+        max_tokens: 1024,
+        messages: [{
+          role: "user",
+          content: comprehensionReportPrompt(article.bodyText, transcript, student.readingLevel || 2),
+        }],
+      });
 
-        // Compute conversation analytics
-        const aiMessages = messages.filter(m => m.role === "assistant");
-        const studentMessages = messages.filter(m => m.role === "user");
-        const wordCount = (text: string) => text.split(/\s+/).filter(w => w.length > 0).length;
-        const aiAvgWords = aiMessages.length > 0 ? Math.round(aiMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / aiMessages.length) : 0;
-        const studentAvgWords = studentMessages.length > 0 ? Math.round(studentMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / studentMessages.length) : 0;
-        // Count redirections: "actually", "take a look", "take another look", "close, but", "not quite"
-        const redirectPatterns = /\b(actually|take a look|take another look|close,? but|not quite|if you look at the article)\b/gi;
-        const redirectCount = aiMessages.reduce((count, m) => count + (m.content.match(redirectPatterns) || []).length, 0);
-        const exchangeCount = studentMessages.length;
+      const reportText = reportResponse.content[0].type === "text" ? reportResponse.content[0].text : "";
+      const reportMatch = reportText.match(/\[REPORT\]\s*(\{[\s\S]*?\})/);
+      if (reportMatch) {
+        try {
+          const report = JSON.parse(reportMatch[1]);
 
-        await db.insert(schema.comprehensionReports).values({
-          conversationId,
-          score: report.score,
-          rating: report.rating,
-          understood: report.comprehension || report.understood,
-          missed: report.depth || report.missed,
-          engagementNote: report.engagement,
-          aiAvgWords,
-          studentAvgWords,
-          redirectCount,
-          exchangeCount,
-        });
+          // Compute conversation analytics
+          const aiMessages = messages.filter(m => m.role === "assistant");
+          const studentMessages = messages.filter(m => m.role === "user");
+          const wordCount = (text: string) => text.split(/\s+/).filter(w => w.length > 0).length;
+          const aiAvgWords = aiMessages.length > 0 ? Math.round(aiMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / aiMessages.length) : 0;
+          const studentAvgWords = studentMessages.length > 0 ? Math.round(studentMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / studentMessages.length) : 0;
+          // Count redirections: "actually", "take a look", "take another look", "close, but", "not quite"
+          const redirectPatterns = /\b(actually|take a look|take another look|close,? but|not quite|if you look at the article)\b/gi;
+          const redirectCount = aiMessages.reduce((count, m) => count + (m.content.match(redirectPatterns) || []).length, 0);
+          const exchangeCount = studentMessages.length;
 
-        // Gradual Mix Level Progression — evaluate and apply
-        const { evaluateProgression, applyProgressionResult } = await import("@/lib/level-progression");
-        const progressionResult = await evaluateProgression(session.userId);
-        if (progressionResult.action !== "none") {
-          await applyProgressionResult(session.userId, progressionResult);
-          console.log(`Level progression [${student.name}]: ${progressionResult.action}`, 
-            progressionResult.newLevel ? `→ L${progressionResult.newLevel}` : "",
-            progressionResult.alertMessage || "");
+          await db.insert(schema.comprehensionReports).values({
+            conversationId,
+            score: report.score,
+            rating: report.rating,
+            understood: report.comprehension || report.understood,
+            missed: report.depth || report.missed,
+            engagementNote: report.engagement,
+            aiAvgWords,
+            studentAvgWords,
+            redirectCount,
+            exchangeCount,
+          });
+
+          // Gradual Mix Level Progression — evaluate and apply
+          const { evaluateProgression, applyProgressionResult } = await import("@/lib/level-progression");
+          const progressionResult = await evaluateProgression(session.userId);
+          if (progressionResult.action !== "none") {
+            await applyProgressionResult(session.userId, progressionResult);
+            console.log(`Level progression [${student.name}]: ${progressionResult.action}`,
+              progressionResult.newLevel ? `→ L${progressionResult.newLevel}` : "",
+              progressionResult.alertMessage || "");
+          }
+        } catch (e) {
+          console.error("Report parse error:", e);
         }
-      } catch (e) {
-        console.error("Report parse error:", e);
       }
     }
 

@@ -32,6 +32,7 @@ import questionTypeMid from "./md/comprehension-conversation/question-type-mid.m
 import questionTypeHigh from "./md/comprehension-conversation/question-type-high.md";
 import sectionLiked from "./md/comprehension-conversation/section-liked.md";
 import sectionDisliked from "./md/comprehension-conversation/section-disliked.md";
+import tutorialOverrideMd from "./md/comprehension-conversation/tutorial-override.md";
 
 // Comprehension report fragments
 import reportBaseMd from "./md/comprehension-report/base.md";
@@ -215,6 +216,10 @@ export function coachingFeedbackPrompt(articleText: string, transcript: string, 
     transcript,
     level,
   });
+}
+
+export function tutorialConversationPrompt(articleText: string, level: number): string {
+  return interpolate(tutorialOverrideMd.trimEnd(), { articleText, level });
 }
 
 export function parentChatPrompt(vars: {

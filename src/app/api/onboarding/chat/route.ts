@@ -52,42 +52,8 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(schema.students.id, session.userId));
 
-      // Pre-fill articles immediately so there's no delay on first page load
-      const { sql: sqlTag } = await import("drizzle-orm");
-      let cached = await db.select().from(schema.articleCache)
-        .where(eq(schema.articleCache.readingLevel, level))
-        .orderBy(sqlTag`RANDOM()`)
-        .limit(12); // Buffer of 12
-
-      // Fallback: if no cache at this level, try adjacent levels
-      if (cached.length === 0) {
-        const fallbackLevel = level < 6 ? level + 1 : level - 1;
-        cached = await db.select().from(schema.articleCache)
-          .where(eq(schema.articleCache.readingLevel, fallbackLevel))
-          .orderBy(sqlTag`RANDOM()`)
-          .limit(12);
-      }
-
-      for (const c of cached) {
-        await db.insert(schema.articles).values({
-          studentId: session.userId,
-          title: c.title,
-          topic: c.topic,
-          bodyText: c.bodyText,
-          readingLevel: level,
-          sources: c.sources || [],
-          estimatedReadTime: c.estimatedReadTime || 4,
-          category: c.category || "general",
-          sourceCacheId: c.id,
-        });
-        await db.insert(schema.studentArticleHistory).values({
-          studentId: session.userId,
-          articleCacheId: c.id,
-          articleTitle: c.title,
-        });
-      }
-
-      // Insert welcome tutorial article last so it appears in the visible set
+      // Insert only the welcome tutorial article — serve-cached will
+      // backfill real articles after the student completes it.
       const welcome = getWelcomeArticle(level);
       await db.insert(schema.articles).values({
         studentId: session.userId,
