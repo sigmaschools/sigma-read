@@ -50,8 +50,7 @@ export default function ReaderPage() {
 
     const wordCount = article.bodyText.split(/\s+/).length;
     const level = article.readingLevel || 2;
-    const wpm = level <= 2 ? 125 : level <= 4 ? 188 : 250;
-    const minSeconds = Math.max(30, Math.min(180, Math.round((wordCount / wpm) * 60)));
+    const minSeconds = 60;
 
     setSecondsLeft(minSeconds);
 
