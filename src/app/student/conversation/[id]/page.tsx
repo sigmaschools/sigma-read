@@ -56,8 +56,16 @@ export default function ConversationPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: "__resume_check__" }),
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`API error: ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
+        if (data.error) {
+          // Conversation not found (deleted by reset) — go back to dashboard
+          router.push("/student");
+          return;
+        }
         if (data.existingMessages && data.existingMessages.length > 0) {
           setMessages(data.existingMessages);
           setStudentTurnCount(data.existingMessages.filter((m: Message) => m.role === "user").length);
@@ -80,8 +88,12 @@ export default function ConversationPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: "__resume_check__" }),
         })
-          .then((r) => r.json())
+          .then((r) => {
+            if (!r.ok) throw new Error(`API error: ${r.status}`);
+            return r.json();
+          })
           .then((data) => {
+            if (data.error) { router.push("/student"); return; }
             if (data.existingMessages && data.existingMessages.length > 0) {
               setMessages(data.existingMessages);
               if (data.complete) setComplete(true);
@@ -90,7 +102,7 @@ export default function ConversationPage() {
             }
             setLoading(false);
           })
-          .catch(() => setLoading(false));
+          .catch(() => router.push("/student"));
       });
   }, [id]);
 
