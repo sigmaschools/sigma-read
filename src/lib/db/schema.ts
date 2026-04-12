@@ -135,6 +135,7 @@ export const readingSessions = pgTable("reading_sessions", {
   startedAt: timestamp("started_at").defaultNow().notNull(),
   readingCompletedAt: timestamp("reading_completed_at"), // when student clicked "I'm done reading"
   completedAt: timestamp("completed_at"),
+  discussionDurationSeconds: integer("discussion_duration_seconds"), // active discussion time, computed from message timestamps
 });
 
 export const conversations = pgTable("conversations", {
