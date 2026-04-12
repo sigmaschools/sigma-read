@@ -128,7 +128,7 @@ export default function ConversationPage() {
         setComplete(true);
         if (data.coachingFeedback) {
           setCoachingFeedback(data.coachingFeedback);
-          setFeedbackSecondsLeft(15);
+          setFeedbackSecondsLeft(10);
         }
       }
     } catch (e) {
@@ -220,8 +220,19 @@ export default function ConversationPage() {
               <div className="space-y-4">
                 {coachingFeedback && (
                   <div className="flex justify-start">
-                    <div className="max-w-[85%] px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] rounded-bl-md">
-                      {coachingFeedback}
+                    <div className="max-w-[85%] px-4 py-3 rounded-2xl text-[15px] leading-relaxed bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] rounded-bl-md space-y-3">
+                      {coachingFeedback.split(/\n\n+/).map((section, i) => {
+                        const lines = section.trim().split('\n');
+                        const header = lines[0];
+                        const body = lines.slice(1).join('\n').trim();
+                        return (
+                          <div key={i}>
+                            {i > 0 && <hr className="border-[var(--border)] mb-3" />}
+                            <p className="font-semibold text-[14px] mb-1">{header}</p>
+                            <p>{body}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
