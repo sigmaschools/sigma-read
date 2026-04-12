@@ -74,4 +74,54 @@ import type { FeedMix } from "./level-progression-rules";
   console.log("✅ downward trigger does NOT fire with only 1 consecutive < 60");
 }
 
+// ─── evaluateUpwardProbe — gamed low score doesn't block advancement ─────────
+
+// One gamed low score (20) in 4 probe scores does not block when other 3 >= 75
+{
+  const feedMix: FeedMix = {
+    probeDirection: "up",
+    probePhase: 2,
+    probeStartDate: "2026-01-01T00:00:00Z",
+    probeScores: [20, 80, 85, 90], // trimmedMean = 85 (drop 20)
+  };
+  const result = evaluateUpwardProbe({ name: "Test" }, feedMix, [], 3);
+  assert.strictEqual(result.action, "level_change", "one gamed score should not block advancement");
+  assert.strictEqual(result.newLevel, 4);
+  console.log("✅ one gamed low score in 4 probes does not block upward advancement");
+}
+
+// Upward probe does NOT advance with < 3 probe scores
+{
+  const feedMix: FeedMix = {
+    probeDirection: "up",
+    probePhase: 2,
+    probeStartDate: "2026-01-01T00:00:00Z",
+    probeScores: [80, 85],
+  };
+  const result = evaluateUpwardProbe({ name: "Test" }, feedMix, [], 3);
+  assert.strictEqual(result.action, "none", "need at least 3 probe scores for level change");
+  console.log("✅ upward probe needs >= 3 scores for level change");
+}
+
+// ─── evaluateDownwardProbe — trimmedMean threshold ──────────────────────────
+
+// Downward probe succeeds with trimmedMean >= 70
+{
+  const feedMix: FeedMix = {
+    probeDirection: "down",
+    probePhase: 2,
+    probeStartDate: "2026-01-01T00:00:00Z",
+    probeScores: [30, 72, 75, 80], // trimmedMean = (72+75+80)/3 = 75.67
+  };
+  // base scores still struggling (< 60)
+  const scores = [
+    { score: 50, articleLevel: 4 },
+    { score: 55, articleLevel: 4 },
+  ];
+  const result = evaluateDownwardProbe({ name: "Test" }, feedMix, scores, 4);
+  assert.strictEqual(result.action, "level_change", "trimmedMean >= 70 with base struggling should change level");
+  assert.strictEqual(result.newLevel, 3);
+  console.log("✅ downward probe advances when trimmedMean >= 70 and base struggling");
+}
+
 console.log("\n🎉 All level-progression tests passed!");
