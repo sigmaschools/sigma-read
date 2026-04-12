@@ -228,7 +228,7 @@ export default function ConversationPage() {
                         return (
                           <div key={i}>
                             {i > 0 && <hr className="border-[var(--border)] mb-3" />}
-                            <p className="font-semibold text-[14px] mb-1">{header}</p>
+                            <p className="font-semibold text-[14px] mb-1 text-[var(--accent)]">{header}</p>
                             <p>{body}</p>
                           </div>
                         );
