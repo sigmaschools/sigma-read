@@ -35,4 +35,43 @@ import type { FeedMix } from "./level-progression-rules";
   console.log("✅ trimmedMean empty returns 0");
 }
 
+// ─── checkUpwardTrigger ──────────────────────────────────────────────────────
+
+// fires at 3 of 4 >= 80
+{
+  const scores = [{ score: 85 }, { score: 70 }, { score: 82 }, { score: 90 }];
+  assert.strictEqual(checkUpwardTrigger(scores), true, "3 of 4 >= 80 should trigger");
+  console.log("✅ upward trigger fires at 3 of 4 >= 80");
+}
+
+// does NOT fire with 2 of 4 >= 80
+{
+  const scores = [{ score: 85 }, { score: 70 }, { score: 82 }, { score: 65 }];
+  assert.strictEqual(checkUpwardTrigger(scores), false, "2 of 4 >= 80 should NOT trigger");
+  console.log("✅ upward trigger does NOT fire with 2 of 4 >= 80");
+}
+
+// does not fire with < 4 scores
+{
+  const scores = [{ score: 90 }, { score: 90 }, { score: 90 }];
+  assert.strictEqual(checkUpwardTrigger(scores), false, "need at least 4 scores");
+  console.log("✅ upward trigger requires 4 scores");
+}
+
+// ─── checkDownwardTrigger ────────────────────────────────────────────────────
+
+// fires at 2 consecutive scores < 60
+{
+  const scores = [{ score: 80 }, { score: 55 }, { score: 45 }];
+  assert.strictEqual(checkDownwardTrigger(scores), true, "2 consecutive < 60 should trigger");
+  console.log("✅ downward trigger fires at 2 consecutive < 60");
+}
+
+// does NOT fire if only last score < 60
+{
+  const scores = [{ score: 80 }, { score: 70 }, { score: 45 }];
+  assert.strictEqual(checkDownwardTrigger(scores), false, "only 1 of last 2 < 60");
+  console.log("✅ downward trigger does NOT fire with only 1 consecutive < 60");
+}
+
 console.log("\n🎉 All level-progression tests passed!");
