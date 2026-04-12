@@ -114,9 +114,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     cleanText = "You've clearly engaged with this article thoughtfully — great work today.";
   }
 
-  // Defer completion if the AI asked a question (ends with ?) and closing wasn't explicitly injected.
-  // Let the student answer, then alreadyComplete will trigger on the next exchange with proper closing.
-  if (isComplete && !forceComplete && !alreadyComplete && cleanText.trim().endsWith("?")) {
+  // Defer completion if the closing instruction wasn't explicitly injected.
+  // When alreadyComplete/forceComplete was false, the AI was in mid-conversation mode and
+  // almost certainly ended with a directive or question expecting a reply — always defer so
+  // the student can answer. On the next exchange, alreadyComplete will be true and the proper
+  // closing will be triggered cleanly.
+  if (isComplete && !forceComplete && !alreadyComplete) {
     isComplete = false;
   }
 
