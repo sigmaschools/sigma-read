@@ -10,6 +10,27 @@ import { MODELS } from "@/lib/models";
 
 const anthropic = new Anthropic();
 
+// Compute active discussion duration from message timestamps
+// Only count gaps ≤ 5 minutes between consecutive messages (ignore idle time)
+function computeActiveDiscussionSeconds(msgs: { role: string; timestamp?: string }[]): number {
+  const timestamps = msgs
+    .filter(m => m.timestamp)
+    .map(m => new Date(m.timestamp!).getTime())
+    .sort((a, b) => a - b);
+
+  if (timestamps.length < 2) return 0;
+
+  const MAX_GAP_MS = 5 * 60 * 1000; // 5 minutes
+  let activeMs = 0;
+  for (let i = 1; i < timestamps.length; i++) {
+    const gap = timestamps[i] - timestamps[i - 1];
+    if (gap <= MAX_GAP_MS) {
+      activeMs += gap;
+    }
+  }
+  return Math.round(activeMs / 1000);
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session || session.role !== "student") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -137,7 +158,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Store a brief summary for cross-article connections
     const summaryText = `${article.title}: ${article.topic}`;
     await db.update(schema.articles).set({ read: true, summary: summaryText }).where(eq(schema.articles.id, article.id));
-    await db.update(schema.readingSessions).set({ completedAt: new Date() }).where(eq(schema.readingSessions.id, readingSession.id));
+    const activeSecs = computeActiveDiscussionSeconds(messages);
+    await db.update(schema.readingSessions).set({ completedAt: new Date(), discussionDurationSeconds: activeSecs }).where(eq(schema.readingSessions.id, readingSession.id));
 
     const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
 

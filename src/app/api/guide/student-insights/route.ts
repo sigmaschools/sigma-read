@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
     startedAt: schema.readingSessions.startedAt,
     readingCompletedAt: schema.readingSessions.readingCompletedAt,
     completedAt: schema.readingSessions.completedAt,
+    discussionDurationSeconds: schema.readingSessions.discussionDurationSeconds,
   }).from(schema.readingSessions)
     .where(eq(schema.readingSessions.studentId, studentId))
     .orderBy(desc(schema.readingSessions.startedAt))
@@ -78,8 +79,12 @@ export async function GET(req: NextRequest) {
     if (ts.readingCompletedAt && ts.startedAt) {
       readingTimes.push((new Date(ts.readingCompletedAt).getTime() - new Date(ts.startedAt).getTime()) / 1000);
     }
-    if (ts.completedAt && ts.readingCompletedAt) {
-      discussionTimes.push((new Date(ts.completedAt).getTime() - new Date(ts.readingCompletedAt).getTime()) / 1000);
+    if (ts.discussionDurationSeconds != null) {
+      discussionTimes.push(ts.discussionDurationSeconds);
+    } else if (ts.completedAt && ts.readingCompletedAt) {
+      // Legacy fallback: timestamp delta capped at 60 minutes
+      const rawSecs = (new Date(ts.completedAt).getTime() - new Date(ts.readingCompletedAt).getTime()) / 1000;
+      discussionTimes.push(Math.min(rawSecs, 60 * 60));
     }
   }
   const avgReadingTime = readingTimes.length > 0 ? Math.round(readingTimes.reduce((a, b) => a + b, 0) / readingTimes.length) : null;
