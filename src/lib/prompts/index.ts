@@ -148,24 +148,11 @@ export function comprehensionConversationPrompt(
     ? sectionDisliked.trimEnd() + "\n\n"
     : "";
 
-  const styleName = fixedStyle && styleStepsMap[fixedStyle]
-    ? fixedStyle
-    : CONVERSATION_STYLES[Math.floor(Math.random() * CONVERSATION_STYLES.length)];
-
   const questionTypeInstructions = level <= 2
     ? questionTypeLow.trimEnd()
     : level <= 4
     ? questionTypeMid.trimEnd()
     : questionTypeHigh.trimEnd();
-
-  let exchangeContext: string;
-  if (exchangeNumber === undefined || exchangeNumber === 0) {
-    exchangeContext = "This is the start of the conversation. Begin with your Step 1 opener.";
-  } else if (exchangeNumber >= 4) {
-    exchangeContext = `This is exchange ${exchangeNumber}. The student has completed all 3 steps. Continue with follow-up questions until the system signals completion.`;
-  } else {
-    exchangeContext = `This is exchange ${exchangeNumber} of 3. You have ${3 - exchangeNumber} step(s) left.`;
-  }
 
   return interpolate(conversationBaseMd.trimEnd(), {
     levelContext: levelContextMap[level] || levelContextMap[3],
@@ -174,12 +161,9 @@ export function comprehensionConversationPrompt(
     level,
     interestProfile,
     previousArticlesSection,
-    styleName,
-    styleSteps: styleStepsMap[styleName] || styleStepsMap.OVERVIEW_THEN_DEPTH,
     questionTypeInstructions,
     messageLengthRule: level <= 2 ? "One sentence, under 20 words." : level <= 4 ? "1-2 sentences max." : "2 sentences max.",
     messageLengthThreshold: level <= 2 ? "one sentence" : "two sentences",
-    exchangeContext,
   });
 }
 

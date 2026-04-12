@@ -58,7 +58,10 @@ export default function LoginPage() {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.trim().toLowerCase())}
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="email"
               className="w-full px-3 py-2.5 border border-[var(--border)] rounded-lg text-[15px] outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition"
               required
               autoFocus

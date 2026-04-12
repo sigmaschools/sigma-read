@@ -5,7 +5,8 @@ import { verifyPassword, createToken } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
-  const { username, password } = await req.json();
+  const { username: rawUsername, password } = await req.json();
+  const username = rawUsername?.trim().toLowerCase() ?? "";
 
   // Try admin (email-based)
   const [admin] = await db.select().from(schema.admins).where(eq(schema.admins.email, username)).limit(1);
