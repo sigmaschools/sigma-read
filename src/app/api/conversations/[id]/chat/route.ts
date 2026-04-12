@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const alreadyComplete = (conversation.progressScore || 0) >= 100 && exchangeNumber >= 3;
   const finalMessages = messages.length > 0
     ? messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
-    : [{ role: "user" as const, content: "[Begin the conversation with your Step 1 opener. The student has not said anything yet.]" }];
+    : [{ role: "user" as const, content: "[The student just finished reading. Start the conversation. Open the way a real person would — share one specific thing from the article that you found surprising, interesting, or worth talking about. Make it feel like you actually read it too. Then invite the student in with a single open directive. No greetings, no 'great article', no generic openers. The student has not said anything yet — this is your first message.]" }];
   if (forceComplete || alreadyComplete) {
     finalMessages.push({ role: "user" as const, content: `[SYSTEM: The student has demonstrated sufficient understanding. This is your final message. Wrap up in one warm sentence acknowledging what they got right. Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]` });
   }
