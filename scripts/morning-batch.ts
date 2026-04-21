@@ -727,6 +727,9 @@ async function run() {
 
   if (students.length === 0) { console.log("No active students. Skipping."); return; }
 
+  // Always flag expired articles first — before threshold checks or serving
+  await flagExpiredArticles();
+
   // Check if we already have base articles from a partial run today
   const TARGET_BASE_ARTICLES = 5; // 5 articles/day = 3 interest, 1 news, 1 horizon
   const [existingToday] = await sql`
@@ -738,7 +741,6 @@ async function run() {
   if (existingBaseCount >= TARGET_BASE_ARTICLES) {
     console.log(`✅ Already have ${existingBaseCount} base articles for today. Skipping generation.`);
     await serveToStudents(students);
-    await flagExpiredArticles();
     console.log(`\n✅ Batch complete (served existing articles)\n`);
     return;
   }
@@ -835,9 +837,6 @@ async function run() {
 
   // Step 6: Serve to students
   await serveToStudents(students);
-
-  // Step 7: Flag expired articles
-  await flagExpiredArticles();
 
   console.log(`\n✅ Batch complete! ${baseArticles.length} source-backed articles × ${levelsNeeded.size} levels\n`);
 }
