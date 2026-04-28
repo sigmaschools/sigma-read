@@ -64,6 +64,7 @@ async function analyzeStudents(): Promise<{
   levelsNeeded: Set<number>;
   interestMap: Map<string, number[]>; // interest → [studentId, ...]
   recentTopics: Set<string>;
+  recentTopicDates: Map<string, string>; // topic → latest generated_date
 }> {
   const students = await sql`
     SELECT id, name, reading_level, interest_profile, adjacent_interests, daily_article_cap
@@ -84,14 +85,36 @@ async function analyzeStudents(): Promise<{
     }
   }
 
-  // Recent topics (last 14 days) for dedup
-  const recent = await sql`SELECT topic FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
+  // Recent topics (last 14 days) for dedup — track latest date for LRU sorting
+  const recent = await sql`SELECT topic, MAX(generated_date) as latest FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days' GROUP BY topic`;
   const recentTopics = new Set(recent.map(r => (r.topic as string).toLowerCase()));
+  const recentTopicDates = new Map(recent.map(r => [(r.topic as string).toLowerCase(), r.latest as string]));
 
-  return { students, levelsNeeded, interestMap, recentTopics };
+  return { students, levelsNeeded, interestMap, recentTopics, recentTopicDates };
 }
 
 // ─── Step 2: Plan Daily Articles ────────────────────────────────────────────
+
+/** Substring match: returns true if any recent topic contains the interest or vice versa (case-insensitive). */
+function isRecentlyUsed(interest: string, recentTopics: Set<string>): boolean {
+  const lower = interest.toLowerCase();
+  for (const topic of recentTopics) {
+    if (topic.includes(lower) || lower.includes(topic)) return true;
+  }
+  return false;
+}
+
+/** Find the most recent date an interest was covered, using substring matching against generated topics. */
+function getLastUsedDate(interest: string, recentTopicDates: Map<string, string>): string | null {
+  const lower = interest.toLowerCase();
+  let latest: string | null = null;
+  for (const [topic, date] of recentTopicDates) {
+    if (topic.includes(lower) || lower.includes(topic)) {
+      if (!latest || date > latest) latest = date;
+    }
+  }
+  return latest;
+}
 
 interface ArticlePlan {
   query: string;
@@ -103,6 +126,7 @@ async function planDailyArticles(
   interestMap: Map<string, number[]>,
   students: Student[],
   recentTopics: Set<string>,
+  recentTopicDates: Map<string, string>,
 ): Promise<ArticlePlan[]> {
   console.log("📋 Planning daily article mix...");
 
@@ -156,21 +180,26 @@ async function planDailyArticles(
   const sortedInterests = [...interestMap.entries()]
     .sort((a, b) => b[1].length - a[1].length);
 
-  // Pick interests not recently covered, rotate
+  // Pick interests not recently covered (substring match), rotate
   const pickedInterests: string[] = [];
   for (const [interest] of sortedInterests) {
     if (pickedInterests.length >= 3) break;
-    if (!recentTopics.has(interest)) {
+    if (!isRecentlyUsed(interest, recentTopics)) {
       pickedInterests.push(interest);
     }
   }
-  // Fill remaining from top interests even if recently covered
-  if (pickedInterests.length < 6) {
-    for (const [interest] of sortedInterests) {
+  // Fill remaining: sort by least recently used first (interests not seen in the longest time get priority)
+  if (pickedInterests.length < 3) {
+    const remaining = sortedInterests
+      .filter(([interest]) => !pickedInterests.includes(interest))
+      .sort((a, b) => {
+        const dateA = getLastUsedDate(a[0], recentTopicDates) || "0000-00-00";
+        const dateB = getLastUsedDate(b[0], recentTopicDates) || "0000-00-00";
+        return dateA.localeCompare(dateB); // oldest first
+      });
+    for (const [interest] of remaining) {
       if (pickedInterests.length >= 3) break;
-      if (!pickedInterests.includes(interest)) {
-        pickedInterests.push(interest);
-      }
+      pickedInterests.push(interest);
     }
   }
 
@@ -231,7 +260,7 @@ Output ONLY a JSON array of strings:
   // Pick 1 horizon topic from the adjacent pool, avoiding recent
   const uniqueAdjacent = [...new Set(allAdjacentInterests.map(a => a.toLowerCase()))];
   const horizonPicks = uniqueAdjacent
-    .filter(a => !recentTopics.has(a))
+    .filter(a => !isRecentlyUsed(a, recentTopics))
     .slice(0, 1);
 
   // Fallback if we can't find unrepeated ones
@@ -715,7 +744,7 @@ async function run() {
   console.log(`\n🌅 Morning Article Batch — ${today} (source-first pipeline)\n`);
 
   // Step 1: Analyze students
-  const { students, levelsNeeded, interestMap, recentTopics } = await analyzeStudents();
+  const { students, levelsNeeded, interestMap, recentTopics, recentTopicDates } = await analyzeStudents();
   const topInterests = [...interestMap.entries()]
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, 8)
@@ -751,7 +780,7 @@ async function run() {
   }
 
   // Step 2: Plan daily mix
-  const plans = await planDailyArticles(interestMap, students, recentTopics);
+  const plans = await planDailyArticles(interestMap, students, recentTopics, recentTopicDates);
 
   // Limit to what we actually need
   // Preserve category mix when slicing: take all interest/horizon first, then fill with news
