@@ -197,9 +197,7 @@ async function planDailyArticles(
   if (pickedInterests.length < 3) {
     for (const [interest] of rotationSorted) {
       if (pickedInterests.length >= 3) break;
-      if (!pickedInterests.includes(interest)) {
-        pickedInterests.push(interest);
-      }
+      pickedInterests.push(interest);
     }
   }
   console.log(`  🎯 Selected interests (rotation): ${pickedInterests.join(', ')}`);
@@ -261,7 +259,7 @@ Output ONLY a JSON array of strings:
   // Pick 1 horizon topic from the adjacent pool, avoiding recent
   const uniqueAdjacent = [...new Set(allAdjacentInterests.map(a => a.toLowerCase()))];
   const horizonPicks = uniqueAdjacent
-    .filter(a => !recentTopics.has(a))
+    .filter(a => !recentTopics.has(a.toLowerCase()))
     .slice(0, 1);
 
   // Fallback if we can't find unrepeated ones
