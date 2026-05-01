@@ -506,14 +506,20 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
       }
     }
 
-    // If all recent-filtered results failed, try the first result regardless
+    // If all recent-filtered results failed, try the first result only if URL not already used
     if (!fetched && results.length > 0) {
-      const text = await fetchGrokipediaArticle(results[0].url);
-      if (text) {
-        sourced.push({ query: plan.query, type: plan.type, sourceUrl: results[0].url, sourceText: text });
-        console.log(`     ✅ ${results[0].title} (${results[0].url.substring(0, 55)}...)`);
+      const fallback = results[0];
+      if (usedUrls.has(fallback.url)) {
+        console.log(`     ⚠️ Skipping fallback — URL already used: ${fallback.url.substring(0, 55)}...`);
       } else {
-        console.log(`     ⚠️ Could not fetch any Grokipedia article`);
+        const text = await fetchGrokipediaArticle(fallback.url);
+        if (text) {
+          sourced.push({ query: plan.query, type: plan.type, sourceUrl: fallback.url, sourceText: text });
+          usedUrls.add(fallback.url);
+          console.log(`     ✅ ${fallback.title} (${fallback.url.substring(0, 55)}...)`);
+        } else {
+          console.log(`     ⚠️ Could not fetch any Grokipedia article`);
+        }
       }
     }
   }
