@@ -5,7 +5,16 @@ export const generatedTopics = pgTable("generated_topics", {
   topic: text("topic").notNull(),
   category: varchar("category", { length: 20 }).notNull(),
   generatedDate: date("generated_date").notNull(),
+  query: text("query"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const interestRotation = pgTable("interest_rotation", {
+  id: serial("id").primaryKey(),
+  interest: text("interest").notNull().unique(),
+  lastFeaturedAt: date("last_featured_at"),
+  studentIds: integer("student_ids").array(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const blockedTopics = pgTable("blocked_topics", {
