@@ -575,6 +575,13 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
   return sourced;
 }
 
+const BANNED_OPENINGS = ["imagine ", "picture this", "picture yourself", "what if ", "have you ever"];
+
+function hasBannedOpening(text: string): boolean {
+  const lower = text.trim().toLowerCase();
+  return BANNED_OPENINGS.some(phrase => lower.startsWith(phrase));
+}
+
 // ─── Step 4: Generate Base Articles (Rewrite from Source) ───────────────────
 
 async function rewriteFromSource(topic: SourcedTopic): Promise<{
@@ -609,7 +616,16 @@ Requirements:
 - Rewrite the source material as an ORIGINAL article. Keep all facts accurate. Do not add information not in the source.
 - Do NOT copy sentences verbatim from the source. Use your own words and structure.
 - Calibrate sentence length and complexity to the grade level.
-- Make it genuinely interesting. Strong opening that hooks the reader.
+- Make it genuinely interesting. Concrete details and examples throughout.
+- OPENING STYLE — HARD RULE: Your FIRST WORD must NOT be "Imagine", "Picture", "What", or "Have". These are hard-banned. Before writing the article, silently pick ONE style from this list and write only that style:
+  1. Statistic: Lead with a striking number. E.g., "Every second, 6,000 lightning bolts hit Earth."
+  2. Scene drop: Real moment, third-person present tense. E.g., "A coyote trots down a Chicago sidewalk at 2 a.m."
+  3. Historical moment: Specific time and place. E.g., "On July 20, 1969, two astronauts stepped onto a world no human had touched."
+  4. Bold claim: A surprising fact. E.g., "Coyotes have spread farther than any other predator in North America in the last century."
+  5. Contrast: Two opposing facts. E.g., "The drone weighs less than a smartphone. It can carry 20 pounds for 30 miles."
+  6. Q&A: Ask, then answer immediately. E.g., "How fast is the fastest animal? The peregrine falcon dives at 240 mph."
+  7. Micro-story: One sentence about a real person or event. E.g., "At nine years old, Ai Hinatsuru showed up at a stranger's door demanding to be taught."
+  Do not use style 1 twice in the same batch.
 - Short paragraphs (2-4 sentences each).
 - Age-appropriate for grade ${guide.grade} students.
 - EDITORIAL NEUTRALITY: Report facts, not opinions.
@@ -635,6 +651,10 @@ No preamble or commentary outside the JSON.`,
 
   try {
     const parsed = JSON.parse(jsonMatch[0]);
+    if (parsed.body && hasBannedOpening(parsed.body)) {
+      const preview = parsed.body.trim().split(' ').slice(0, 4).join(' ');
+      console.log(`  ⚠️  Banned opening detected: "${preview}..." — article still used, check prompt`);
+    }
     return {
       title: parsed.title,
       topic: parsed.topic,
@@ -673,6 +693,7 @@ Rules:
 - Keep all key facts accurate
 - Adjust sentence length and vocabulary to match target grade
 - Short paragraphs (2-4 sentences)
+- OPENING STYLE: Preserve the base article's opening style. If the original opens with a statistic, scene, historical moment, bold claim, contrast, Q&A, or micro-story — keep that approach. If the original starts with "Imagine", "Picture", "What if", or "Have you ever" — replace it with a surprising fact, scene, or historical moment.
 
 Output ONLY JSON:
 {"title": "Article title", "body": "Adapted article text.", "estimated_read_time_minutes": ${targetLevel <= 2 ? 2 : targetLevel <= 4 ? 3 : 4}}`,
