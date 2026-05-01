@@ -84,9 +84,12 @@ async function analyzeStudents(): Promise<{
     }
   }
 
-  // Recent topics (last 14 days) for dedup
-  const recent = await sql`SELECT topic FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
-  const recentTopics = new Set(recent.map(r => (r.topic as string).toLowerCase()));
+  // Recent topics (last 14 days) for dedup — include both AI-assigned labels AND original query strings
+  const recent = await sql`SELECT topic, query FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
+  const recentTopics = new Set(recent.flatMap(r => [
+    (r.topic as string).toLowerCase(),
+    r.query ? (r.query as string).toLowerCase() : null,
+  ].filter(Boolean) as string[]));
 
   return { students, levelsNeeded, interestMap, recentTopics };
 }
@@ -156,23 +159,50 @@ async function planDailyArticles(
   const sortedInterests = [...interestMap.entries()]
     .sort((a, b) => b[1].length - a[1].length);
 
-  // Pick interests not recently covered, rotate
+  // Fetch last_used date per interest from generated_topics
+  const interestHistory = await sql`
+    SELECT query, MAX(generated_date) as last_used
+    FROM generated_topics
+    WHERE query IS NOT NULL
+    GROUP BY query
+  `;
+  const lastUsedMap = new Map(interestHistory.map(r => [
+    (r.query as string).toLowerCase(),
+    new Date(r.last_used as string),
+  ]));
+
+  // Sort all interests by last_used ascending (least recently used first)
+  const rotationSorted = [...interestMap.entries()].sort((a, b) => {
+    const aLast = lastUsedMap.get(a[0])?.getTime() ?? 0;
+    const bLast = lastUsedMap.get(b[0])?.getTime() ?? 0;
+    // Primary: last used (older = higher priority)
+    if (aLast !== bLast) return aLast - bLast;
+    // Tie-break: student count (more students = higher priority)
+    return b[1].length - a[1].length;
+  });
+
+  // Pick 3 interests — skip any used in last 3 days (very recent), allow anything older
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
   const pickedInterests: string[] = [];
-  for (const [interest] of sortedInterests) {
+  for (const [interest] of rotationSorted) {
     if (pickedInterests.length >= 3) break;
-    if (!recentTopics.has(interest)) {
+    const lastUsed = lastUsedMap.get(interest);
+    const tooRecent = lastUsed && (now - lastUsed.getTime()) < THREE_DAYS_MS;
+    if (!tooRecent) {
       pickedInterests.push(interest);
     }
   }
-  // Fill remaining from top interests even if recently covered
-  if (pickedInterests.length < 6) {
-    for (const [interest] of sortedInterests) {
+  // Safety fill: if fewer than 3, add oldest-used interests
+  if (pickedInterests.length < 3) {
+    for (const [interest] of rotationSorted) {
       if (pickedInterests.length >= 3) break;
       if (!pickedInterests.includes(interest)) {
         pickedInterests.push(interest);
       }
     }
   }
+  console.log(`  🎯 Selected interests (rotation): ${pickedInterests.join(', ')}`);
 
   for (const interest of pickedInterests) {
     plans.push({
@@ -438,8 +468,16 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
   const sourced: SourcedTopic[] = [];
   const newsCandidates: { url: string; text: string; query: string; type: "news"; originalQuery: string }[] = [];
 
-  // Track recently used Grokipedia URLs (from generated_topics) to pick different angles
+  // Track recently used URLs to pick different angles
   const usedUrls = new Set<string>();
+
+  // Load URLs used in the last 30 days to prevent cross-batch source repetition
+  const recentUrls = await sql`
+    SELECT DISTINCT source_url FROM article_cache
+    WHERE source_url IS NOT NULL AND generated_date > CURRENT_DATE - INTERVAL '30 days'
+  `;
+  for (const r of recentUrls) usedUrls.add(r.source_url as string);
+  console.log(`  🔒 Pre-seeded ${usedUrls.size} recently-used URLs for exclusion`);
 
   // ─── Interest & Horizon: Grokipedia ───────────────────────────────────────
 
@@ -786,7 +824,7 @@ async function run() {
       RETURNING id
     `;
     baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
-    await sql`INSERT INTO generated_topics (topic, category, generated_date) VALUES (${article.topic}, ${article.category}, ${today})`;
+    await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${t.query ?? null})`;
     console.log(`     ✅ "${article.title}" (source: ${t.sourceUrl.substring(0, 50)}...)`);
   }
 
