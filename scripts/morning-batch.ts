@@ -862,6 +862,26 @@ async function run() {
   }
   if (backfilled > 0) console.log(`  ✅ Backfilled ${backfilled} missing adaptations`);
 
+  // Step 5c: Update interest_rotation for every interest actually used in this batch
+  const usedInterestQueries = sourcedTopics
+    .filter(t => t.type === "interest")
+    .map(t => t.query.toLowerCase());
+  if (usedInterestQueries.length > 0) {
+    console.log("\n🔄 Updating interest_rotation...");
+    for (const interest of usedInterestQueries) {
+      const studentIdsForInterest = interestMap.get(interest) || [];
+      await sql`
+        INSERT INTO interest_rotation (interest, last_featured_at, student_ids, updated_at)
+        VALUES (${interest}, CURRENT_DATE, ${studentIdsForInterest}, NOW())
+        ON CONFLICT (interest) DO UPDATE SET
+          last_featured_at = EXCLUDED.last_featured_at,
+          student_ids = EXCLUDED.student_ids,
+          updated_at = NOW()
+      `;
+    }
+    console.log(`  ✅ Updated ${usedInterestQueries.length} interests in rotation table`);
+  }
+
   // Step 6: Serve to students
   await serveToStudents(students);
 
