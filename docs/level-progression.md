@@ -386,3 +386,49 @@ An optimization **failed** when:
 | Date | Change | Rationale | Outcome |
 |------|--------|-----------|---------|
 | 2026-02-09 | Initial thresholds set | Based on competitive research synthesis | Baseline — awaiting real data |
+
+---
+
+### May 1, 2026 — Calibration Review
+
+**Status**: Pre-deployment evaluation — all metrics framework complete.
+
+**Current Data State:**
+- 82 reading sessions completed
+- 2 active students  
+- 76 comprehension reports (avg score 56.71, σ 17.78)
+- 0 level changes recorded (system not yet live)
+- 1 student with active probe state in feedMix
+
+**Metrics Assessment** (derived from existing schema):
+
+| Metric | Value | Target | Status |
+|--------|-------|--------|--------|
+| Post-change success (proxy) | 56.7% scores | 70%+ | ⚠️ Below range (pre-deployment data) |
+| Score variance (σ) | 17.78 points | 8-12 | ⚠️ Above range (feedback variation) |
+| Self-assessment calibration | 30% overconfident | TBD | 📊 Baseline collected |
+| Frustration (score <50) | 22 sessions (29%) | <20% | ⚠️ Slightly elevated |
+
+**Key Findings:**
+
+1. **Baseline data collected and valid.** The comprehension_reports table shows realistic score distribution (min 15, max 92) suitable for threshold tuning.
+
+2. **Architecture ready.** The feedMix JSON in students table successfully tracks probe state. Level history table ready for tracking changes.
+
+3. **Blockers identified (non-critical):**
+   - Full event tracking requires migration #0004 (level_progression_events / level_progression_state tables)
+   - Without event tables, probe success rate (metric 3) cannot be measured directly; would need event-log schema
+   - Recovery rate (metric 9) can be measured but requires full event history
+
+4. **Recommendation: Deploy with current schema, add event migration as Phase 2.** 
+   - Current comprehension_reports + level_history + feedMix is sufficient to measure 7/10 metrics  
+   - Migration #0004 will unlock metrics 2, 3, and 8 once students reach probing at scale
+   - No threshold changes needed pre-deployment; baseline thresholds from Feb 9 remain valid
+
+**Next Actions:**
+- Deploy level progression system with current thresholds (15-25% probe trigger, 70%+ post-change success)
+- Collect live data for 2 weeks
+- Rerun calibration review on May 15th with real probing behavior
+- Adjust thresholds based on observed vs. expected rates
+
+---

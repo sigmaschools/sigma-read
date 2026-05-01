@@ -64,7 +64,6 @@ async function analyzeStudents(): Promise<{
   levelsNeeded: Set<number>;
   interestMap: Map<string, number[]>; // interest → [studentId, ...]
   recentTopics: Set<string>;
-  recentTopicDates: Map<string, string>; // topic → latest generated_date
 }> {
   const students = await sql`
     SELECT id, name, reading_level, interest_profile, adjacent_interests, daily_article_cap
@@ -85,36 +84,17 @@ async function analyzeStudents(): Promise<{
     }
   }
 
-  // Recent topics (last 14 days) for dedup — track latest date for LRU sorting
-  const recent = await sql`SELECT topic, MAX(generated_date) as latest FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days' GROUP BY topic`;
-  const recentTopics = new Set(recent.map(r => (r.topic as string).toLowerCase()));
-  const recentTopicDates = new Map(recent.map(r => [(r.topic as string).toLowerCase(), r.latest as string]));
+  // Recent topics (last 14 days) for dedup — include both AI-assigned labels AND original query strings
+  const recent = await sql`SELECT topic, query FROM generated_topics WHERE generated_date > CURRENT_DATE - INTERVAL '14 days'`;
+  const recentTopics = new Set(recent.flatMap(r => [
+    (r.topic as string).toLowerCase(),
+    r.query ? (r.query as string).toLowerCase() : null,
+  ].filter(Boolean) as string[]));
 
-  return { students, levelsNeeded, interestMap, recentTopics, recentTopicDates };
+  return { students, levelsNeeded, interestMap, recentTopics };
 }
 
 // ─── Step 2: Plan Daily Articles ────────────────────────────────────────────
-
-/** Substring match: returns true if any recent topic contains the interest or vice versa (case-insensitive). */
-function isRecentlyUsed(interest: string, recentTopics: Set<string>): boolean {
-  const lower = interest.toLowerCase();
-  for (const topic of recentTopics) {
-    if (topic.includes(lower) || lower.includes(topic)) return true;
-  }
-  return false;
-}
-
-/** Find the most recent date an interest was covered, using substring matching against generated topics. */
-function getLastUsedDate(interest: string, recentTopicDates: Map<string, string>): string | null {
-  const lower = interest.toLowerCase();
-  let latest: string | null = null;
-  for (const [topic, date] of recentTopicDates) {
-    if (topic.includes(lower) || lower.includes(topic)) {
-      if (!latest || date > latest) latest = date;
-    }
-  }
-  return latest;
-}
 
 interface ArticlePlan {
   query: string;
@@ -126,7 +106,6 @@ async function planDailyArticles(
   interestMap: Map<string, number[]>,
   students: Student[],
   recentTopics: Set<string>,
-  recentTopicDates: Map<string, string>,
 ): Promise<ArticlePlan[]> {
   console.log("📋 Planning daily article mix...");
 
@@ -180,28 +159,48 @@ async function planDailyArticles(
   const sortedInterests = [...interestMap.entries()]
     .sort((a, b) => b[1].length - a[1].length);
 
-  // Pick interests not recently covered (substring match), rotate
+  // Fetch last_used date per interest from generated_topics
+  const interestHistory = await sql`
+    SELECT query, MAX(generated_date) as last_used
+    FROM generated_topics
+    WHERE query IS NOT NULL
+    GROUP BY query
+  `;
+  const lastUsedMap = new Map(interestHistory.map(r => [
+    (r.query as string).toLowerCase(),
+    new Date(r.last_used as string),
+  ]));
+
+  // Sort all interests by last_used ascending (least recently used first)
+  const rotationSorted = [...interestMap.entries()].sort((a, b) => {
+    const aLast = lastUsedMap.get(a[0])?.getTime() ?? 0;
+    const bLast = lastUsedMap.get(b[0])?.getTime() ?? 0;
+    // Primary: last used (older = higher priority)
+    if (aLast !== bLast) return aLast - bLast;
+    // Tie-break: student count (more students = higher priority)
+    return b[1].length - a[1].length;
+  });
+
+  // Pick 3 interests — skip any used in last 3 days (very recent), allow anything older
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
   const pickedInterests: string[] = [];
-  for (const [interest] of sortedInterests) {
+  for (const [interest] of rotationSorted) {
     if (pickedInterests.length >= 3) break;
-    if (!isRecentlyUsed(interest, recentTopics)) {
+    const lastUsed = lastUsedMap.get(interest);
+    const tooRecent = lastUsed && (now - lastUsed.getTime()) < THREE_DAYS_MS;
+    if (!tooRecent) {
       pickedInterests.push(interest);
     }
   }
-  // Fill remaining: sort by least recently used first (interests not seen in the longest time get priority)
+  // Safety fill: if fewer than 3, add oldest-used interests
   if (pickedInterests.length < 3) {
-    const remaining = sortedInterests
-      .filter(([interest]) => !pickedInterests.includes(interest))
-      .sort((a, b) => {
-        const dateA = getLastUsedDate(a[0], recentTopicDates) || "0000-00-00";
-        const dateB = getLastUsedDate(b[0], recentTopicDates) || "0000-00-00";
-        return dateA.localeCompare(dateB); // oldest first
-      });
-    for (const [interest] of remaining) {
+    for (const [interest] of rotationSorted) {
       if (pickedInterests.length >= 3) break;
       pickedInterests.push(interest);
     }
   }
+  console.log(`  🎯 Selected interests (rotation): ${pickedInterests.join(', ')}`);
 
   for (const interest of pickedInterests) {
     plans.push({
@@ -260,7 +259,7 @@ Output ONLY a JSON array of strings:
   // Pick 1 horizon topic from the adjacent pool, avoiding recent
   const uniqueAdjacent = [...new Set(allAdjacentInterests.map(a => a.toLowerCase()))];
   const horizonPicks = uniqueAdjacent
-    .filter(a => !isRecentlyUsed(a, recentTopics))
+    .filter(a => !recentTopics.has(a.toLowerCase()))
     .slice(0, 1);
 
   // Fallback if we can't find unrepeated ones
@@ -467,8 +466,16 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
   const sourced: SourcedTopic[] = [];
   const newsCandidates: { url: string; text: string; query: string; type: "news"; originalQuery: string }[] = [];
 
-  // Track recently used Grokipedia URLs (from generated_topics) to pick different angles
+  // Track recently used URLs to pick different angles
   const usedUrls = new Set<string>();
+
+  // Load URLs used in the last 30 days to prevent cross-batch source repetition
+  const recentUrls = await sql`
+    SELECT DISTINCT source_url FROM article_cache
+    WHERE source_url IS NOT NULL AND generated_date > CURRENT_DATE - INTERVAL '30 days'
+  `;
+  for (const r of recentUrls) usedUrls.add(r.source_url as string);
+  console.log(`  🔒 Pre-seeded ${usedUrls.size} recently-used URLs for exclusion`);
 
   // ─── Interest & Horizon: Grokipedia ───────────────────────────────────────
 
@@ -744,7 +751,7 @@ async function run() {
   console.log(`\n🌅 Morning Article Batch — ${today} (source-first pipeline)\n`);
 
   // Step 1: Analyze students
-  const { students, levelsNeeded, interestMap, recentTopics, recentTopicDates } = await analyzeStudents();
+  const { students, levelsNeeded, interestMap, recentTopics } = await analyzeStudents();
   const topInterests = [...interestMap.entries()]
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, 8)
@@ -780,7 +787,7 @@ async function run() {
   }
 
   // Step 2: Plan daily mix
-  const plans = await planDailyArticles(interestMap, students, recentTopics, recentTopicDates);
+  const plans = await planDailyArticles(interestMap, students, recentTopics);
 
   // Limit to what we actually need
   // Preserve category mix when slicing: take all interest/horizon first, then fill with news
@@ -815,7 +822,7 @@ async function run() {
       RETURNING id
     `;
     baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
-    await sql`INSERT INTO generated_topics (topic, category, generated_date) VALUES (${article.topic}, ${article.category}, ${today})`;
+    await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${t.query ?? null})`;
     console.log(`     ✅ "${article.title}" (source: ${t.sourceUrl.substring(0, 50)}...)`);
   }
 
