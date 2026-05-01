@@ -63,6 +63,7 @@ async function analyzeStudents(): Promise<{
   students: Student[];
   levelsNeeded: Set<number>;
   interestMap: Map<string, number[]>; // interest → [studentId, ...]
+  studentInterests: Map<number, string[]>; // studentId → ordered interest list
   recentTopics: Set<string>;
 }> {
   const students = await sql`
@@ -72,16 +73,20 @@ async function analyzeStudents(): Promise<{
 
   const levelsNeeded = new Set(students.map(s => s.reading_level));
 
-  // Aggregate interests across students into weighted map
+  // Aggregate interests across students into weighted map + per-student lists
   const interestMap = new Map<string, number[]>();
+  const studentInterests = new Map<number, string[]>();
   for (const s of students) {
     const profile = normalizeInterestProfile(s.interest_profile);
+    const normalizedInterests: string[] = [];
     for (const interest of profile.interests) {
       const lower = interest.toLowerCase().trim();
+      normalizedInterests.push(lower);
       const ids = interestMap.get(lower) || [];
       ids.push(s.id);
       interestMap.set(lower, ids);
     }
+    studentInterests.set(s.id, normalizedInterests);
   }
 
   // Recent topics (last 14 days) for dedup — include both AI-assigned labels AND original query strings
@@ -91,7 +96,7 @@ async function analyzeStudents(): Promise<{
     r.query ? (r.query as string).toLowerCase() : null,
   ].filter(Boolean) as string[]));
 
-  return { students, levelsNeeded, interestMap, recentTopics };
+  return { students, levelsNeeded, interestMap, studentInterests, recentTopics };
 }
 
 // ─── Step 2: Plan Daily Articles ────────────────────────────────────────────
@@ -106,6 +111,7 @@ async function planDailyArticles(
   interestMap: Map<string, number[]>,
   students: Student[],
   recentTopics: Set<string>,
+  studentInterests: Map<number, string[]>,
 ): Promise<ArticlePlan[]> {
   console.log("📋 Planning daily article mix...");
 
@@ -154,54 +160,39 @@ async function planDailyArticles(
     plans.push({ query: q, type: "news", searchQuery: q });
   }
 
-  // --- Interest articles (6) ---
-  // Sort interests by student count, rotate through them
-  const sortedInterests = [...interestMap.entries()]
-    .sort((a, b) => b[1].length - a[1].length);
-
-  // Fetch last_used date per interest from generated_topics
-  const interestHistory = await sql`
-    SELECT query, MAX(generated_date) as last_used
-    FROM generated_topics
-    WHERE query IS NOT NULL
-    GROUP BY query
-  `;
-  const lastUsedMap = new Map(interestHistory.map(r => [
-    (r.query as string).toLowerCase(),
-    new Date(r.last_used as string),
+  // --- Interest articles: per-student planning with interest_rotation LRU ---
+  // Fetch LRU state from interest_rotation table
+  const rotationRows = await sql`SELECT interest, last_featured_at FROM interest_rotation`;
+  const lastFeaturedMap = new Map(rotationRows.map(r => [
+    (r.interest as string).toLowerCase(),
+    r.last_featured_at ? new Date(r.last_featured_at as string) : null,
   ]));
 
-  // Sort all interests by last_used ascending (least recently used first)
-  const rotationSorted = [...interestMap.entries()].sort((a, b) => {
-    const aLast = lastUsedMap.get(a[0])?.getTime() ?? 0;
-    const bLast = lastUsedMap.get(b[0])?.getTime() ?? 0;
-    // Primary: last used (older = higher priority)
-    if (aLast !== bLast) return aLast - bLast;
-    // Tie-break: student count (more students = higher priority)
-    return b[1].length - a[1].length;
-  });
-
-  // Pick 3 interests — skip any used in last 3 days (very recent), allow anything older
-  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-  const now = Date.now();
-  const pickedInterests: string[] = [];
-  for (const [interest] of rotationSorted) {
-    if (pickedInterests.length >= 3) break;
-    const lastUsed = lastUsedMap.get(interest);
-    const tooRecent = lastUsed && (now - lastUsed.getTime()) < THREE_DAYS_MS;
-    if (!tooRecent) {
-      pickedInterests.push(interest);
+  // Per-student: pick their top-3 least-recently-used interests
+  const pickedInterests = new Set<string>();
+  for (const student of students) {
+    const interests = studentInterests.get(student.id) || [];
+    // Sort by last_featured_at ascending (NULL = never = highest priority)
+    const sorted = [...interests].sort((a, b) => {
+      const aDate = lastFeaturedMap.get(a);
+      const bDate = lastFeaturedMap.get(b);
+      const aTime = aDate ? aDate.getTime() : 0;
+      const bTime = bDate ? bDate.getTime() : 0;
+      return aTime - bTime;
+    });
+    // Pick up to 3 per student
+    let count = 0;
+    for (const interest of sorted) {
+      if (count >= 3) break;
+      if (!pickedInterests.has(interest)) {
+        pickedInterests.add(interest);
+        count++;
+      }
     }
   }
-  // Safety fill: if fewer than 3, add oldest-used interests
-  if (pickedInterests.length < 3) {
-    for (const [interest] of rotationSorted) {
-      if (pickedInterests.length >= 3) break;
-      pickedInterests.push(interest);
-    }
-  }
-  console.log(`  🎯 Selected interests (rotation): ${pickedInterests.join(', ')}`);
+  console.log(`  🎯 Selected interests (per-student rotation): ${[...pickedInterests].join(', ')}`);
 
+  // Deduplicate: each interest appears at most once in plans
   for (const interest of pickedInterests) {
     plans.push({
       query: interest,
@@ -751,7 +742,7 @@ async function run() {
   console.log(`\n🌅 Morning Article Batch — ${today} (source-first pipeline)\n`);
 
   // Step 1: Analyze students
-  const { students, levelsNeeded, interestMap, recentTopics } = await analyzeStudents();
+  const { students, levelsNeeded, interestMap, studentInterests, recentTopics } = await analyzeStudents();
   const topInterests = [...interestMap.entries()]
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, 8)
@@ -787,7 +778,7 @@ async function run() {
   }
 
   // Step 2: Plan daily mix
-  const plans = await planDailyArticles(interestMap, students, recentTopics);
+  const plans = await planDailyArticles(interestMap, students, recentTopics, studentInterests);
 
   // Limit to what we actually need
   // Preserve category mix when slicing: take all interest/horizon first, then fill with news
