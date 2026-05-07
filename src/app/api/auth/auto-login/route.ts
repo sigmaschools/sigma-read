@@ -3,8 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { createToken } from "@/lib/auth";
-
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
+import { getJwtSecret } from "@/lib/jwt-secret";
 
 interface AutoLoginPayload {
   userId: number;
@@ -19,9 +18,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=missing_token", req.url));
   }
 
+  let jwtSecret: string;
+  try {
+    jwtSecret = getJwtSecret();
+  } catch {
+    return NextResponse.json({ error: "JWT_SECRET not configured" }, { status: 500 });
+  }
+
   let payload: AutoLoginPayload;
   try {
-    payload = jwt.verify(token, JWT_SECRET) as AutoLoginPayload;
+    payload = jwt.verify(token, jwtSecret) as AutoLoginPayload;
   } catch {
     return NextResponse.redirect(new URL("/login?error=invalid_token", req.url));
   }
