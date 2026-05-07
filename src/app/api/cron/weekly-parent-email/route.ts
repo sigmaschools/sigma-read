@@ -6,14 +6,20 @@ import jwt from "jsonwebtoken";
 import { db, schema } from "@/lib/db";
 import { eq, and, gte, inArray } from "drizzle-orm";
 import { getScoreZone, getScoreTrend } from "@/lib/score-zones";
-
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
+import { getJwtSecret } from "@/lib/jwt-secret";
 
 export async function POST(req: NextRequest) {
   // Authenticate via CRON_SECRET
   const auth = req.headers.get("authorization");
   if (!auth || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let jwtSecret: string;
+  try {
+    jwtSecret = getJwtSecret();
+  } catch {
+    return NextResponse.json({ error: "JWT_SECRET not configured" }, { status: 500 });
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
@@ -161,7 +167,7 @@ export async function POST(req: NextRequest) {
       // Generate auto-login JWT
       const autoLoginToken = jwt.sign(
         { userId: pair.parentId, role: "parent" as const, childId: pair.studentId, autoLogin: true },
-        JWT_SECRET,
+        jwtSecret,
         { expiresIn: "48h" }
       );
       const loginUrl = `${process.env.APP_URL}/api/auth/auto-login?token=${autoLoginToken}`;
