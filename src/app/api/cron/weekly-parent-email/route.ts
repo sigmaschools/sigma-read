@@ -7,11 +7,15 @@ import { db, schema } from "@/lib/db";
 import { eq, and, gte, inArray } from "drizzle-orm";
 import { getScoreZone, getScoreTrend } from "@/lib/score-zones";
 import { getJwtSecret } from "@/lib/jwt-secret";
+import { isCronAuthorized } from "@/lib/cron-auth";
+
+// Vercel Cron invokes routes with GET; POST is kept for manual triggers.
+export async function GET(req: NextRequest) {
+  return POST(req);
+}
 
 export async function POST(req: NextRequest) {
-  // Authenticate via CRON_SECRET
-  const auth = req.headers.get("authorization");
-  if (!auth || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
