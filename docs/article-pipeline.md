@@ -34,7 +34,7 @@ This document specifies the technical implementation of article generation, sele
 ## Morning Batch Process
 
 **Schedule:** Daily, 5:00 AM CT
-**Script:** `scripts/morning-batch.ts`
+**Code:** `src/lib/batch/morning-batch.ts`, run by Vercel Cron through `/api/cron/morning-batch` (manual runs: `npx tsx scripts/morning-batch.ts`)
 **Runtime:** ~5-10 minutes for 50 students
 
 ### Step 1: News Sourcing
@@ -335,7 +335,7 @@ Student interests are captured during onboarding and stored in `interest_profile
 
 | Job | Schedule | Purpose |
 |---|---|---|
-| Morning article batch | 5:00 AM CT daily | Generate and distribute daily articles |
+| Morning article batch | 5:00 AM CT daily (Vercel Cron, retried until complete) | Generate and distribute daily articles |
 | Cache cleanup | 3:00 AM CT weekly (planned) | Archive expired news articles |
 | Interest refresh | Monthly (planned) | Prompt students to update interests |
 | Content diversity report | Weekly (planned) | Alert on topic imbalances |
@@ -359,7 +359,7 @@ This ensures no student's first experience is "come back tomorrow."
 - **Anthropic API** — Claude Opus 4.6 (generation), Claude Sonnet 4.5 (adaptation)
 - **Brave Search API** — Supplementary headline sourcing
 - **Neon Postgres** — Article cache and student data
-- **Vercel Cron / OpenClaw Cron** — Batch job scheduling
+- **Vercel Cron** — Batch job scheduling (see "How the batch is scheduled" below)
 
 ---
 
@@ -367,3 +367,14 @@ This ensures no student's first experience is "come back tomorrow."
 
 - [Content Selection Policy](./content-policy.md) — Governing policy for all content decisions
 - [Product Requirements](./product-requirements.md) — Overall product specification
+
+---
+
+## How the batch is scheduled
+
+Vercel Cron calls `GET /api/cron/morning-batch` at :20 and :40 past 10:00 and 11:00 UTC, and again at 12:00 and 13:00 UTC (`vercel.json`). Cron schedules are UTC, so each call checks the America/Chicago clock and only starts work from 5 AM CT. The first real run therefore lands at 5:20 AM CT all year, through daylight saving changes. The :20 start also keeps it clear of the old 5:00 AM OpenClaw run while both are active.
+
+- **Resumable.** Each call gets 800 s (`maxDuration`) and stops starting new work after about 740 s. Every finished base article, adaptation and served student is saved as it completes, and the next call picks up what's missing.
+- **Locked.** The `batch_runs` table has one row per Chicago date with a 15-minute lease, so a duplicate cron delivery does nothing. Once a day's row is `complete`, later calls exit straight away.
+- **Alerting.** If the day's run isn't complete by 7 AM CT, one email goes to `ADMIN_ALERT_EMAIL` through Resend.
+- **Manual run.** `curl -H "Authorization: Bearer $CRON_SECRET" "https://<app>/api/cron/morning-batch?force=1"` skips the clock check.

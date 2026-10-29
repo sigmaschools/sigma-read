@@ -220,3 +220,18 @@ export const levelHistory = pgTable("level_history", {
   changedAt: timestamp("changed_at").defaultNow().notNull(),
   triggeredBySessionId: integer("triggered_by_session_id"),
 });
+
+// One row per morning batch day — tracks progress across resumable cron calls
+export const batchRuns = pgTable("batch_runs", {
+  id: serial("id").primaryKey(),
+  runDate: date("run_date").notNull().unique(), // America/Chicago date
+  status: varchar("status", { length: 20 }).notNull().default("running"), // running | partial | complete | failed
+  attempts: integer("attempts").default(0).notNull(),
+  leaseUntil: timestamp("lease_until"), // lock held by the call currently running
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+  counts: jsonb("counts").$type<{ baseArticles?: number; adaptations?: number; served?: number }>().default({}),
+  lastError: text("last_error"),
+  alertSentAt: timestamp("alert_sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

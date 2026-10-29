@@ -4,6 +4,14 @@
     {
       "path": "/api/cron/weekly-parent-email",
       "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/cron/morning-batch",
+      "schedule": "20,40 10-11 * * *"
+    },
+    {
+      "path": "/api/cron/morning-batch",
+      "schedule": "0 12,13 * * *"
     }
   ]
 }
