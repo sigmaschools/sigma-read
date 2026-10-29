@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { getStudentConversation } from "@/lib/ownership";
 import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const valid = ["really_well", "pretty_well", "not_sure", "lost"];
   if (!valid.includes(assessment)) return NextResponse.json({ error: "Invalid" }, { status: 400 });
+
+  const owned = await getStudentConversation(conversationId, session.userId);
+  if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Find the comprehension report for this conversation
   const [report] = await db.select().from(schema.comprehensionReports)

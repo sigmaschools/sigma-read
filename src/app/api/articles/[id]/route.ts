@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { preReadingPrompt } from "@/lib/prompts";
@@ -11,10 +11,12 @@ const anthropic = new Anthropic();
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || session.role !== "student") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const [article] = await db.select().from(schema.articles).where(eq(schema.articles.id, parseInt(id))).limit(1);
+  const [article] = await db.select().from(schema.articles)
+    .where(and(eq(schema.articles.id, parseInt(id)), eq(schema.articles.studentId, session.userId)))
+    .limit(1);
   if (!article) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Generate pre-reading prompt if not cached
@@ -40,10 +42,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || session.role !== "student") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const body = await req.json();
-  const [updated] = await db.update(schema.articles).set(body).where(eq(schema.articles.id, parseInt(id))).returning();
+
+  // Students may only record like/dislike feedback on their own articles
+  if (typeof body?.liked !== "boolean") return NextResponse.json({ error: "Invalid" }, { status: 400 });
+
+  const [updated] = await db.update(schema.articles)
+    .set({ liked: body.liked })
+    .where(and(eq(schema.articles.id, parseInt(id)), eq(schema.articles.studentId, session.userId)))
+    .returning();
+  if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(updated);
 }
