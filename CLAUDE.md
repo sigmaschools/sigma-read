@@ -52,7 +52,7 @@ Additional rules:
 - **All API routes**: Must `export const dynamic = "force-dynamic"` when authenticated
 - **Imports**: Use `@/` path alias (maps to `src/`)
 - **CSS**: Use CSS variables (`--fg`, `--muted`, `--accent`, `--border`, `--surface`), not hardcoded colors
-- **DB changes**: Edit `src/lib/db/schema.ts`, then `npx drizzle-kit push` for dev
+- **DB changes**: Edit `src/lib/db/schema.ts` and add an idempotent, additive SQL file `drizzle/NNNN_name.sql` (`IF NOT EXISTS`). Production deploys apply pending files automatically before `next build` (`scripts/migrate.mjs`, tracked in `schema_migrations`). For dev, `npx drizzle-kit push` or `MIGRATE=1 node scripts/migrate.mjs`
 - **Scripts**: Use `@neondatabase/serverless` directly (not Drizzle ORM)
 
 ## Git & Deployment
