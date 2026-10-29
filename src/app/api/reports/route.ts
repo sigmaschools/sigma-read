@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { guideOwnsStudent } from "@/lib/ownership";
 import { eq, and, desc, isNotNull } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
@@ -18,6 +19,11 @@ export async function GET(req: NextRequest) {
       .where(and(eq(schema.studentParents.parentId, session.userId), eq(schema.studentParents.studentId, studentId)))
       .limit(1);
     if (!link) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Guide must be assigned to this student
+  if (session.role === "guide" && !(await guideOwnsStudent(session.userId, studentId))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   // Get all reading sessions for this student with their reports

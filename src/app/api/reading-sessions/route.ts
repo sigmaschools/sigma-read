@@ -11,6 +11,13 @@ export async function POST(req: NextRequest) {
 
   const { articleId } = await req.json();
 
+  // Article must belong to this student
+  const [article] = await db.select({ id: schema.articles.id })
+    .from(schema.articles)
+    .where(and(eq(schema.articles.id, articleId), eq(schema.articles.studentId, session.userId)))
+    .limit(1);
+  if (!article) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   // Check for existing incomplete session (no completedAt) for this student + article
   const existing = await db
     .select({ id: schema.readingSessions.id })
