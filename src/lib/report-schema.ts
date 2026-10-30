@@ -98,7 +98,8 @@ export function ratingForScore(score: number): (typeof RATINGS)[number] {
   return "Struggled";
 }
 
-const normalize = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+// Letters and digits in any script; padded with spaces so matches fall on word boundaries
+const normalize = (text: string) => ` ${text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
 
 /**
  * Keep only evidence quotes that actually appear in the student's messages (ignoring case and
@@ -112,7 +113,7 @@ export function verifiedEvidence(
   return evidence
     .filter(e => {
       const q = normalize(e.quote);
-      return q.length > 0 && said.some(s => s.includes(q));
+      return q.trim().length > 0 && said.some(s => s.includes(q));
     })
     .slice(0, 3);
 }
