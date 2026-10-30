@@ -100,7 +100,7 @@ export default function AdminDashboard() {
       {/* Morning batch runs */}
       <h2 className="text-lg font-semibold mb-3">Morning Batch</h2>
       {batchRuns.length === 0 ? (
-        <p className="text-sm text-[var(--muted)] mb-8">No runs recorded by the Vercel cron yet.</p>
+        <p className="text-sm text-[var(--muted)] mb-8">No runs to show.</p>
       ) : (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden mb-8">
           <table className="w-full text-sm">
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
                   <td className="px-4 py-3 text-xs text-[var(--muted)]">
                     {run.counts ? `${run.counts.baseArticles ?? 0} base · ${run.counts.adaptations ?? 0} adapted · ${run.counts.served ?? 0} served` : "—"}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[var(--muted)] whitespace-nowrap">{run.finishedAt ? new Date(run.finishedAt).toLocaleTimeString() : "—"}</td>
+                  <td className="px-4 py-3 text-xs text-[var(--muted)] whitespace-nowrap">{run.finishedAt ? new Date(run.finishedAt).toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " CT" : "—"}</td>
                   <td className="px-4 py-3 text-xs text-[var(--danger)]"><p className="line-clamp-2">{run.lastError ?? ""}</p></td>
                 </tr>
               ))}

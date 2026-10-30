@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { and, desc, eq, isNull, ne, or, lt, gt, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, isNotNull, ne, or, lt, gt, sql } from "drizzle-orm";
 
 type ReviewFilter = "all" | "low" | "forced" | "gap" | "missing";
 
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const filter = (req.nextUrl.searchParams.get("filter") || "all") as ReviewFilter;
-  const limit = Math.min(200, parseInt(req.nextUrl.searchParams.get("limit") || "50") || 50);
+  const limit = Math.max(1, Math.min(200, parseInt(req.nextUrl.searchParams.get("limit") || "50") || 50));
   const r = schema.comprehensionReports;
 
   const conditions = [
@@ -27,8 +27,13 @@ export async function GET(req: NextRequest) {
     // Tutorials are practice, not assessed
     or(isNull(schema.articles.category), ne(schema.articles.category, "tutorial")),
   ];
-  if (filter === "missing") conditions.push(isNull(r.id));
-  else conditions.push(sql`${r.id} IS NOT NULL`);
+  if (filter === "missing") {
+    conditions.push(isNull(r.id));
+    // The report is written a few seconds after completion; don't flag ones still being generated
+    conditions.push(lt(schema.readingSessions.completedAt, new Date(Date.now() - 10 * 60 * 1000)));
+  } else {
+    conditions.push(isNotNull(r.id));
+  }
   if (filter === "low") conditions.push(eq(r.confidence, "low"));
   if (filter === "forced") conditions.push(eq(r.forcedClose, true));
   if (filter === "gap") {
@@ -62,9 +67,10 @@ export async function GET(req: NextRequest) {
     .innerJoin(schema.readingSessions, eq(schema.conversations.readingSessionId, schema.readingSessions.id))
     .innerJoin(schema.students, eq(schema.readingSessions.studentId, schema.students.id))
     .innerJoin(schema.articles, eq(schema.readingSessions.articleId, schema.articles.id))
-    .leftJoin(r, eq(r.conversationId, schema.conversations.id))
+    // Latest report only, in case a conversation was ever reported twice
+    .leftJoin(r, eq(r.id, sql`(SELECT max(id) FROM comprehension_reports WHERE conversation_id = ${schema.conversations.id})`))
     .where(and(...conditions))
-    .orderBy(desc(schema.conversations.createdAt))
+    .orderBy(sql`${schema.readingSessions.completedAt} DESC NULLS LAST`)
     .limit(limit);
 
   return NextResponse.json(rows);
