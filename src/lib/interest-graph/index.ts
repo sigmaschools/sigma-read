@@ -19,6 +19,7 @@ import { MODELS } from "../models";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type Signal, type SignalType } from "./affinity";
 import { checkinDue, checkinTopics } from "./checkin";
+import { summarizeInterests } from "./summary";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
 
 export { SIGNALS, type Affinity, type SignalType } from "./affinity";
@@ -383,6 +384,27 @@ export async function saveCheckin(studentId: number, answers: { slug: string; an
   if (rows.length > 0) await db.batch([event, db.insert(schema.interestSignals).values(rows).onConflictDoNothing()]);
   else await event;
   return true;
+}
+
+// ─── For guides, parents and admins ───────────────────────────────────────────
+
+/** What a student is into, in plain words: current interests, fading ones, and removed ones */
+export async function interestSummaryFor(studentId: number, now = new Date()) {
+  const signals = await getSignals(studentId);
+  const firstSeen = new Map<string, Date>();
+  for (const s of signals) if (!firstSeen.has(s.topicSlug)) firstSeen.set(s.topicSlug, s.createdAt);
+  const summary = summarizeInterests(computeAffinities(signals, now), firstSeen, now);
+  const labels = await topicLabels([...summary.current, ...summary.fading, ...summary.removed].map(t => t.slug));
+  const label = <T extends { slug: string }>(list: T[]) => list.filter(t => labels.has(t.slug)).map(t => ({ ...t, label: labels.get(t.slug)! }));
+  return { current: label(summary.current), fading: label(summary.fading), removed: label(summary.removed) };
+}
+
+/** An adult takes a topic off a student's interests, or puts it back */
+export async function setTopicRemoved(studentId: number, topicSlug: string, removed: boolean, by: { role: string; userId: number }) {
+  await recordSignals([{
+    studentId, topicSlug, type: removed ? "removed" : "restored",
+    sourceRef: `adult:${by.role}:${by.userId}:${Date.now()}`,
+  }]);
 }
 
 // ─── Backfill ─────────────────────────────────────────────────────────────────
