@@ -32,6 +32,9 @@ export const FALLBACK_CLOSING = "That's it for this one. Thanks for talking it t
 /** Used if the model returns an empty mid-conversation message */
 export const FALLBACK_PROMPT = "Tell me a little more about that.";
 
+/** Used if the model returns an empty opener */
+export const FALLBACK_OPENER = "Tell me about the part of the article that stuck with you most.";
+
 export interface TurnMessage { role: string; content: string }
 
 export interface TurnResult {
@@ -84,14 +87,15 @@ export async function runTutorTurn(args: {
   const assistantText = response.content.filter(b => b.type === "text").map(b => b.text).join("");
   const structured = parseJsonResponse<{ message: string; progressDelta: number }>(response);
   const parsed = structured?.message?.trim() ? structured : parseProgressResponse(assistantText);
-  // The closing turn scores nothing; the student's last answer was already counted
+  // The closing turn scores nothing: the instruction asks for 0, and an answer given after
+  // the threshold (or at the backstop) shouldn't change the in-chat score
   const progressDelta = closing ? 0 : clampDelta(parsed.progressDelta);
   const progressScore = args.priorProgress + progressDelta;
 
   let message = (parsed.message || "").replace("[CONVERSATION_COMPLETE]", "").trim();
   // Never end the session on a question the student can't answer, or show an empty turn
   if (closing && (endsWithQuestion(message) || !message)) message = FALLBACK_CLOSING;
-  if (!message) message = FALLBACK_PROMPT;
+  if (!message) message = args.messages.length === 0 ? FALLBACK_OPENER : FALLBACK_PROMPT;
 
   // Complete only on a closing turn. When the threshold is first crossed mid-conversation, the
   // tutor's reply still ends with a directive, so the student answers once more and the next
