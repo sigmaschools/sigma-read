@@ -88,3 +88,31 @@ export function reportConfidence(c: { forcedClose: boolean; exchangeCount: numbe
 export function clampScore(score: number): number {
   return Math.max(1, Math.min(100, Math.round(score)));
 }
+
+/** Rating bands from docs/conversation-design.md, so the label always agrees with the score. */
+export function ratingForScore(score: number): (typeof RATINGS)[number] {
+  if (score >= 85) return "Exceptional";
+  if (score >= 70) return "Strong";
+  if (score >= 55) return "Solid";
+  if (score >= 40) return "Developing";
+  return "Struggled";
+}
+
+const normalize = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * Keep only evidence quotes that actually appear in the student's messages (ignoring case and
+ * punctuation), so guides never see words the student didn't write. At most 3.
+ */
+export function verifiedEvidence(
+  evidence: ComprehensionReport["evidence"],
+  studentMessages: string[],
+): ComprehensionReport["evidence"] {
+  const said = studentMessages.map(normalize);
+  return evidence
+    .filter(e => {
+      const q = normalize(e.quote);
+      return q.length > 0 && said.some(s => s.includes(q));
+    })
+    .slice(0, 3);
+}
