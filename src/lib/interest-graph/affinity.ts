@@ -26,6 +26,8 @@ export const SIGNALS = {
   checkin_keep: { weight: 0.3, kind: "behaviour" },
   checkin_less: { weight: 0, kind: "declared" }, // fades with the declared interest it offsets
   checkin_reject: { weight: 0, kind: "behaviour" },
+  // A guide, parent or admin takes a topic off (removed) or puts it back (restored)
+  removed: { weight: 0, kind: "behaviour" },
   restored: { weight: 0, kind: "behaviour" },
 } as const satisfies Record<string, { weight: number; kind: SignalKind }>;
 
@@ -60,7 +62,10 @@ export function decay(signal: Pick<Signal, "signalType" | "createdAt">, now: Dat
   return Math.pow(0.5, ageDays / HALF_LIFE_DAYS[SIGNALS[signal.signalType].kind]);
 }
 
-const DECLARING: SignalType[] = ["onboarding", "typed_interest", "restored"];
+/** What the student told us. An adult's restore also lifts a rejection, but doesn't make a topic declared. */
+const STUDENT_DECLARING: SignalType[] = ["onboarding", "typed_interest"];
+const DECLARING: SignalType[] = [...STUDENT_DECLARING, "restored"];
+const REJECTING: SignalType[] = ["checkin_reject", "removed"];
 
 /** Affinities for one student from their signals, strongest first. Rejected topics are kept (score 0) so callers can exclude them. */
 export function computeAffinities(signals: Signal[], now = new Date()): Affinity[] {
@@ -75,11 +80,11 @@ export function computeAffinities(signals: Signal[], now = new Date()): Affinity
   const out: Affinity[] = [];
   for (const [topicSlug, list] of byTopic) {
     list.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    const lastReject = lastAt(list, ["checkin_reject"]);
+    const lastReject = lastAt(list, REJECTING);
     const lastDeclare = lastAt(list, DECLARING);
     const rejected = lastReject !== null && (lastDeclare === null || lastDeclare < lastReject);
-    // A topic named again after "No more" starts over: only signals since then count
-    const counted = lastReject !== null && !rejected ? list.filter(s => s.createdAt.getTime() >= lastDeclare!) : list;
+    const start = freshStart(list);
+    const counted = list.filter(s => s.createdAt.getTime() >= start);
 
     let sum = 0, evidence = 0;
     for (const s of counted) {
@@ -87,7 +92,7 @@ export function computeAffinities(signals: Signal[], now = new Date()): Affinity
       sum += s.weight * d;
       evidence += d;
     }
-    const declared = counted.some(s => DECLARING.includes(s.signalType));
+    const declared = counted.some(s => STUDENT_DECLARING.includes(s.signalType));
     out.push({
       topicSlug,
       score: rejected ? 0 : round(Math.max(-1, Math.min(1, sum))),
@@ -123,6 +128,20 @@ export function latestRatings(signals: Signal[]): Signal[] {
 /** The rating a like/dislike ref belongs to: the ref without its trailing ":<time>" */
 export function ratingKey(sourceRef: string): string {
   return sourceRef.replace(/:\d+$/, "");
+}
+
+/**
+ * A topic the student names again after it was turned off starts over: only signals from then
+ * on count. An adult's restore undoes a removal instead, keeping the history since that start.
+ */
+function freshStart(list: Signal[]): number {
+  let start = 0, off = false;
+  for (const s of list) {
+    if (REJECTING.includes(s.signalType)) off = true;
+    else if (s.signalType === "restored") off = false;
+    else if (off && STUDENT_DECLARING.includes(s.signalType)) { start = s.createdAt.getTime(); off = false; }
+  }
+  return start;
 }
 
 function lastAt(list: Signal[], types: SignalType[]): number | null {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import type { Affinity } from "./affinity";
+import { computeAffinities, type Affinity } from "./affinity";
 import { candidateScore, isExploreSlot, pickForFeed, pickOne } from "./serving";
 
 const aff = (entries: [string, number, Affinity["status"]?][]) =>
@@ -11,6 +11,12 @@ const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const a = aff([["sharks", 0.8], ["cars", -0.5], ["bugs", 0, "rejected"]]);
   assert.equal(candidateScore(["sharks", "oceans"], a), 0.8, "best topic wins");
   assert.equal(candidateScore([], a), 0, "untagged articles are neutral");
+  const day = 86_400_000, now = Date.now();
+  const removed = computeAffinities([
+    { topicSlug: "sharks", signalType: "onboarding", weight: 0.6, createdAt: new Date(now - 5 * day) },
+    { topicSlug: "sharks", signalType: "removed", weight: 0, createdAt: new Date(now - day) },
+  ]);
+  assert.equal(candidateScore(["sharks", "oceans"], new Map(removed.map(r => [r.topicSlug, r]))), null, "an article on a removed topic is never served");
   assert.equal(candidateScore(["sharks", "bugs"], a), null, "any rejected topic excludes the article");
   assert.equal(candidateScore(["cars"], a), -0.5);
   assert.deepEqual([0, 1, 2, 3, 4, 5].map(isExploreSlot), [false, false, true, false, false, true]);
