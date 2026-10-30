@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { REPORT_FLAG_LABELS, type ReportFlag } from "@/lib/skills";
 
 interface Row {
   conversationId: number;
@@ -21,6 +22,8 @@ interface Row {
   exchangeCount: number | null;
   summary: string | null;
   promptVersion: string | null;
+  guideFlag: string | null;
+  guideNote: string | null;
 }
 
 interface Detail {
@@ -42,6 +45,7 @@ const FILTERS = [
   { value: "low", label: "Low confidence" },
   { value: "forced", label: "Forced close" },
   { value: "gap", label: "Self-assessment gap" },
+  { value: "disputed", label: "Disputed" },
   { value: "missing", label: "Missing report" },
 ];
 
@@ -174,7 +178,12 @@ function ReportRow({ row, open, detail, onToggle }: { row: Row; open: boolean; d
         </td>
         <td className="px-4 py-3 text-xs">{row.confidence ?? "—"}</td>
         <td className="px-4 py-3 text-xs whitespace-nowrap">{row.selfAssessment ? SELF_LABELS[row.selfAssessment] ?? row.selfAssessment : "—"}</td>
-        <td className="px-4 py-3 text-[var(--muted)]"><p className="line-clamp-2">{row.summary ?? "—"}</p></td>
+        <td className="px-4 py-3 text-[var(--muted)]">
+          {row.guideFlag && (
+            <p className="text-xs text-amber-700 mb-1 line-clamp-2" title={row.guideNote ?? undefined}>⚑ {REPORT_FLAG_LABELS[row.guideFlag as ReportFlag] ?? row.guideFlag}{row.guideNote ? `: ${row.guideNote}` : ""}</p>
+          )}
+          <p className="line-clamp-2">{row.summary ?? "—"}</p>
+        </td>
       </tr>
       {open && (
         <tr className="border-b border-[var(--border)] bg-gray-50/50">

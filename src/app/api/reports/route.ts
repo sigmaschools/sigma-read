@@ -52,6 +52,12 @@ export async function GET(req: NextRequest) {
     reportSummary: schema.comprehensionReports.summary,
     nextStep: schema.comprehensionReports.nextStep,
     confidence: schema.comprehensionReports.confidence,
+    forcedClose: schema.comprehensionReports.forcedClose,
+    guideFlag: schema.comprehensionReports.guideFlag,
+    guideNote: schema.comprehensionReports.guideNote,
+    guideFlaggedAt: schema.comprehensionReports.guideFlaggedAt,
+    guideFlaggedRole: schema.comprehensionReports.guideFlaggedRole,
+    guideFlaggedBy: schema.comprehensionReports.guideFlaggedBy,
     conversationId: schema.conversations.id,
     conversationStyle: schema.conversations.conversationStyle,
     messages: schema.conversations.messages,
@@ -63,9 +69,15 @@ export async function GET(req: NextRequest) {
     .where(eq(schema.readingSessions.studentId, studentId))
     .orderBy(desc(schema.readingSessions.startedAt));
 
+  // A guide's disagreement with a report is staff-only
+  const staff = session.role === "guide" || session.role === "admin";
+  const visible = staff
+    ? sessions
+    : sessions.map(s => ({ ...s, forcedClose: null, guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null, guideFlaggedBy: null }));
+
   // Separate completed from in-progress for the client
-  const completed = sessions.filter(s => s.completedAt !== null);
-  const inProgress = sessions.filter(s => s.completedAt === null);
+  const completed = visible.filter(s => s.completedAt !== null);
+  const inProgress = visible.filter(s => s.completedAt === null);
 
   return NextResponse.json({ completed, inProgress });
 }
