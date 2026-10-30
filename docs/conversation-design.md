@@ -1,6 +1,6 @@
 # Conversation Design
 
-*Last updated: February 8, 2026*
+*Last updated: October 30, 2026*
 
 This document describes how the AI-guided comprehension conversations work in SigmaRead — the rules, the tone, and the reasoning behind them. This is the system that replaces quizzes and multiple-choice tests.
 
@@ -10,7 +10,7 @@ This document describes how the AI-guided comprehension conversations work in Si
 
 After a student reads an article, they have a brief conversation with the AI about what they read. The article stays visible the entire time (side panel on desktop, bottom drawer on mobile). The AI assesses comprehension through conversation — no quizzes, no fill-in-the-blank.
 
-A typical conversation is **3 exchanges** (AI prompt → student response, three times). There's a hard backstop at **5 student messages** (4 real exchanges) as a safety limit. The prompt now includes a turn counter so the AI knows exactly which exchange it's on and wraps up after Step 3.
+Each student reply earns a `progressDelta` (0–40), scored relative to the student's reading level. When the running total reaches 100 (and at least 3 exchanges have happened), the student answers the tutor's last directive and the next tutor message is an **earned** closing. Strong readers finish in 3-4 exchanges. There's a hard backstop at **6 student messages**, which produces a **forced** closing. Forced closings name something the student said without claiming mastery, and the report records `forced_close` so guides can tell the two apart. The turn logic lives in `src/lib/conversation-turn.ts`.
 
 ---
 
@@ -74,10 +74,10 @@ The word "actually" is **banned as a correction opener**.
 Don't push. Give a brief answer yourself and move on to the next prompt. Dragging out an "I don't know" creates anxiety and teaches the student that admitting uncertainty is punished.
 
 ### Wrong Answers
-Don't say "that's wrong." Say "Yeah, and the article also mentions [correct thing]" — let them connect the dots. The goal is comprehension, not correction.
+Don't say "that's wrong," and don't agree with it either: "Yeah, and..." tells a kid they were right. Point them to the spot in the text without judgment ("Hmm, check the part about the ink — what does it say happened?") and let them find it. The answer earns a low progressDelta.
 
 ### Disengaged Students
-If a student gives very short, low-effort answers ("idk", "it was ok", "the thing"), wrap up sooner. Don't drag it out. A short conversation with honest signal is better than a long one where the student checks out.
+If a student gives very short, low-effort answers ("idk", "it was ok", "the thing"), make the next step easier and more interesting: a concrete directive about the most vivid part of the article, or one tied to their interests. Don't end early, and never frame the conversation as a chore to get through ("the sooner we finish..."). Low-effort answers earn low progressDelta, so the conversation runs longer, up to the 6-message backstop.
 
 ---
 
@@ -93,9 +93,9 @@ The article stays open during the conversation. This is deliberate.
 
 ## Conversation Wrap-Up Rules
 
-1. **Always end on something the student got right.** Never end with a correction.
-2. Wrap up when you have good signal (usually 3 exchanges). Don't milk it.
-3. Output `[CONVERSATION_COMPLETE]` when done — this triggers the self-assessment screen.
+1. **Always end on something the student got right or noticed.** Never end with a correction or a question.
+2. The system decides when to close (see How It Works) and injects the closing instruction. The tutor never ends a conversation on its own.
+3. The closing message triggers the self-assessment screen.
 
 ---
 
@@ -145,3 +145,9 @@ The AI generates a score (1-100) calibrated to the student's reading level. A Le
 Level-specific expectations are embedded in the scoring prompt. The AI is explicitly instructed not to penalize young students for lacking inferential skills they haven't developed yet.
 
 **Important:** Scores are not shown to students. They are guide-facing data only. How to communicate scores to parents/guides (labels, context, framing) is still an unsolved design problem.
+
+---
+
+## Testing Prompt Changes
+
+`npm run eval` runs simulated students (personas in `scripts/test-personas.ts`) through the real tutor and report prompts against fixed articles (`scripts/eval/articles.ts`), with no database. It writes transcripts and a summary to `eval-results/`, including rule violations from `scripts/eval/checks.ts` (length, stacked questions, empty praise, "actually" corrections, chore framing, missing directive, closing questions). Run it before and after a prompt change and compare the summaries. It needs only `ANTHROPIC_API_KEY`.
