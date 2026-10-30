@@ -180,7 +180,7 @@ function ReportRow({ row, open, detail, onToggle }: { row: Row; open: boolean; d
         <td className="px-4 py-3 text-xs whitespace-nowrap">{row.selfAssessment ? SELF_LABELS[row.selfAssessment] ?? row.selfAssessment : "—"}</td>
         <td className="px-4 py-3 text-[var(--muted)]">
           {row.guideFlag && (
-            <p className="text-xs text-amber-700 mb-1">⚑ {REPORT_FLAG_LABELS[row.guideFlag as ReportFlag] ?? row.guideFlag}{row.guideNote ? `: ${row.guideNote}` : ""}</p>
+            <p className="text-xs text-amber-700 mb-1 line-clamp-2" title={row.guideNote ?? undefined}>⚑ {REPORT_FLAG_LABELS[row.guideFlag as ReportFlag] ?? row.guideFlag}{row.guideNote ? `: ${row.guideNote}` : ""}</p>
           )}
           <p className="line-clamp-2">{row.summary ?? "—"}</p>
         </td>
