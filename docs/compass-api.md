@@ -28,7 +28,7 @@ Clients send `Authorization: Bearer <key>`.
 | `GET /api/v1/sessions/{id}` | `reports:read` (+ `transcripts:read` for the transcript) |
 | `GET /api/v1/openapi.json` | none (the spec, no data) |
 
-Lists are cursor-paginated: pass the response's `nextCursor` back as `cursor` until it is null. `limit` is 1–100 (default 50). Dates are ISO 8601 UTC. Only completed sessions are listed, newest started first, and each shows its latest report. `since` filters on completion time and takes a date (midnight UTC) or a datetime ending in `Z` or an offset (send `+` as `%2B`).
+Lists are cursor-paginated: pass the response's `nextCursor` back as `cursor` until it is null. `limit` is 1–100 (default 50). Dates are ISO 8601 UTC. Only completed sessions are listed or returned (an in-progress session is a 404), newest started first, and each shows its latest report. `since` filters on completion time and takes a date (midnight UTC) or a datetime ending in `Z` or an offset (send `+` as `%2B`).
 
 ## Identity
 

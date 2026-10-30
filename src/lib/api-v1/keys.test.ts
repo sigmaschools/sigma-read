@@ -46,6 +46,8 @@ import { generateApiKey, hashApiKey, bearerKey, cleanScopes, pageParams, encodeC
   assert.ok("error" in (sinceParam("2026-13-45") as object));
   assert.ok("error" in (sinceParam("2026-10-01T12:00:00") as object), "no zone");
   assert.ok(sinceParam("2026-10-01T12:00:00+05:00") instanceof Date);
+  assert.ok("error" in (sinceParam("2026-02-31") as object), "impossible day");
+  assert.ok(sinceParam("2024-02-29") instanceof Date, "leap day");
   assert.equal((sinceParam("2026-10-01") as Date).toISOString(), "2026-10-01T00:00:00.000Z");
   console.log("✅ sinceParam accepts ISO dates only");
 }

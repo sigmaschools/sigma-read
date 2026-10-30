@@ -17,6 +17,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const revoked = await db.update(c).set({ revokedAt: new Date() })
     .where(and(eq(c.id, id), isNull(c.revokedAt))).returning({ id: c.id });
   if (revoked.length === 0) return NextResponse.json({ error: "Not found or already revoked" }, { status: 404 });
+  // Revocation stands even if the audit write fails: cutting off access matters more than the record
   await auditInsert({ adminId: session.userId, action: "api_client.revoke", targetType: "api_client", targetId: id })
     .catch(e => console.error("audit write failed:", e));
   return NextResponse.json({ ok: true });

@@ -45,8 +45,14 @@ export async function POST(req: NextRequest) {
   const [created] = await db.insert(schema.apiClients).values({
     name, scopes, guideId, keyPrefix: prefix, keyHash: hash, createdBy: session.userId,
   }).returning({ id: schema.apiClients.id });
-  await auditInsert({ adminId: session.userId, action: "api_client.create", targetType: "api_client", targetId: created.id, details: { name, scopes, guideId } })
-    .catch(e => console.error("audit write failed:", e));
+  // A credential with no audit record shouldn't exist: if the audit write fails, remove the key
+  try {
+    await auditInsert({ adminId: session.userId, action: "api_client.create", targetType: "api_client", targetId: created.id, details: { name, scopes, guideId } });
+  } catch (e) {
+    console.error("audit write failed, removing new API client:", e);
+    await db.delete(schema.apiClients).where(eq(schema.apiClients.id, created.id));
+    return NextResponse.json({ error: "Could not create the key. Try again." }, { status: 500 });
+  }
 
   return NextResponse.json({ id: created.id, key });
 }

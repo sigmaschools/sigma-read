@@ -69,6 +69,10 @@ export function sinceParam(value: string | null): Date | null | { error: string 
   if (value === null) return null;
   const message = "since must be an ISO 8601 date, or a datetime ending in Z or an offset (send + as %2B)";
   if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2}))?$/.test(value)) return { error: message };
+  // new Date() rolls impossible days over (2026-02-31 becomes March 3), so check the calendar date
+  const [y, m, d] = value.slice(0, 10).split("-").map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d));
+  if (day.getUTCFullYear() !== y || day.getUTCMonth() !== m - 1 || day.getUTCDate() !== d) return { error: message };
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? { error: message } : date;
 }
