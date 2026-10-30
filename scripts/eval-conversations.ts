@@ -54,7 +54,7 @@ const concurrency = intArg("concurrency", 3);
 // Pin one conversation style so a before/after comparison isn't confounded by the random pick
 const fixedStyle = getArg("style");
 const withReport = !args.includes("--no-report");
-const label = getArg("label") || "run";
+const label = (getArg("label") || "run").replace(/[^\w.=-]+/g, "-");
 
 /** Guard against a runaway loop; the tutor's own backstop closes at 6 student messages */
 const MAX_TURNS = 10;
@@ -212,6 +212,8 @@ async function main() {
     appendFileSync(join(dir, "results.jsonl"), JSON.stringify(r) + "\n");
   });
 
+  // Stable order so two runs' summaries can be compared line by line
+  results.sort((x, y) => x.persona.localeCompare(y.persona) || x.article.localeCompare(y.article));
   writeFileSync(join(dir, "summary.md"), summarize(results));
   console.log(`\nSummary: ${join(dir, "summary.md")}`);
 }

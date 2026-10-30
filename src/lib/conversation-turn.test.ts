@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, endsWithQuestion, closingInstruction, FALLBACK_CLOSING, FALLBACK_PROMPT, OPENER_INSTRUCTION, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, endsWithQuestion, closingInstruction, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -117,6 +117,8 @@ async function main() {
     const mid = await run(fakeClient({ message: "", progressDelta: 20 }).client, convo(1), 0);
     assert.equal(mid.message, FALLBACK_PROMPT);
     assert.equal(mid.progressDelta, 20);
+    const opener = await run(fakeClient({ message: "", progressDelta: 0 }).client, [], 0);
+    assert.equal(opener.message, FALLBACK_OPENER);
     const close = await run(fakeClient({ message: "  ", progressDelta: 0 }).client, convo(6), 60);
     assert.equal(close.message, FALLBACK_CLOSING);
     console.log("✅ empty messages are replaced");
