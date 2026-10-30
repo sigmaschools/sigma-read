@@ -68,6 +68,8 @@ interface Result {
   progress: number;
   deltas: number[];
   closing: ClosingKind | null;
+  /** Tutor turns where the model's message was replaced (empty, or a closing that asked a question) */
+  fallbacks: number;
   tutorAvgWords: number;
   studentAvgWords: number;
   violations: Violation[];
@@ -101,11 +103,13 @@ async function runConversation(persona: StudentPersona, article: EvalArticle): P
   const deltas: number[] = [];
   let progress = 0;
   let closing: ClosingKind | null = null;
+  let fallbacks = 0;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const result = await runTutorTurn({ client: anthropic, model: MODELS.heavy, systemPrompt, messages: transcript, priorProgress: progress });
     if (transcript.length > 0) deltas.push(result.progressDelta);
     progress = result.progressScore;
+    if (result.usedFallback) fallbacks++;
     transcript.push({ role: "assistant", content: result.message });
     if (result.complete) { closing = result.closing; break; }
     transcript.push({ role: "user", content: await studentReply(persona, article, transcript) });
@@ -143,6 +147,7 @@ async function runConversation(persona: StudentPersona, article: EvalArticle): P
     progress,
     deltas,
     closing,
+    fallbacks,
     tutorAvgWords: avg(tutorMsgs),
     studentAvgWords: avg(studentMsgs),
     violations: checkTranscript(transcript, article.level, closingIndex),
@@ -167,7 +172,8 @@ function summarize(results: Result[]): string {
   const byRule = new Map<string, number>();
   ok.forEach(r => r.violations.forEach(v => byRule.set(v.rule, (byRule.get(v.rule) || 0) + 1)));
   const tutorTurns = ok.reduce((s, r) => s + r.transcript.filter(m => m.role === "assistant").length, 0);
-  lines.push("## Rule violations", "", `Across ${tutorTurns} tutor messages.`, "");
+  const fallbacks = ok.reduce((s, r) => s + r.fallbacks, 0);
+  lines.push("## Rule violations", "", `Across ${tutorTurns} tutor messages. ${fallbacks} message${fallbacks === 1 ? " was" : "s were"} replaced by a fallback (empty, or a closing that asked a question), so those failures don't appear below.`, "");
   if (byRule.size === 0) lines.push("None.");
   else {
     lines.push("| Rule | Count |", "| --- | --- |");
@@ -206,7 +212,7 @@ async function main() {
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       console.log(`  ${p.username} / ${a.id}: error: ${error}`);
-      r = { persona: p.username, article: a.id, level: a.level, style: "", exchanges: 0, progress: 0, deltas: [], closing: null, tutorAvgWords: 0, studentAvgWords: 0, violations: [], report: null, transcript: [], error };
+      r = { persona: p.username, article: a.id, level: a.level, style: "", exchanges: 0, progress: 0, deltas: [], closing: null, fallbacks: 0, tutorAvgWords: 0, studentAvgWords: 0, violations: [], report: null, transcript: [], error };
     }
     results.push(r);
     appendFileSync(join(dir, "results.jsonl"), JSON.stringify(r) + "\n");

@@ -44,6 +44,8 @@ export interface TurnResult {
   complete: boolean;
   /** Set when this turn was the closing message */
   closing: ClosingKind | null;
+  /** Set when the model's message was replaced, so evals can count model failures */
+  usedFallback: "closing_question" | "empty" | null;
 }
 
 /**
@@ -94,15 +96,21 @@ export async function runTutorTurn(args: {
 
   let message = (parsed.message || "").replace("[CONVERSATION_COMPLETE]", "").trim();
   // Never end the session on a question the student can't answer, or show an empty turn
-  if (closing && (endsWithQuestion(message) || !message)) message = FALLBACK_CLOSING;
-  if (!message) message = args.messages.length === 0 ? FALLBACK_OPENER : FALLBACK_PROMPT;
+  let usedFallback: TurnResult["usedFallback"] = null;
+  if (!message) {
+    usedFallback = "empty";
+    message = closing ? FALLBACK_CLOSING : args.messages.length === 0 ? FALLBACK_OPENER : FALLBACK_PROMPT;
+  } else if (closing && endsWithQuestion(message)) {
+    usedFallback = "closing_question";
+    message = FALLBACK_CLOSING;
+  }
 
   // Complete only on a closing turn. When the threshold is first crossed mid-conversation, the
   // tutor's reply still ends with a directive, so the student answers once more and the next
   // turn closes cleanly.
   const complete = closing !== null;
 
-  return { message, progressDelta, progressScore, complete, closing };
+  return { message, progressDelta, progressScore, complete, closing, usedFallback };
 }
 
 /** True if the text ends in a question, ignoring trailing quotes, brackets and emoji */
