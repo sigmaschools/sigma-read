@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }).where(writable(auth.reportId, auth.session.role)).returning({ id: schema.comprehensionReports.id });
   if (updated.length === 0) return adminFlagged();
 
-  return NextResponse.json({ guideFlag: flag, guideNote: note || null, guideFlaggedAt: flaggedAt, guideFlaggedRole: auth.session.role });
+  return NextResponse.json({ guideFlag: flag, guideNote: note || null, guideFlaggedAt: flaggedAt, guideFlaggedRole: auth.session.role, guideFlaggedBy: auth.session.userId });
 }
 
 /** Withdraw a flag */
@@ -79,5 +79,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   }).where(writable(auth.reportId, auth.session.role)).returning({ id: schema.comprehensionReports.id });
   if (updated.length === 0) return adminFlagged();
 
-  return NextResponse.json({ guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null });
+  return NextResponse.json({ guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null, guideFlaggedBy: null });
 }

@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
     guideNote: schema.comprehensionReports.guideNote,
     guideFlaggedAt: schema.comprehensionReports.guideFlaggedAt,
     guideFlaggedRole: schema.comprehensionReports.guideFlaggedRole,
+    guideFlaggedBy: schema.comprehensionReports.guideFlaggedBy,
     conversationId: schema.conversations.id,
     conversationStyle: schema.conversations.conversationStyle,
     messages: schema.conversations.messages,
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
   const staff = session.role === "guide" || session.role === "admin";
   const visible = staff
     ? sessions
-    : sessions.map(s => ({ ...s, forcedClose: null, guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null }));
+    : sessions.map(s => ({ ...s, forcedClose: null, guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null, guideFlaggedBy: null }));
 
   // Separate completed from in-progress for the client
   const completed = visible.filter(s => s.completedAt !== null);

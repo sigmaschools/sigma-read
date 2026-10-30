@@ -38,6 +38,7 @@ interface SessionReport {
   guideNote: string | null;
   guideFlaggedAt: string | null;
   guideFlaggedRole: string | null;
+  guideFlaggedBy: number | null;
 }
 
 interface Student {
@@ -84,6 +85,7 @@ export default function StudentDetailPage() {
   const [selectedSession, setSelectedSession] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
+  const [viewerId, setViewerId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "sessions">("overview");
 
@@ -111,6 +113,7 @@ export default function StudentDetailPage() {
       const me = await meRes.json();
       if (me.role !== "guide" && me.role !== "admin") { router.push("/login"); return; }
       setRole(me.role);
+      setViewerId(me.userId ?? null);
 
       const studRes = await fetch("/api/students");
       if (!studRes.ok) { setError("Could not load student data."); setLoading(false); return; }
@@ -317,7 +320,7 @@ export default function StudentDetailPage() {
                   <p className="text-sm">{s.nextStep}</p>
                 </div>
               )}
-              <details className="text-sm" open={!s.reportSummary}>
+              <details key={s.reportId} className="text-sm" open={!s.reportSummary}>
                 <summary className="text-xs font-medium text-[var(--muted)] cursor-pointer">Full report</summary>
                 <div className="space-y-3 mt-3">
                   <div>
@@ -339,6 +342,7 @@ export default function StudentDetailPage() {
                 flag={s.guideFlag}
                 note={s.guideNote}
                 flaggedRole={s.guideFlaggedRole}
+                flaggedByViewer={s.guideFlaggedRole === role && s.guideFlaggedBy === viewerId}
                 viewerRole={role}
                 onChange={(fields) => {
                   const updated = { ...s, ...fields };
@@ -601,13 +605,14 @@ export default function StudentDetailPage() {
 }
 
 /** "Disagree" with a report: the guide says what's off, and it shows up in the admin review queue */
-type FlagFields = Pick<SessionReport, "guideFlag" | "guideNote" | "guideFlaggedAt" | "guideFlaggedRole">;
+type FlagFields = Pick<SessionReport, "guideFlag" | "guideNote" | "guideFlaggedAt" | "guideFlaggedRole" | "guideFlaggedBy">;
 
-function ReportFlagControl({ reportId, flag, note, flaggedRole, viewerRole, onChange }: {
+function ReportFlagControl({ reportId, flag, note, flaggedRole, flaggedByViewer, viewerRole, onChange }: {
   reportId: number;
   flag: string | null;
   note: string | null;
   flaggedRole: string | null;
+  flaggedByViewer: boolean;
   viewerRole: string | null;
   onChange: (fields: FlagFields) => void;
 }) {
@@ -631,6 +636,7 @@ function ReportFlagControl({ reportId, flag, note, flaggedRole, viewerRole, onCh
       onChange({
         guideFlag: data.guideFlag ?? null, guideNote: data.guideNote ?? null,
         guideFlaggedAt: data.guideFlaggedAt ?? null, guideFlaggedRole: data.guideFlaggedRole ?? null,
+        guideFlaggedBy: data.guideFlaggedBy ?? null,
       });
       setOpen(false);
       setText("");
@@ -648,7 +654,7 @@ function ReportFlagControl({ reportId, flag, note, flaggedRole, viewerRole, onCh
       <div className="pt-3 border-t border-[var(--border)] space-y-1 text-sm">
         <div className="flex items-start justify-between gap-3">
           <p className="text-amber-700">
-            ⚑ {flaggedRole === viewerRole ? "You disagreed" : flaggedRole === "admin" ? "An admin disagreed" : "The guide disagreed"}: {REPORT_FLAG_LABELS[flag as ReportFlag] ?? flag}
+            ⚑ {flaggedByViewer ? "You disagreed" : flaggedRole === "admin" ? "An admin disagreed" : "A guide disagreed"}: {REPORT_FLAG_LABELS[flag as ReportFlag] ?? flag}
             {note && <span className="text-[var(--muted)]"> · &ldquo;{note}&rdquo;</span>}
           </p>
           {canWithdraw && (
