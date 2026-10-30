@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     // Latest report only, in case a conversation was ever reported twice
     .leftJoin(r, eq(r.id, sql`(SELECT max(id) FROM comprehension_reports WHERE conversation_id = ${schema.conversations.id})`))
     .where(and(...conditions))
-    .orderBy(sql`${schema.readingSessions.completedAt} DESC NULLS LAST`)
+    .orderBy(sql`${schema.readingSessions.completedAt} DESC NULLS LAST`, desc(schema.conversations.id))
     .limit(limit);
 
   return NextResponse.json(rows);
