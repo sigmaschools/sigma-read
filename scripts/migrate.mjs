@@ -66,7 +66,9 @@ async function main() {
       .filter(s => s && !/^(--[^\n]*\n?)+$/.test(s));
 
     console.log(`migrate: applying ${name} (${statements.length} statements)`);
+    // Transaction-level advisory lock so two overlapping deploys can't apply the same file
     await sql.transaction([
+      sql`SELECT pg_advisory_xact_lock(724501)`,
       ...statements.map(statement => sql.query(statement)),
       sql`INSERT INTO schema_migrations (name) VALUES (${name}) ON CONFLICT DO NOTHING`,
     ]);
