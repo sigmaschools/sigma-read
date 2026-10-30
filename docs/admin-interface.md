@@ -110,12 +110,11 @@ Manual controls:
 
 **Cost and usage tracking.**
 
-API costs (estimated):
-- Conversations: count × avg tokens × cost per token (Opus)
-- Article generation: base articles × Opus + adaptations × Sonnet
-- Onboarding: count × Sonnet
-- Reports: count × Opus
-- Daily / weekly / monthly totals
+API costs (tracked):
+- Every Claude call the app makes goes through `tracked(client, feature, studentId)` (`src/lib/ai-usage.ts`), which writes one `ai_usage` row with token counts and cost.
+- Cost uses the price table in `src/lib/ai-pricing.ts`. Update it when `MODELS` changes; calls on an unlisted model are stored with a null cost and counted on the page.
+- The metrics page shows the last 30 days by feature (calls, tokens, cost, cost per call). The older per-item estimates stay below it.
+- Scripts and the offline eval use a plain client and are not recorded.
 
 Usage:
 - Sessions per day (chart)

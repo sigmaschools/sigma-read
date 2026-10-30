@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { MODELS } from "@/lib/models";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import Anthropic from "@anthropic-ai/sdk";
+import { tracked } from "@/lib/ai-usage";
 
 const MAX_INTERESTS = 10;
 
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
       if (suggestion.split(/\s+/).length > 4) {
         try {
           const anthropic = new Anthropic();
-          const resp = await anthropic.messages.create({
+          const resp = await tracked(anthropic, "feed_event", session.userId).messages.create({
             model: MODELS.light,
             max_tokens: 30,
             messages: [{ role: "user", content: `Convert this student interest into a short topic tag (2-4 words, lowercase). Output ONLY the tag, nothing else.\n\nInput: "${suggestion}"\nTag:` }],

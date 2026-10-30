@@ -4,6 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { tracked } from "@/lib/ai-usage";
 import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt } from "@/lib/prompts";
 import { MODELS } from "@/lib/models";
 import { REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, ratingForScore, verifiedEvidence, type ComprehensionReport } from "@/lib/report-schema";
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
 
   const turn = await runTutorTurn({
-    client: anthropic,
+    client: tracked(anthropic, "tutor_turn", session.userId),
     model: MODELS.heavy,
     systemPrompt,
     messages,
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         forcedClose: turn.closing === "forced",
         inChatScore: newProgressScore,
       }).catch(e => console.error("Report save failed:", e)),
-      anthropic.messages.create({
+      tracked(anthropic, "coaching", session.userId).messages.create({
         model: MODELS.standard,
         max_tokens: 256,
         messages: [{
@@ -189,7 +190,7 @@ async function saveComprehensionReport(args: {
   let report: ComprehensionReport | null = null;
   for (let attempt = 1; attempt <= 2 && !report; attempt++) {
     try {
-      const reportResponse = await anthropic.messages.create({
+      const reportResponse = await tracked(anthropic, "report", args.studentId).messages.create({
         model: MODELS.heavy,
         max_tokens: 2048,
         messages: [{ role: "user", content: comprehensionReportPrompt(args.articleText, args.transcript, args.level) }],
