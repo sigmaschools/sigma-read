@@ -53,6 +53,6 @@ function endsWithPrompt(text: string): boolean {
   const last = text.split(/(?<=[.!?])\s+/).pop() || text;
   // The directive can open the sentence or follow a dash, colon or "so": "Check the part about X — tell me what..."
   if (DIRECTIVE.test(last)) return true;
-  // After a comma only the unambiguous forms count: "..., tell me why" but not "Yeah, give or take"
-  return /,\s*(tell|walk) me\b/i.test(last);
+  // After a comma or "and" only the unambiguous forms count: "...and tell me why" but not "Yeah, give or take"
+  return /(,\s*|\band\s)(tell|walk) me\b/i.test(last);
 }
