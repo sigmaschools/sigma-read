@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import { parseStudentUpdate } from "@/lib/admin-student-update";
 import { DEFAULT_MIX } from "@/lib/level-progression-rules";
-import { logAdminAction } from "@/lib/audit";
+import { auditInsert } from "@/lib/audit";
 
 /**
  * Edit a student's profile and settings. A readingLevel change is a guide override
@@ -16,8 +17,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const session = await getSession();
   if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const studentId = parseInt((await params).id);
-  if (!Number.isInteger(studentId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  const studentId = Number((await params).id);
+  if (!Number.isInteger(studentId) || studentId <= 0) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const parsed = parseStudentUpdate(await req.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
@@ -39,29 +40,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   const levelChanged = readingLevel !== undefined && readingLevel !== student.readingLevel;
 
+  // One transaction: the edit, the level override and their audit rows land together or not at all
+  const queries: BatchItem<"pg">[] = [];
   if (Object.keys(changes).length > 0) {
     const set = Object.fromEntries(Object.entries(changes).map(([k, c]) => [k, c.to]));
-    await db.update(schema.students).set(set).where(eq(schema.students.id, studentId));
-    await logAdminAction({ adminId: session.userId, action: "student.update", targetType: "student", targetId: studentId, details: changes });
+    queries.push(db.update(schema.students).set(set).where(eq(schema.students.id, studentId)));
+    queries.push(auditInsert({ adminId: session.userId, action: "student.update", targetType: "student", targetId: studentId, details: changes }));
   }
-
   if (levelChanged) {
-    // Same effect as an automatic level change in applyProgressionResult, in one transaction
-    const setLevel = db.update(schema.students).set({ readingLevel, feedMix: DEFAULT_MIX }).where(eq(schema.students.id, studentId));
-    if (student.readingLevel === null) {
-      // Not assessed yet: there's no previous level or evaluation window to record
-      await setLevel;
-    } else {
-      await db.batch([
-        setLevel,
-        db.insert(schema.levelHistory).values({ studentId, fromLevel: student.readingLevel, toLevel: readingLevel }),
-      ]);
+    // Same effect as an automatic level change in applyProgressionResult
+    queries.push(db.update(schema.students).set({ readingLevel, feedMix: DEFAULT_MIX }).where(eq(schema.students.id, studentId)));
+    // Not assessed yet: there's no previous level or evaluation window to record
+    if (student.readingLevel !== null) {
+      queries.push(db.insert(schema.levelHistory).values({ studentId, fromLevel: student.readingLevel, toLevel: readingLevel }));
     }
-    await logAdminAction({
+    queries.push(auditInsert({
       adminId: session.userId, action: "student.level_override", targetType: "student", targetId: studentId,
       details: { from: student.readingLevel, to: readingLevel },
-    });
+    }));
   }
+  if (queries.length > 0) await db.batch(queries as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
 
   const [updated] = await db.select({
     id: schema.students.id,

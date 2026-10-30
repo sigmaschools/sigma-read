@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession, createToken, verifyToken } from "@/lib/auth";
 import { eq } from "drizzle-orm";
-import { logAdminAction } from "@/lib/audit";
+import { auditInsert, logAdminAction } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
     if (!guide) return NextResponse.json({ error: "Guide not found" }, { status: 404 });
   }
 
-  await logAdminAction({ adminId: session.userId, action: "impersonate.start", targetType: role, targetId: userId });
+  // Fails closed: no impersonation without an audit record
+  await auditInsert({ adminId: session.userId, action: "impersonate.start", targetType: role, targetId: userId });
 
   // Store admin session in a separate cookie for return
   const adminToken = createToken({ userId: session.userId, role: "admin" });

@@ -311,11 +311,18 @@ function EditStudent({ student, guides, onCancel, onSaved }: {
     if (levelChanging && !confirm(`Change ${student.name}'s level to L${readingLevel}? This resets their level mix and restarts the evaluation window.`)) return;
     setSaving(true);
     setError("");
-    const body: Record<string, unknown> = {
-      name, guideId: Number(guideId), gradeLevel: num(gradeLevel), age: num(age),
-      dailyArticleCap: num(dailyArticleCap), weeklySessionTarget: num(weeklySessionTarget),
+    // Send only what the admin changed, so saving never rewrites untouched settings
+    const next: Record<string, string> = { name, guideId, gradeLevel, age, dailyArticleCap, weeklySessionTarget };
+    const loaded: Record<string, string> = {
+      name: student.name, guideId: String(student.guideId), gradeLevel: str(student.gradeLevel), age: str(student.age),
+      dailyArticleCap: str(student.dailyArticleCap ?? 5), weeklySessionTarget: str(student.weeklySessionTarget),
     };
+    const body: Record<string, unknown> = {};
+    for (const key of Object.keys(next)) {
+      if (next[key] !== loaded[key]) body[key] = key === "name" ? next[key] : key === "guideId" ? Number(next[key]) : num(next[key]);
+    }
     if (levelChanging) body.readingLevel = Number(readingLevel);
+    if (Object.keys(body).length === 0) { onCancel(); return; }
     try {
       const res = await fetch(`/api/admin/students/${student.id}`, {
         method: "PATCH",
