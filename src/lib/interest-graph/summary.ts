@@ -14,7 +14,7 @@ const NEW_DAYS = 14;
 export interface InterestSummary {
   /** Strongest first */
   current: { slug: string; score: number; isNew: boolean; declared: boolean }[];
-  /** Declared interests that have faded below the shown threshold */
+  /** Declared interests that have faded below the shown threshold, or turned negative */
   fading: { slug: string; score: number }[];
   /** Turned off by the student ("No more") or an adult */
   removed: { slug: string }[];
@@ -31,7 +31,7 @@ export function summarizeInterests(affinities: Affinity[], firstSeen: Map<string
       isNew: a.status !== "declared" && now.getTime() - (firstSeen.get(a.topicSlug)?.getTime() ?? 0) < NEW_DAYS * DAY_MS,
     }));
   const fading = affinities
-    .filter(a => a.status === "declared" && a.score < SHOWN_MIN && a.score > -SHOWN_MIN)
+    .filter(a => a.status === "declared" && a.score < SHOWN_MIN)
     .map(a => ({ slug: a.topicSlug, score: a.score }));
   const removed = affinities.filter(a => a.status === "rejected").map(a => ({ slug: a.topicSlug }));
   return { current, fading, removed };
