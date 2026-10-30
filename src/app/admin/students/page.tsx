@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface Guide {
@@ -17,6 +17,8 @@ interface AdminStudent {
   readingLevel: number | null;
   gradeLevel: number | null;
   age: number | null;
+  dailyArticleCap: number | null;
+  weeklySessionTarget: number | null;
   onboardingComplete: boolean;
   totalSessionsCompleted: number;
   avgScore: number | null;
@@ -42,6 +44,7 @@ export default function AdminStudentsPage() {
   const [newAge, setNewAge] = useState("");
   const [newGuideId, setNewGuideId] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const router = useRouter();
 
   function loadStudents() {
@@ -214,7 +217,8 @@ export default function AdminStudentsPage() {
           </thead>
           <tbody>
             {filtered.map(s => (
-              <tr key={s.id} className="border-b border-[var(--border)] hover:bg-gray-50 transition">
+              <Fragment key={s.id}>
+              <tr className="border-b border-[var(--border)] hover:bg-gray-50 transition">
                 <td className="px-4 py-3">
                   <p className="font-medium">{s.name}</p>
                   <p className="text-xs text-[var(--muted)]">{s.username}</p>
@@ -249,13 +253,131 @@ export default function AdminStudentsPage() {
                     >
                       📋
                     </button>
+                    <button
+                      onClick={() => setEditingId(editingId === s.id ? null : s.id)}
+                      className="text-xs px-2 py-1 border border-[var(--border)] rounded hover:bg-gray-100 transition"
+                      title="Edit student"
+                    >
+                      ✏️
+                    </button>
                   </div>
                 </td>
               </tr>
+              {editingId === s.id && (
+                <tr className="border-b border-[var(--border)]">
+                  <td colSpan={10} className="px-4 py-4 bg-white">
+                    <EditStudent
+                      student={s}
+                      guides={guidesList}
+                      onCancel={() => setEditingId(null)}
+                      onSaved={() => { setEditingId(null); loadStudents(); }}
+                    />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+const inputClass = "w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white outline-none focus:border-[var(--accent)]";
+
+function EditStudent({ student, guides, onCancel, onSaved }: {
+  student: AdminStudent;
+  guides: Guide[];
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const str = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
+  const [name, setName] = useState(student.name);
+  const [guideId, setGuideId] = useState(String(student.guideId));
+  const [gradeLevel, setGradeLevel] = useState(str(student.gradeLevel));
+  const [age, setAge] = useState(str(student.age));
+  const [readingLevel, setReadingLevel] = useState(str(student.readingLevel));
+  const [dailyArticleCap, setDailyArticleCap] = useState(str(student.dailyArticleCap ?? 5));
+  const [weeklySessionTarget, setWeeklySessionTarget] = useState(str(student.weeklySessionTarget));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const levelChanging = readingLevel !== "" && readingLevel !== str(student.readingLevel);
+  const num = (v: string) => (v.trim() === "" ? null : Number(v));
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (levelChanging && !confirm(`Change ${student.name}'s level to L${readingLevel}? This resets their level mix and restarts the evaluation window.`)) return;
+    setSaving(true);
+    setError("");
+    const body: Record<string, unknown> = {
+      name, guideId: Number(guideId), gradeLevel: num(gradeLevel), age: num(age),
+      dailyArticleCap: num(dailyArticleCap), weeklySessionTarget: num(weeklySessionTarget),
+    };
+    if (levelChanging) body.readingLevel = Number(readingLevel);
+    try {
+      const res = await fetch(`/api/admin/students/${student.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error || "Couldn't save"); setSaving(false); return; }
+      onSaved();
+    } catch {
+      setError("Couldn't save");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="space-y-3">
+      <div className="grid grid-cols-4 gap-3">
+        <label className="text-xs text-[var(--muted)] space-y-1">
+          <span>Name</span>
+          <input type="text" value={name} onChange={e => setName(e.target.value)} required className={inputClass} />
+        </label>
+        <label className="text-xs text-[var(--muted)] space-y-1">
+          <span>Guide</span>
+          <select value={guideId} onChange={e => setGuideId(e.target.value)} className={inputClass}>
+            {guides.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </label>
+        <label className="text-xs text-[var(--muted)] space-y-1">
+          <span>Grade</span>
+          <input type="number" min="0" max="12" value={gradeLevel} onChange={e => setGradeLevel(e.target.value)} className={inputClass} />
+        </label>
+        <label className="text-xs text-[var(--muted)] space-y-1">
+          <span>Age</span>
+          <input type="number" min="4" max="18" value={age} onChange={e => setAge(e.target.value)} className={inputClass} />
+        </label>
+        <label className="text-xs text-[var(--muted)] space-y-1">
+          <span>Reading level</span>
+          <select value={readingLevel} onChange={e => setReadingLevel(e.target.value)} className={inputClass}>
+            {student.readingLevel === null && <option value="">Not assessed</option>}
+            {[1, 2, 3, 4, 5, 6].map(l => <option key={l} value={l}>L{l}</option>)}
+          </select>
+        </label>
+        <label className="text-xs text-[var(--muted)] space-y-1">
+          <span>Articles per day</span>
+          <input type="number" min="1" max="20" value={dailyArticleCap} onChange={e => setDailyArticleCap(e.target.value)} required className={inputClass} />
+        </label>
+        <label className="text-xs text-[var(--muted)] space-y-1">
+          <span>Weekly session target</span>
+          <input type="number" min="1" max="100" value={weeklySessionTarget} onChange={e => setWeeklySessionTarget(e.target.value)} placeholder="Auto" className={inputClass} />
+        </label>
+      </div>
+      {levelChanging && (
+        <p className="text-xs text-amber-700">Changing the level resets the level mix and restarts the evaluation window.</p>
+      )}
+      {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+      <div className="flex gap-2">
+        <button type="submit" disabled={saving} className="px-4 py-2 bg-[var(--accent)] text-white text-sm rounded-lg disabled:opacity-50">
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm border border-[var(--border)] rounded-lg">Cancel</button>
+      </div>
+    </form>
   );
 }

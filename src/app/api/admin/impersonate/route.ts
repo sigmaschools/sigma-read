@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getSession, createToken } from "@/lib/auth";
+import { getSession, createToken, verifyToken } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import { logAdminAction } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
     if (!guide) return NextResponse.json({ error: "Guide not found" }, { status: 404 });
   }
 
+  await logAdminAction({ adminId: session.userId, action: "impersonate.start", targetType: role, targetId: userId });
+
   // Store admin session in a separate cookie for return
   const adminToken = createToken({ userId: session.userId, role: "admin" });
   const impersonateToken = createToken({ userId, role });
@@ -37,7 +40,15 @@ export async function DELETE() {
   const adminToken = (await adminCookie).get("admin_session")?.value;
   
   if (!adminToken) return NextResponse.json({ error: "No admin session" }, { status: 400 });
-  
+  const admin = verifyToken(adminToken);
+  if (!admin || admin.role !== "admin") return NextResponse.json({ error: "No admin session" }, { status: 400 });
+  const impersonated = await getSession();
+  await logAdminAction({
+    adminId: admin.userId, action: "impersonate.end",
+    targetType: impersonated?.role === "student" || impersonated?.role === "guide" ? impersonated.role : undefined,
+    targetId: impersonated?.userId,
+  });
+
   const res = NextResponse.json({ ok: true });
   res.cookies.set("session", adminToken, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
   res.cookies.delete("admin_session");
