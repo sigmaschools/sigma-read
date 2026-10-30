@@ -11,8 +11,12 @@ import { REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, rat
 import { parseJsonResponse } from "@/lib/claude-json";
 import { getStudentConversation } from "@/lib/ownership";
 import { runTutorTurn } from "@/lib/conversation-turn";
+import { quietly, recordArticleSignal } from "@/lib/interest-graph";
 
 const anthropic = new Anthropic();
+
+/** A report this good, over this many student messages, counts as strong engagement with the topic */
+const STRONG_ENGAGEMENT = { score: 80, exchanges: 4 };
 
 // Compute active discussion duration from message timestamps
 // Only count gaps ≤ 5 minutes between consecutive messages (ignore idle time)
@@ -140,6 +144,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       isTutorial ? Promise.resolve() : saveComprehensionReport({
         conversationId,
         studentId: session.userId,
+        articleId: article.id,
         studentName: student.name,
         articleText: article.bodyText,
         level: student.readingLevel || 2,
@@ -179,6 +184,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 async function saveComprehensionReport(args: {
   conversationId: number;
   studentId: number;
+  articleId: number;
   studentName: string;
   articleText: string;
   level: number;
@@ -244,6 +250,11 @@ async function saveComprehensionReport(args: {
     model: MODELS.heavy,
     promptVersion: REPORT_PROMPT_VERSION,
   });
+
+  // A long, strong discussion is a sign the topic landed
+  if (score >= STRONG_ENGAGEMENT.score && exchangeCount >= STRONG_ENGAGEMENT.exchanges && !args.forcedClose) {
+    await quietly(recordArticleSignal(args.studentId, args.articleId, "strong_engagement", `report:${args.conversationId}`), "strong engagement");
+  }
 
   // Gradual Mix Level Progression — evaluate and apply
   try {

@@ -7,6 +7,7 @@ import { MODELS } from "@/lib/models";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
+import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 
 const MAX_INTERESTS = 10;
 
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
           suggestion = suggestion.split(/\s+/).slice(0, 4).join(" ");
         }
       }
+      await quietly(recordDeclaredInterests(session.userId, [suggestion], "typed_interest", { client: new Anthropic() }), "typed interest");
+
       const [student] = await db.select({ interestProfile: schema.students.interestProfile })
         .from(schema.students)
         .where(eq(schema.students.id, session.userId))
