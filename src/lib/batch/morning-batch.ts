@@ -25,6 +25,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
+import { tracked } from "../ai-usage";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -259,7 +260,7 @@ async function planDailyArticles(
     if (profile.interests.length === 0) continue;
 
     try {
-      const response = await anthropic.messages.create({
+      const response = await tracked(anthropic, "batch_adjacent").messages.create({
         model: HAIKU_MODEL,
         max_tokens: 500,
         messages: [{
@@ -453,7 +454,7 @@ async function filterSources<T extends { url: string; text: string }>(
   ).join("\n\n");
 
   try {
-    const response = await anthropic.messages.create({
+    const response = await tracked(anthropic, "batch_filter").messages.create({
       model: HAIKU_MODEL,
       max_tokens: 500,
       messages: [{
@@ -635,7 +636,7 @@ async function rewriteFromSource(topic: SourcedTopic): Promise<{
     ? sourceWords.slice(0, 2000).join(" ") + "..."
     : topic.sourceText;
 
-  const response = await anthropic.messages.create({
+  const response = await tracked(anthropic, "batch_rewrite").messages.create({
     model: SONNET_MODEL,
     max_tokens: 2000,
     messages: [{
@@ -713,7 +714,7 @@ async function adaptArticleToLevel(
 ): Promise<{ title: string; bodyText: string; estimatedReadTime: number } | null> {
   const guide = levelGuide[targetLevel];
 
-  const response = await anthropic.messages.create({
+  const response = await tracked(anthropic, "batch_adapt").messages.create({
     model: SONNET_MODEL,
     max_tokens: 2000,
     messages: [{
