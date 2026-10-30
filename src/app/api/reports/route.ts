@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
     guideFlag: schema.comprehensionReports.guideFlag,
     guideNote: schema.comprehensionReports.guideNote,
     guideFlaggedAt: schema.comprehensionReports.guideFlaggedAt,
+    guideFlaggedRole: schema.comprehensionReports.guideFlaggedRole,
     conversationId: schema.conversations.id,
     conversationStyle: schema.conversations.conversationStyle,
     messages: schema.conversations.messages,
@@ -68,9 +69,10 @@ export async function GET(req: NextRequest) {
     .orderBy(desc(schema.readingSessions.startedAt));
 
   // A guide's disagreement with a report is staff-only
-  const visible = session.role === "parent"
-    ? sessions.map(s => ({ ...s, guideFlag: null, guideNote: null, guideFlaggedAt: null }))
-    : sessions;
+  const staff = session.role === "guide" || session.role === "admin";
+  const visible = staff
+    ? sessions
+    : sessions.map(s => ({ ...s, guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null }));
 
   // Separate completed from in-progress for the client
   const completed = visible.filter(s => s.completedAt !== null);
