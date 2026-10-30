@@ -30,6 +30,31 @@ const BATCH_STATUS_COLORS: Record<string, string> = {
   running: "bg-blue-50 text-blue-700", failed: "bg-red-50 text-red-700",
 };
 
+interface AdminAction {
+  id: number;
+  action: string;
+  targetType: string | null;
+  targetId: number | null;
+  targetName: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  "student.update": "Edited",
+  "student.level_override": "Changed level for",
+  "impersonate.start": "Viewed as",
+  "impersonate.end": "Stopped viewing as",
+};
+
+/** Short description of what changed, e.g. "L2 → L3" or "grade, age" */
+function actionDetail(a: AdminAction): string {
+  if (!a.details) return "";
+  if (a.action === "student.level_override") return `L${a.details.from ?? "?"} → L${a.details.to}`;
+  if (a.action === "student.update") return Object.keys(a.details).join(", ");
+  return "";
+}
+
 interface Guide {
   id: number;
   name: string;
@@ -41,6 +66,7 @@ export default function AdminDashboard() {
   const [guides, setGuides] = useState<Guide[]>([]);
   const [alerts, setAlerts] = useState<string[]>([]);
   const [batchRuns, setBatchRuns] = useState<BatchRun[]>([]);
+  const [adminActions, setAdminActions] = useState<AdminAction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,6 +77,7 @@ export default function AdminDashboard() {
         setGuides(data.guides || []);
         setAlerts(data.alerts || []);
         setBatchRuns(data.batchRuns || []);
+        setAdminActions(data.adminActions || []);
         setLoading(false);
       });
   }, []);
@@ -144,6 +171,27 @@ export default function AdminDashboard() {
           </div>
         ))}
       </div>
+
+      {/* Recent admin actions */}
+      <h2 className="text-lg font-semibold mb-3">Recent Admin Actions</h2>
+      {adminActions.length === 0 ? (
+        <p className="text-sm text-[var(--muted)] mb-8">None yet.</p>
+      ) : (
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl divide-y divide-[var(--border)] mb-8">
+          {adminActions.map(a => (
+            <div key={a.id} className="px-4 py-2.5 text-sm flex items-center justify-between gap-4">
+              <p>
+                {ACTION_LABELS[a.action] ?? a.action}{" "}
+                <span className="font-medium">{a.targetName ?? (a.targetId ? `${a.targetType} #${a.targetId}` : "")}</span>
+                {actionDetail(a) && <span className="text-[var(--muted)]"> · {actionDetail(a)}</span>}
+              </p>
+              <span className="text-xs text-[var(--muted)] whitespace-nowrap">
+                {new Date(a.createdAt).toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} CT
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* spacer */}
     </div>

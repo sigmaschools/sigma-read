@@ -51,7 +51,8 @@ Features:
 - Search/filter by name, guide, level, status
 - Sort by any column
 - Click → student detail (reuse guide's student detail page + insights)
-- Bulk actions: reassign guide, adjust reading level, reset data
+- Edit (✏️): name, guide, grade, age, articles per day, weekly session target, and reading level. A level change is a guide override (`docs/level-progression.md` rule 5): it resets the level mix to the default and writes `level_history`, which restarts the evaluation window. Every edit is written to `admin_audit_log`.
+- Bulk actions (not built): reset data
 
 ### 3. All Guides (`/admin/guides`)
 
@@ -133,7 +134,11 @@ Usage:
 - Clear impersonation banner at top: "Viewing as [Name] — Exit"
 - Read-only: can view but not perform actions (no reading sessions, no conversations)
 
-Actually, simpler v1: just a "Login as" button that sets the auth cookie to that user. Admin can switch back via `/admin`.
+Actually, simpler v1: just a "Login as" button that sets the auth cookie to that user. Admin can switch back via `/admin`. Starting and ending impersonation is written to `admin_audit_log`.
+
+### Audit log
+
+`admin_audit_log` records student edits, level overrides and impersonation (who, what, target, and a `details` diff). The dashboard shows the last 10 under "Recent Admin Actions".
 
 ## Database Changes
 
@@ -153,6 +158,7 @@ CREATE TABLE admins (
 |---|---|---|
 | `/api/admin/dashboard` | GET | System overview stats + alerts |
 | `/api/admin/students` | GET | All students across all guides |
+| `/api/admin/students/[id]` | PATCH | Edit a student; `readingLevel` is a level override (audited) |
 | `/api/admin/guides` | GET | All guides |
 | `/api/admin/guides` | POST | Create new guide |
 | `/api/admin/guides/[id]` | PATCH | Update guide |

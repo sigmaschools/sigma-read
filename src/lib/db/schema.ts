@@ -244,3 +244,14 @@ export const batchRuns = pgTable("batch_runs", {
   alertSentAt: timestamp("alert_sent_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Who changed what from the admin area (student edits, level overrides, impersonation)
+export const adminAuditLog = pgTable("admin_audit_log", {
+  id: serial("id").primaryKey(),
+  adminId: integer("admin_id").notNull(),
+  action: varchar("action", { length: 40 }).notNull(), // student.update | student.level_override | impersonate.start | impersonate.end
+  targetType: varchar("target_type", { length: 20 }), // student | guide
+  targetId: integer("target_id"),
+  details: jsonb("details").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
