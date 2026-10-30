@@ -7,6 +7,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt } from "@/lib/prompts";
 import { parseProgressResponse, clampDelta, isConversationComplete } from "@/lib/progress-scoring";
 import { MODELS } from "@/lib/models";
+import { REPLY_SCHEMA, REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, ratingForScore, verifiedEvidence, type ComprehensionReport } from "@/lib/report-schema";
+import { parseJsonResponse } from "@/lib/claude-json";
 import { getStudentConversation } from "@/lib/ownership";
 
 const anthropic = new Anthropic();
@@ -116,15 +118,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     finalMessages.push({ role: "user" as const, content: `[SYSTEM: The student has demonstrated sufficient understanding. This is your final message. Wrap up in one warm sentence acknowledging what they got right. Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]` });
   }
 
+  const request = { model: MODELS.heavy, max_tokens: 1024, system: systemPrompt, messages: finalMessages };
   const response = await anthropic.messages.create({
-    model: MODELS.heavy,
-    max_tokens: 1024,
-    system: systemPrompt,
-    messages: finalMessages,
+    ...request,
+    output_config: { format: { type: "json_schema", schema: REPLY_SCHEMA } },
+  }).catch(e => {
+    // If the API ever rejects the schema (e.g. a model without structured outputs), keep the
+    // student's chat working: retry as plain text and let parseProgressResponse handle it
+    if (e instanceof Anthropic.BadRequestError) {
+      console.error("Structured tutor turn rejected, retrying as text:", e.message);
+      return anthropic.messages.create(request);
+    }
+    throw e;
   });
 
-  const assistantText = response.content[0].type === "text" ? response.content[0].text : "";
-  const parsedResponse = parseProgressResponse(assistantText);
+  // Structured output guarantees the JSON shape; fall back to the old text parser on a refusal or cut-off
+  const assistantText = response.content.filter(b => b.type === "text").map(b => b.text).join("");
+  const parsedResponse = parseJsonResponse<{ message: string; progressDelta: number }>(response)
+    ?? parseProgressResponse(assistantText);
   const clampedDelta = clampDelta(parsedResponse.progressDelta);
   const newProgressScore = (conversation.progressScore || 0) + clampedDelta;
   let isComplete = isConversationComplete({ progressScore: newProgressScore, exchangeNumber, forceComplete });
@@ -164,73 +175,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
 
-    // Skip comprehension report and level progression for tutorials
-    if (!isTutorial) {
-      // Generate comprehension report
-      const reportResponse = await anthropic.messages.create({
-        model: MODELS.heavy,
-        max_tokens: 1024,
+    // Report (Opus) and coaching (Sonnet) are independent, so run them side by side
+    const [, feedbackResponse] = await Promise.all([
+      isTutorial ? Promise.resolve() : saveComprehensionReport({
+        conversationId,
+        studentId: session.userId,
+        studentName: student.name,
+        articleText: article.bodyText,
+        level: student.readingLevel || 2,
+        messages,
+        transcript,
+        forcedClose: forceComplete,
+        inChatScore: newProgressScore,
+      }).catch(e => console.error("Report save failed:", e)),
+      anthropic.messages.create({
+        model: MODELS.standard,
+        max_tokens: 256,
         messages: [{
           role: "user",
-          content: comprehensionReportPrompt(article.bodyText, transcript, student.readingLevel || 2),
+          content: coachingFeedbackPrompt(article.bodyText, transcript, student.readingLevel || 2),
         }],
-      });
-
-      const reportText = reportResponse.content[0].type === "text" ? reportResponse.content[0].text : "";
-      const reportMatch = reportText.match(/\[REPORT\]\s*(\{[\s\S]*?\})/);
-      if (reportMatch) {
-        try {
-          const report = JSON.parse(reportMatch[1]);
-
-          // Compute conversation analytics
-          const aiMessages = messages.filter(m => m.role === "assistant");
-          const studentMessages = messages.filter(m => m.role === "user");
-          const wordCount = (text: string) => text.split(/\s+/).filter(w => w.length > 0).length;
-          const aiAvgWords = aiMessages.length > 0 ? Math.round(aiMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / aiMessages.length) : 0;
-          const studentAvgWords = studentMessages.length > 0 ? Math.round(studentMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / studentMessages.length) : 0;
-          // Count redirections: "actually", "take a look", "take another look", "close, but", "not quite"
-          const redirectPatterns = /\b(actually|take a look|take another look|close,? but|not quite|if you look at the article)\b/gi;
-          const redirectCount = aiMessages.reduce((count, m) => count + (m.content.match(redirectPatterns) || []).length, 0);
-          const exchangeCount = studentMessages.length;
-
-          await db.insert(schema.comprehensionReports).values({
-            conversationId,
-            score: report.score,
-            rating: report.rating,
-            understood: report.comprehension || report.understood,
-            missed: report.depth || report.missed,
-            engagementNote: report.engagement,
-            aiAvgWords,
-            studentAvgWords,
-            redirectCount,
-            exchangeCount,
-          });
-
-          // Gradual Mix Level Progression — evaluate and apply
-          const { evaluateProgression, applyProgressionResult } = await import("@/lib/level-progression");
-          const progressionResult = await evaluateProgression(session.userId);
-          if (progressionResult.action !== "none") {
-            await applyProgressionResult(session.userId, progressionResult);
-            console.log(`Level progression [${student.name}]: ${progressionResult.action}`,
-              progressionResult.newLevel ? `→ L${progressionResult.newLevel}` : "",
-              progressionResult.alertMessage || "");
-          }
-        } catch (e) {
-          console.error("Report parse error:", e);
-        }
-      }
-    }
-
-    // Generate coaching feedback for the student
-    const feedbackResponse = await anthropic.messages.create({
-      model: MODELS.standard,
-      max_tokens: 256,
-      messages: [{
-        role: "user",
-        content: coachingFeedbackPrompt(article.bodyText, transcript, student.readingLevel || 2),
-      }],
-    });
-    const coachingFeedback = feedbackResponse.content[0].type === "text" ? feedbackResponse.content[0].text.trim() : null;
+      }).catch(e => { console.error("Coaching feedback failed:", e); return null; }),
+    ]);
+    const coachingFeedback = feedbackResponse?.content[0]?.type === "text" ? feedbackResponse.content[0].text.trim() : null;
 
     // Persist coaching feedback as a message so it appears on resume
     if (coachingFeedback) {
@@ -242,4 +209,93 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore });
+}
+
+/**
+ * Generate the guide-facing comprehension report, store it, and run level progression.
+ * Retries once if the model returns no usable report; on a second failure it logs and
+ * skips, as before, so the student's session still completes.
+ */
+async function saveComprehensionReport(args: {
+  conversationId: number;
+  studentId: number;
+  studentName: string;
+  articleText: string;
+  level: number;
+  messages: { role: string; content: string }[];
+  transcript: string;
+  forcedClose: boolean;
+  inChatScore: number;
+}) {
+  let report: ComprehensionReport | null = null;
+  for (let attempt = 1; attempt <= 2 && !report; attempt++) {
+    try {
+      const reportResponse = await anthropic.messages.create({
+        model: MODELS.heavy,
+        max_tokens: 2048,
+        messages: [{ role: "user", content: comprehensionReportPrompt(args.articleText, args.transcript, args.level) }],
+        output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
+      });
+      report = parseJsonResponse<ComprehensionReport>(reportResponse);
+      if (!report) {
+        console.error(`Report attempt ${attempt} unusable (stop_reason: ${reportResponse.stop_reason})`);
+        // A refusal won't change on an identical retry
+        if (reportResponse.stop_reason === "refusal") break;
+      }
+    } catch (e) {
+      console.error(`Report attempt ${attempt} failed:`, e);
+    }
+  }
+  if (!report) {
+    console.error(`No comprehension report for conversation ${args.conversationId}`);
+    return;
+  }
+
+  // Conversation analytics
+  const aiMessages = args.messages.filter(m => m.role === "assistant");
+  const studentMessages = args.messages.filter(m => m.role === "user");
+  const wordCount = (text: string) => text.split(/\s+/).filter(w => w.length > 0).length;
+  const aiAvgWords = aiMessages.length > 0 ? Math.round(aiMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / aiMessages.length) : 0;
+  const studentAvgWords = studentMessages.length > 0 ? Math.round(studentMessages.reduce((sum, m) => sum + wordCount(m.content), 0) / studentMessages.length) : 0;
+  // Count redirections: "actually", "take a look", "take another look", "close, but", "not quite"
+  const redirectPatterns = /\b(actually|take a look|take another look|close,? but|not quite|if you look at the article)\b/gi;
+  const redirectCount = aiMessages.reduce((count, m) => count + (m.content.match(redirectPatterns) || []).length, 0);
+  const exchangeCount = studentMessages.length;
+
+  const score = clampScore(report.score);
+  await db.insert(schema.comprehensionReports).values({
+    conversationId: args.conversationId,
+    score,
+    rating: ratingForScore(score),
+    understood: report.comprehension,
+    missed: report.depth,
+    engagementNote: report.engagement,
+    aiAvgWords,
+    studentAvgWords,
+    redirectCount,
+    exchangeCount,
+    skills: report.skills,
+    evidence: verifiedEvidence(report.evidence, studentMessages.map(m => m.content)),
+    summary: report.summary,
+    nextStep: report.nextStep,
+    confidence: reportConfidence({ forcedClose: args.forcedClose, exchangeCount, studentAvgWords }),
+    forcedClose: args.forcedClose,
+    inChatScore: args.inChatScore,
+    model: MODELS.heavy,
+    promptVersion: REPORT_PROMPT_VERSION,
+  });
+
+  // Gradual Mix Level Progression — evaluate and apply
+  try {
+    const { evaluateProgression, applyProgressionResult } = await import("@/lib/level-progression");
+    const progressionResult = await evaluateProgression(args.studentId);
+    if (progressionResult.action !== "none") {
+      await applyProgressionResult(args.studentId, progressionResult);
+      console.log(`Level progression [${args.studentName}]: ${progressionResult.action}`,
+        progressionResult.newLevel ? `→ L${progressionResult.newLevel}` : "",
+        progressionResult.alertMessage || "");
+    }
+  } catch (e) {
+    console.error("Level progression error:", e);
+  }
 }

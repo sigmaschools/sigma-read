@@ -16,6 +16,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { getPersona, EXCLUDED_USERNAMES, type StudentPersona } from "./test-personas";
+import { REPORT_SCHEMA, type ComprehensionReport } from "../src/lib/report-schema";
+import { parseJsonResponse } from "../src/lib/claude-json";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const sql = neon(DATABASE_URL);
@@ -203,17 +205,15 @@ async function runSession(
   const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
   const reportRes = await anthropic.messages.create({
     model: "claude-opus-4-6",
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [{ role: "user", content: comprehensionReportPrompt(articleBody, transcript, level) }],
+    output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
   });
+  const report = parseJsonResponse<ComprehensionReport>(reportRes);
 
-  const reportText = reportRes.content[0].type === "text" ? reportRes.content[0].text : "";
-  const reportMatch = reportText.match(/\[REPORT\]\s*(\{[\s\S]*?\})/);
-  
   let score = 65;
-  if (reportMatch) {
+  if (report) {
     try {
-      const report = JSON.parse(reportMatch[1]);
       score = report.score;
 
       const selfAssessment = pickSelfAssessment(persona, score);
@@ -228,7 +228,7 @@ async function runSession(
       const redirectCount = aiMsgs.reduce((c, m) => c + (m.content.match(redirectPatterns) || []).length, 0);
 
       await sql`INSERT INTO comprehension_reports (conversation_id, score, rating, understood, missed, engagement_note, self_assessment, ai_avg_words, student_avg_words, redirect_count, exchange_count)
-        VALUES (${conv.id}, ${report.score}, ${report.rating}, ${report.understood}, ${report.missed}, ${report.engagement}, ${selfAssessment}, ${aiAvg}, ${studentAvg}, ${redirectCount}, ${studentMsgs.length})`;
+        VALUES (${conv.id}, ${report.score}, ${report.rating}, ${report.comprehension}, ${report.depth}, ${report.engagement}, ${selfAssessment}, ${aiAvg}, ${studentAvg}, ${redirectCount}, ${studentMsgs.length})`;
 
       // Level adjustment
       let newLevel = level;
