@@ -29,6 +29,13 @@ const rules = (msgs: Msg[], level = 3, closing: number | null = null) =>
   console.log("✅ each rule fires on a violating message");
 }
 
+// ─── Content words and statements aren't mistaken for praise or prompts ────
+{
+  assert.ok(!rules([{ role: "assistant", content: "The octopus has perfect camouflage. Tell me how it hides." }]).includes("empty_praise"));
+  assert.ok(rules([{ role: "assistant", content: "That's what he said." }]).includes("no_directive"));
+  console.log("✅ heuristics avoid common false positives");
+}
+
 // ─── "actually" mid-sentence in a non-correction is allowed ────────────────
 {
   assert.ok(!rules([{ role: "assistant", content: "That's a real idea scientists actually test. Tell me why it might work." }]).includes("actually_correction"));

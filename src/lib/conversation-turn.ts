@@ -29,6 +29,9 @@ export function closingInstruction(kind: ClosingKind): string {
 /** Used when the model asks a question in its closing anyway */
 export const FALLBACK_CLOSING = "That's it for this one. Thanks for talking it through with me.";
 
+/** Used if the model returns an empty mid-conversation message */
+export const FALLBACK_PROMPT = "Tell me a little more about that.";
+
 export interface TurnMessage { role: string; content: string }
 
 export interface TurnResult {
@@ -84,9 +87,10 @@ export async function runTutorTurn(args: {
   const progressDelta = clampDelta(parsed.progressDelta);
   const progressScore = args.priorProgress + progressDelta;
 
-  let message = parsed.message.replace("[CONVERSATION_COMPLETE]", "").trim();
-  // Never end the session on a question the student can't answer
-  if (closing && message.endsWith("?")) message = FALLBACK_CLOSING;
+  let message = (parsed.message || "").replace("[CONVERSATION_COMPLETE]", "").trim();
+  // Never end the session on a question the student can't answer, or show an empty turn
+  if (closing && (message.endsWith("?") || !message)) message = FALLBACK_CLOSING;
+  if (!message) message = FALLBACK_PROMPT;
 
   // Complete only on a closing turn. When the threshold is first crossed mid-conversation, the
   // tutor's reply still ends with a directive, so the student answers once more and the next

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, closingInstruction, FALLBACK_CLOSING, OPENER_INSTRUCTION, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, closingInstruction, FALLBACK_CLOSING, FALLBACK_PROMPT, OPENER_INSTRUCTION, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -93,6 +93,33 @@ async function main() {
     assert.equal(r.message, "Tell me about the ink.");
     assert.equal(r.progressDelta, 20);
     console.log("✅ rejected schema retries as plain text");
+  }
+
+  // ─── High progress before 3 exchanges doesn't close ────────────────────────
+  {
+    const { client, calls } = fakeClient({ message: "Tell me why that matters.", progressDelta: 30 });
+    const r = await run(client, convo(2), 110);
+    assert.equal(r.complete, false);
+    assert.equal(calls[0].length, 4, "no closing instruction before 3 exchanges");
+    console.log("✅ no close before 3 exchanges");
+  }
+
+  // ─── Earned wins over forced at the backstop ───────────────────────────────
+  {
+    const { client } = fakeClient({ message: "You explained the waggle dance.", progressDelta: 0 });
+    const r = await run(client, convo(6), 120);
+    assert.equal(r.closing, "earned", "a student who already earned it isn't marked forced");
+    console.log("✅ earned close wins at the backstop");
+  }
+
+  // ─── Empty messages never reach the student ────────────────────────────────
+  {
+    const mid = await run(fakeClient({ message: "", progressDelta: 20 }).client, convo(1), 0);
+    assert.equal(mid.message, FALLBACK_PROMPT);
+    assert.equal(mid.progressDelta, 20);
+    const close = await run(fakeClient({ message: "  ", progressDelta: 0 }).client, convo(6), 60);
+    assert.equal(close.message, FALLBACK_CLOSING);
+    console.log("✅ empty messages are replaced");
   }
 
   // ─── Deltas are clamped ────────────────────────────────────────────────────

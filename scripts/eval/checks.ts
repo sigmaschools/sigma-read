@@ -8,7 +8,8 @@ export interface Msg { role: "user" | "assistant"; content: string }
 /** Rough word ceilings per level, from the message-length table in conversation-design.md */
 export const MAX_TUTOR_WORDS: Record<number, number> = { 1: 15, 2: 20, 3: 40, 4: 40, 5: 50, 6: 50 };
 
-const BANNED_PRAISE = /\b(nice|exactly right|great job|awesome|cool|great work|amazing|perfect)\b[!.]?/i;
+// Praise as a reaction at the start of a sentence ("Nice!", "Great job."), not "perfect camouflage"
+const BANNED_PRAISE = /(^|[.!?]\s+)(nice|exactly right|great job|awesome|cool|great work|amazing|perfect)\b/i;
 const CORRECTION_ACTUALLY = /(^|[.!?]\s+)actually\b/i;
 const MARKDOWN = /(\*\*|__|^#+\s|^\s*[-*]\s|`)/m;
 const CHORE_FRAMING = /\b(sooner (we|you)('re| are)? (finish|done)|get through this|almost done)\b/i;
@@ -45,5 +46,5 @@ export function checkTranscript(messages: Msg[], level: number, closingIndex: nu
 function endsWithPrompt(text: string): boolean {
   if (text.endsWith("?")) return true;
   const last = text.split(/(?<=[.!?])\s+/).pop() || text;
-  return /\b(tell me|walk me|explain|describe|show me|talk me|say more|what|why|how|which|pick|imagine|think about|give me)\b/i.test(last);
+  return /^(so |and |now |ok,? |okay,? )?(tell|walk|explain|describe|show|talk|say|pick|imagine|think|give|look|find|share|name|compare)\b/i.test(last);
 }
