@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 interface Usage {
-  byFeature: { feature: string; calls: number; cost: number; inputTokens: number; outputTokens: number }[];
+  byFeature: { feature: string; calls: number; pricedCalls: number; cost: number; inputTokens: number; outputTokens: number }[];
   byDay: { date: string; cost: number }[];
   total30d: number;
   unpricedCalls: number;
@@ -81,7 +81,7 @@ export default function AdminMetricsPage() {
                     <td className="px-4 py-2 text-right">{f.calls.toLocaleString()}</td>
                     <td className="px-4 py-2 text-right text-[var(--muted)]">{f.inputTokens.toLocaleString()} / {f.outputTokens.toLocaleString()}</td>
                     <td className="px-4 py-2 text-right font-medium">{usd(f.cost)}</td>
-                    <td className="px-4 py-2 text-right text-[var(--muted)]">${(f.cost / Math.max(f.calls, 1)).toFixed(4)}</td>
+                    <td className="px-4 py-2 text-right text-[var(--muted)]">{f.pricedCalls > 0 ? `$${(f.cost / f.pricedCalls).toFixed(4)}` : "—"}</td>
                   </tr>
                 ))}
               </tbody>

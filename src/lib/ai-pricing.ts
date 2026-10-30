@@ -1,9 +1,10 @@
 /**
  * Claude API prices in USD per million tokens, for the admin cost view.
  * Check https://www.anthropic.com/pricing when adding a model or changing MODELS.
- * Cache writes are billed at 1.25x input (5-minute TTL); cache reads at the listed rate.
+ * Cache writes are billed at 1.25x input (5-minute TTL; nothing here uses the 1-hour TTL); cache
+ * reads at the listed rate, which is 0.1x input except Opus 5.5 (0.05x).
  */
-const PRICES: Record<string, { input: number; output: number; cacheRead: number }> = {
+export const PRICES: Record<string, { input: number; output: number; cacheRead: number }> = {
   "claude-opus-4-6": { input: 5, output: 25, cacheRead: 0.5 },
   "claude-sonnet-4-6": { input: 3, output: 15, cacheRead: 0.3 },
   "claude-sonnet-4-5": { input: 3, output: 15, cacheRead: 0.3 },

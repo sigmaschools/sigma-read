@@ -53,7 +53,8 @@ export interface TurnResult {
  * @param priorProgress progress score before this student message
  */
 export async function runTutorTurn(args: {
-  client: Anthropic;
+  /** Plain or usage-tracked client; only messages.create is used */
+  client: { messages: Pick<Anthropic["messages"], "create"> };
   model: string;
   systemPrompt: string;
   messages: TurnMessage[];
