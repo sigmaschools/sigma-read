@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { reportConfidence, clampScore } from "./report-schema";
+import { ratingForScore, verifiedEvidence, reportConfidence, clampScore } from "./report-schema";
 
 // ─── Test: reportConfidence ───────────────────────────────────────────────
 {
@@ -17,4 +17,38 @@ import { reportConfidence, clampScore } from "./report-schema";
   assert.strictEqual(clampScore(0), 1);
   assert.strictEqual(clampScore(72.6), 73);
   console.log("✅ clampScore keeps scores in 1-100");
+}
+
+// ─── ratingForScore follows the documented bands ───────────────────────────
+{
+  assert.equal(ratingForScore(85), "Exceptional");
+  assert.equal(ratingForScore(84), "Strong");
+  assert.equal(ratingForScore(70), "Strong");
+  assert.equal(ratingForScore(69), "Solid");
+  assert.equal(ratingForScore(55), "Solid");
+  assert.equal(ratingForScore(54), "Developing");
+  assert.equal(ratingForScore(40), "Developing");
+  assert.equal(ratingForScore(39), "Struggled");
+  console.log("✅ ratingForScore follows the documented bands");
+}
+
+// ─── verifiedEvidence drops quotes the student never wrote ─────────────────
+{
+  const said = ["It squirts INK and swims away!", "um i think the three hearts"];
+  const kept = verifiedEvidence([
+    { skill: "key_details", quote: "squirts ink and swims away" },
+    { skill: "main_idea", quote: "octopuses are masters of disguise" },
+    { skill: "key_details", quote: "three hearts" },
+    { skill: "vocabulary", quote: "" },
+  ], said);
+  assert.deepEqual(kept.map(e => e.quote), ["squirts ink and swims away", "three hearts"]);
+  console.log("✅ verifiedEvidence keeps only real student quotes");
+}
+
+// ─── reportConfidence boundaries ───────────────────────────────────────────
+{
+  assert.equal(reportConfidence({ forcedClose: false, exchangeCount: 3, studentAvgWords: 4 }), "medium");
+  assert.equal(reportConfidence({ forcedClose: false, exchangeCount: 3, studentAvgWords: 8 }), "high");
+  assert.equal(reportConfidence({ forcedClose: false, exchangeCount: 2, studentAvgWords: 20 }), "low");
+  console.log("✅ reportConfidence boundaries");
 }

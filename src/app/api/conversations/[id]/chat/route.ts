@@ -7,7 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt } from "@/lib/prompts";
 import { parseProgressResponse, clampDelta, isConversationComplete } from "@/lib/progress-scoring";
 import { MODELS } from "@/lib/models";
-import { REPLY_SCHEMA, REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, type ComprehensionReport } from "@/lib/report-schema";
+import { REPLY_SCHEMA, REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, ratingForScore, verifiedEvidence, type ComprehensionReport } from "@/lib/report-schema";
 import { parseJsonResponse } from "@/lib/claude-json";
 import { getStudentConversation } from "@/lib/ownership";
 
@@ -189,9 +189,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           role: "user",
           content: coachingFeedbackPrompt(article.bodyText, transcript, student.readingLevel || 2),
         }],
-      }),
+      }).catch(e => { console.error("Coaching feedback failed:", e); return null; }),
     ]);
-    const coachingFeedback = feedbackResponse.content[0].type === "text" ? feedbackResponse.content[0].text.trim() : null;
+    const coachingFeedback = feedbackResponse?.content[0]?.type === "text" ? feedbackResponse.content[0].text.trim() : null;
 
     // Persist coaching feedback as a message so it appears on resume
     if (coachingFeedback) {
@@ -252,10 +252,11 @@ async function saveComprehensionReport(args: {
   const redirectCount = aiMessages.reduce((count, m) => count + (m.content.match(redirectPatterns) || []).length, 0);
   const exchangeCount = studentMessages.length;
 
+  const score = clampScore(report.score);
   await db.insert(schema.comprehensionReports).values({
     conversationId: args.conversationId,
-    score: clampScore(report.score),
-    rating: report.rating,
+    score,
+    rating: ratingForScore(score),
     understood: report.comprehension,
     missed: report.depth,
     engagementNote: report.engagement,
@@ -264,7 +265,7 @@ async function saveComprehensionReport(args: {
     redirectCount,
     exchangeCount,
     skills: report.skills,
-    evidence: report.evidence.slice(0, 3),
+    evidence: verifiedEvidence(report.evidence, studentMessages.map(m => m.content)),
     summary: report.summary,
     nextStep: report.nextStep,
     confidence: reportConfidence({ forcedClose: args.forcedClose, exchangeCount, studentAvgWords }),
