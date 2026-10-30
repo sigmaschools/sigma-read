@@ -12,13 +12,13 @@ export async function activityFor(studentIds: number[]) {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const rs = schema.readingSessions;
   const [last, week] = await Promise.all([
-    db.select({ studentId: rs.studentId, at: sql<string>`MAX(${rs.startedAt})` }).from(rs)
+    db.select({ studentId: rs.studentId, at: sql<Date | null>`MAX(${rs.startedAt})`.mapWith(rs.startedAt) }).from(rs)
       .where(inArray(rs.studentId, studentIds)).groupBy(rs.studentId),
     db.select({ studentId: rs.studentId, n: count() }).from(rs)
       .where(and(inArray(rs.studentId, studentIds), gte(rs.completedAt, weekAgo))).groupBy(rs.studentId),
   ]);
   const map = new Map(studentIds.map(id => [id, { lastActiveAt: null as string | null, sessionsThisWeek: 0 }]));
-  for (const l of last) map.get(l.studentId)!.lastActiveAt = l.at ? new Date(l.at).toISOString() : null;
+  for (const l of last) map.get(l.studentId)!.lastActiveAt = l.at ? l.at.toISOString() : null;
   for (const w of week) map.get(w.studentId)!.sessionsThisWeek = w.n;
   return map;
 }

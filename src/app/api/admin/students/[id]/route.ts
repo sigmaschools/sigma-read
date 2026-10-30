@@ -64,7 +64,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await db.batch(queries as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
     } catch (e) {
       // Unique index on external_id
-      if ((e as { code?: string }).code === "23505") return NextResponse.json({ error: "That Compass ID is already used by another student" }, { status: 409 });
+      // Drizzle may wrap the driver error, so check its cause too
+      const err = e as { code?: string; cause?: { code?: string } };
+      if ((err.code ?? err.cause?.code) === "23505") return NextResponse.json({ error: "That Compass ID is already used by another student" }, { status: 409 });
       throw e;
     }
   }

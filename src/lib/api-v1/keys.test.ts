@@ -34,6 +34,7 @@ import { generateApiKey, hashApiKey, bearerKey, cleanScopes, pageParams, encodeC
   assert.ok("error" in pageParams(new URLSearchParams("limit=101")));
   assert.ok("error" in pageParams(new URLSearchParams("cursor=garbage")));
   assert.equal(decodeCursor(encodeCursor(7)), 7);
+  assert.equal(decodeCursor(encodeCursor(9_999_999_999)), null, "beyond int4");
   console.log("✅ pageParams validates limit and cursor");
 }
 
@@ -43,6 +44,9 @@ import { generateApiKey, hashApiKey, bearerKey, cleanScopes, pageParams, encodeC
   assert.ok(sinceParam("2026-10-01T12:00:00Z") instanceof Date);
   assert.ok(typeof sinceParam("yesterday") === "object" && "error" in (sinceParam("yesterday") as object));
   assert.ok("error" in (sinceParam("2026-13-45") as object));
+  assert.ok("error" in (sinceParam("2026-10-01T12:00:00") as object), "no zone");
+  assert.ok(sinceParam("2026-10-01T12:00:00+05:00") instanceof Date);
+  assert.equal((sinceParam("2026-10-01") as Date).toISOString(), "2026-10-01T00:00:00.000Z");
   console.log("✅ sinceParam accepts ISO dates only");
 }
 

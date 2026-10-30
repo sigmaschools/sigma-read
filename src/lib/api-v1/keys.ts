@@ -55,15 +55,22 @@ export function encodeCursor(id: number): string {
 
 export function decodeCursor(cursor: string): number | null {
   const match = Buffer.from(cursor, "base64url").toString().match(/^id:(\d{1,10})$/);
-  return match ? Number(match[1]) : null;
+  if (!match) return null;
+  const id = Number(match[1]);
+  // Ids are int4
+  return id <= 2_147_483_647 ? id : null;
 }
 
-/** An ISO date or datetime query param, or an error */
+/**
+ * An ISO date (midnight UTC) or a datetime with Z or an offset (a "+" must be sent as %2B),
+ * or an error. A datetime without a zone is refused rather than read in server time.
+ */
 export function sinceParam(value: string | null): Date | null | { error: string } {
   if (value === null) return null;
-  if (!/^\d{4}-\d{2}-\d{2}([T ][\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/.test(value)) return { error: "since must be an ISO 8601 date" };
+  const message = "since must be an ISO 8601 date, or a datetime ending in Z or an offset (send + as %2B)";
+  if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2}))?$/.test(value)) return { error: message };
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? { error: "since must be an ISO 8601 date" } : date;
+  return Number.isNaN(date.getTime()) ? { error: message } : date;
 }
 
 /**

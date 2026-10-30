@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { and, count, eq, gte, isNull } from "drizzle-orm";
+import { and, count, eq, gte, isNull, ne } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { bearerKey, hasScope, hashApiKey, type ApiScope } from "./keys";
 
@@ -41,7 +41,13 @@ export function apiRoute<P = Record<string, never>>(scope: ApiScope, handler: Ha
       res = apiError(403, `This key lacks the ${scope} scope`);
     } else {
       const [recent] = await db.select({ n: count() }).from(schema.apiRequestLog)
-        .where(and(eq(schema.apiRequestLog.clientId, client.id), gte(schema.apiRequestLog.createdAt, new Date(Date.now() - 60_000))));
+        // Rejected calls don't count, so a client that backs off recovers within the minute.
+        // A soft limit: parallel bursts can pass it slightly, since rows are written after the handler.
+        .where(and(
+          eq(schema.apiRequestLog.clientId, client.id),
+          gte(schema.apiRequestLog.createdAt, new Date(Date.now() - 60_000)),
+          ne(schema.apiRequestLog.status, 429),
+        ));
       if (recent.n >= RATE_LIMIT_PER_MINUTE) {
         res = apiError(429, "Rate limit exceeded");
         res.headers.set("Retry-After", "60");
