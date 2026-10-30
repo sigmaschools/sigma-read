@@ -15,20 +15,27 @@ export default function InterestPanel({ studentId, profileInterests }: { student
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
+    // A late answer for a previous student is dropped (callers also key the panel by student)
+    let cancelled = false;
     fetch(`/api/students/${studentId}/interests`)
       .then(r => (r.ok ? r.json() : null))
-      .then(setSummary)
-      .catch(() => setSummary(null));
+      .then(s => { if (!cancelled) setSummary(s); })
+      .catch(() => { if (!cancelled) setSummary(null); });
+    return () => { cancelled = true; };
   }, [studentId]);
 
   async function setRemoved(slug: string, removed: boolean) {
     setBusy(slug);
-    const res = await fetch(`/api/students/${studentId}/interests`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, removed }),
-    }).catch(() => null);
-    if (res?.ok) setSummary(await res.json());
+    try {
+      const res = await fetch(`/api/students/${studentId}/interests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, removed }),
+      });
+      if (res.ok) setSummary(await res.json());
+    } catch {
+      // Leave the panel as it was; the next load shows the true state
+    }
     setBusy(null);
   }
 

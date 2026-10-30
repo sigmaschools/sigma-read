@@ -485,7 +485,7 @@ function ParentPortal() {
                   </div>
 
                   {/* Interests */}
-                  <InterestPanel studentId={selectedChild.id} profileInterests={interests?.interests ?? []} />
+                  <InterestPanel key={selectedChild.id} studentId={selectedChild.id} profileInterests={interests?.interests ?? []} />
 
                   {/* Score Trend */}
                   {chartScores.length >= 2 && (

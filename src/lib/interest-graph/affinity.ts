@@ -81,12 +81,7 @@ export function computeAffinities(signals: Signal[], now = new Date()): Affinity
     const lastReject = lastAt(list, REJECTING);
     const lastDeclare = lastAt(list, DECLARING);
     const rejected = lastReject !== null && (lastDeclare === null || lastDeclare < lastReject);
-    // A topic the student names again after "No more" starts over: only signals since then
-    // count. An adult's restore undoes the removal instead, keeping the history.
-    const restoredLast = list.filter(s => DECLARING.includes(s.signalType)).pop()?.signalType === "restored";
-    const counted = lastReject !== null && !rejected && !restoredLast
-      ? list.filter(s => s.createdAt.getTime() >= lastDeclare!)
-      : list;
+    const counted = list.filter(s => s.createdAt.getTime() >= freshStart(list));
 
     let sum = 0, evidence = 0;
     for (const s of counted) {
@@ -130,6 +125,20 @@ export function latestRatings(signals: Signal[]): Signal[] {
 /** The rating a like/dislike ref belongs to: the ref without its trailing ":<time>" */
 export function ratingKey(sourceRef: string): string {
   return sourceRef.replace(/:\d+$/, "");
+}
+
+/**
+ * A topic the student names again after it was turned off starts over: only signals from then
+ * on count. An adult's restore undoes a removal instead, keeping the history since that start.
+ */
+function freshStart(list: Signal[]): number {
+  let start = 0, off = false;
+  for (const s of list) {
+    if (REJECTING.includes(s.signalType)) off = true;
+    else if (s.signalType === "restored") off = false;
+    else if (off && DECLARING.includes(s.signalType)) { start = s.createdAt.getTime(); off = false; }
+  }
+  return start;
 }
 
 function lastAt(list: Signal[], types: SignalType[]): number | null {

@@ -392,19 +392,28 @@ export async function saveCheckin(studentId: number, answers: { slug: string; an
 export async function interestSummaryFor(studentId: number, now = new Date()) {
   const signals = await getSignals(studentId);
   const firstSeen = new Map<string, Date>();
-  for (const s of signals) if (!firstSeen.has(s.topicSlug)) firstSeen.set(s.topicSlug, s.createdAt);
+  for (const s of signals) {
+    const seen = firstSeen.get(s.topicSlug);
+    if (!seen || s.createdAt < seen) firstSeen.set(s.topicSlug, s.createdAt);
+  }
   const summary = summarizeInterests(computeAffinities(signals, now), firstSeen, now);
   const labels = await topicLabels([...summary.current, ...summary.fading, ...summary.removed].map(t => t.slug));
   const label = <T extends { slug: string }>(list: T[]) => list.filter(t => labels.has(t.slug)).map(t => ({ ...t, label: labels.get(t.slug)! }));
   return { current: label(summary.current), fading: label(summary.fading), removed: label(summary.removed) };
 }
 
-/** An adult takes a topic off a student's interests, or puts it back */
-export async function setTopicRemoved(studentId: number, topicSlug: string, removed: boolean, by: { role: string; userId: number }) {
+/**
+ * An adult takes a topic off a student's interests, or puts it back. Only a change counts:
+ * removing a topic the student has no history with, or restoring one that isn't removed, does nothing.
+ */
+export async function setTopicRemoved(studentId: number, topicSlug: string, removed: boolean, by: { role: string; userId: number }): Promise<boolean> {
+  const current = (await getAffinities(studentId)).find(a => a.topicSlug === topicSlug);
+  if (!current || (current.status === "rejected") === removed) return false;
   await recordSignals([{
     studentId, topicSlug, type: removed ? "removed" : "restored",
     sourceRef: `adult:${by.role}:${by.userId}:${Date.now()}`,
   }]);
+  return true;
 }
 
 // ─── Backfill ─────────────────────────────────────────────────────────────────

@@ -423,7 +423,7 @@ export default function StudentDetailPage() {
         {activeTab === "overview" && (
           <>
             {/* Interests */}
-            <InterestPanel studentId={student.id} profileInterests={interests?.interests ?? []} />
+            <InterestPanel key={student.id} studentId={student.id} profileInterests={interests?.interests ?? []} />
 
             {/* Score Trend — only when meaningful variation exists */}
             {chartScores.length >= 2 && (

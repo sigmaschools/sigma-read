@@ -29,5 +29,15 @@ const sig = (topicSlug: string, signalType: SignalType, age: number): Signal =>
   const restored = computeAffinities([sig("chess", "liked", 3), sig("chess", "removed", 2), sig("chess", "restored", 1)], NOW);
   assert.equal(restored[0].status, "declared", "an adult can restore a removed topic");
   assert.ok(restored[0].score > 0.28, "restoring keeps the topic's history");
+  // The student reset the topic by naming it again; an adult's later remove and restore keeps that reset
+  const reset = computeAffinities([
+    sig("chess", "disliked", 40, { sourceRef: "article:1:rating:chess:0" }), sig("chess", "disliked", 39, { sourceRef: "article:2:rating:chess:0" }),
+    sig("chess", "checkin_reject", 30), sig("chess", "typed_interest", 20),
+    sig("chess", "removed", 10), sig("chess", "restored", 5),
+  ], NOW);
+  assert.equal(reset[0].status, "declared");
+  assert.ok(reset[0].score > 0.5, "restoring doesn't bring back dislikes from before the student's own reset");
+  const declinedThenRemoved = computeAffinities([sig("cars", "onboarding", 200), sig("cars", "disliked", 5, { sourceRef: "article:3:rating:cars:0" }), sig("cars", "disliked", 4, { sourceRef: "article:4:rating:cars:0" })], NOW);
+  assert.deepEqual(summarizeInterests(declinedThenRemoved, new Map(), NOW).fading.map(f => f.slug), ["cars"], "a declared topic that turned negative still shows as fading");
   console.log("✅ removed and restored");
 }
