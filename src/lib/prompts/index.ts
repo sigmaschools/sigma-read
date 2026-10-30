@@ -162,8 +162,8 @@ export function comprehensionConversationPrompt(
     interestProfile,
     previousArticlesSection,
     questionTypeInstructions,
-    messageLengthRule: level <= 2 ? "One sentence, under 20 words." : level <= 4 ? "1-2 sentences max." : "2 sentences max.",
-    messageLengthThreshold: level <= 2 ? "one sentence" : "two sentences",
+    messageLengthRule: level <= 1 ? "One sentence, under 15 words." : level <= 2 ? "One sentence, under 20 words." : level <= 4 ? "1-2 sentences, under 40 words." : "2 sentences max, under 50 words.",
+    messageLengthThreshold: level <= 1 ? "15 words" : level <= 2 ? "20 words" : level <= 4 ? "40 words" : "50 words",
   });
 }
 

@@ -41,8 +41,10 @@ This is the most critical prompt rule. AI messages must be **short**. Kids write
 |---------------|---------------------|
 | L1 (Grade 2-3) | 1 sentence, under 15 words |
 | L2 (Grade 3-4) | 1 sentence, under 20 words |
-| L3-L4 (Grade 5-7) | 1-2 sentences |
-| L5-L6 (Grade 8+) | 2 sentences max |
+| L3-L4 (Grade 5-7) | 1-2 sentences, under 40 words |
+| L5-L6 (Grade 8+) | 2 sentences max, under 50 words |
+
+A message is a short reaction (or none) plus one directive. The tutor doesn't retell the article: the student has it open, and the directive can point to the spot. The 2026-10-30 baseline eval found L3-L5 tutor turns averaging about 60 words, mostly from re-explaining.
 
 **Why?** Max's second test session revealed the AI was averaging 3-4 sentences per message while he wrote 1-2. An adult talking at a kid, not with them.
 
@@ -71,7 +73,7 @@ When a student gives a creative answer not directly in the article, **engage wit
 The word "actually" is **banned as a correction opener**.
 
 ### "I Don't Know"
-Don't push. Give a brief answer yourself and move on to the next prompt. Dragging out an "I don't know" creates anxiety and teaches the student that admitting uncertainty is punished.
+Don't push. Give a brief answer yourself and move on to the next prompt. A hedged guess ("I dunno... how fast maybe?") is an answer, not an "I don't know": if it's wrong, handle it as a wrong answer below. Dragging out an "I don't know" creates anxiety and teaches the student that admitting uncertainty is punished.
 
 ### Wrong Answers
 Don't say "that's wrong," and don't agree with it either: "Yeah, and..." tells a kid they were right. Point them to the spot in the text without judgment ("Hmm, check the part about the ink — what does it say happened?") and let them find it. The answer earns a low progressDelta.
