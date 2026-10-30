@@ -64,7 +64,11 @@ export default function AdminApiClientsPage() {
 
   async function revoke(c: ApiClientRow) {
     if (!confirm(`Revoke the key for ${c.name}? Anything using it stops working right away.`)) return;
-    await fetch(`/api/admin/api-clients/${c.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/api-clients/${c.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't revoke the key");
+    }
     load();
   }
 

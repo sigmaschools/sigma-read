@@ -36,7 +36,7 @@ Lists are cursor-paginated: pass the response's `nextCursor` back as `cursor` un
 
 ## Audit and limits
 
-Every authenticated call writes an `api_request_log` row (client, method, path with query, status). A key is limited to 120 calls a minute (429 with `Retry-After: 60`). Rejected calls don't count toward it, and it is a soft limit: a burst of parallel calls can pass it slightly. Responses carry `Cache-Control: no-store`.
+Every authenticated call writes an `api_request_log` row (client, method, path with query, status). A key is limited to 120 calls a minute (429 with `Retry-After: 60`). Rejected calls don't count toward it, and it is a soft limit: a burst of parallel calls can pass it slightly. The limit counts log rows, so if log writes fail (logged as `api_request_log write failed`), calls are neither recorded nor limited until they recover; the response is still returned. Responses carry `Cache-Control: no-store`.
 
 ## Not in v1
 
