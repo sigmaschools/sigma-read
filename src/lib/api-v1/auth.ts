@@ -1,0 +1,90 @@
+/**
+ * Authentication, scopes, rate limiting and the audit log for /api/v1 routes.
+ *
+ *   export const GET = apiRoute("students:read", async (req, client) => { ... });
+ *
+ * Every call with a recognised key (allowed or not, revoked included) gets an api_request_log row.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { and, count, eq, gte, ne } from "drizzle-orm";
+import { db, schema } from "@/lib/db";
+import { bearerKey, hasScope, hashApiKey, type ApiScope } from "./keys";
+
+export type ApiClient = typeof schema.apiClients.$inferSelect;
+
+/** Requests per key per minute */
+export const RATE_LIMIT_PER_MINUTE = 120;
+
+export function apiError(status: number, message: string) {
+  return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+export function apiJson(body: unknown) {
+  return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
+}
+
+type Handler<P> = (req: NextRequest, client: ApiClient, params: P) => Promise<NextResponse>;
+
+export function apiRoute<P = Record<string, never>>(scope: ApiScope, handler: Handler<P>) {
+  return async (req: NextRequest, ctx: { params: Promise<P> }) => {
+    const key = bearerKey(req.headers.get("authorization"));
+    if (!key) return apiError(401, "Missing or malformed API key");
+
+    let client: ApiClient | undefined;
+    try {
+      [client] = await db.select().from(schema.apiClients)
+        .where(eq(schema.apiClients.keyHash, hashApiKey(key)))
+        .limit(1);
+    } catch (e) {
+      console.error("api/v1 key lookup failed:", e);
+      return apiError(500, "Internal error");
+    }
+    if (!client) return apiError(401, "Invalid or revoked API key");
+
+    let res: NextResponse;
+    try {
+      // A revoked key still gets a log row, so attempts with a leaked key show up
+      if (client.revokedAt) {
+        res = apiError(401, "Invalid or revoked API key");
+      } else if (!hasScope(client.scopes, scope)) {
+        res = apiError(403, `This key lacks the ${scope} scope`);
+      } else {
+        // Fails closed: if the count can't be read, the call is a 500, not unlimited
+        const [recent] = await db.select({ n: count() }).from(schema.apiRequestLog)
+          // Rejected calls don't count, so a client that backs off recovers within the minute.
+          // A soft limit: parallel bursts can pass it slightly, since rows are written after the handler.
+          .where(and(
+            eq(schema.apiRequestLog.clientId, client.id),
+            gte(schema.apiRequestLog.createdAt, new Date(Date.now() - 60_000)),
+            ne(schema.apiRequestLog.status, 429),
+          ));
+        if (recent.n >= RATE_LIMIT_PER_MINUTE) {
+          res = apiError(429, "Rate limit exceeded");
+          res.headers.set("Retry-After", "60");
+        } else {
+          res = await handler(req, client, await ctx.params);
+        }
+      }
+    } catch (e) {
+      console.error("api/v1 error:", req.nextUrl.pathname, e);
+      res = apiError(500, "Internal error");
+    }
+
+    // The audit trail must not break the response
+    const logRow = db.insert(schema.apiRequestLog).values({ clientId: client.id, method: req.method, path: req.nextUrl.pathname + req.nextUrl.search, status: res.status });
+    await (client.revokedAt
+      ? logRow
+      : db.batch([logRow, db.update(schema.apiClients).set({ lastUsedAt: new Date() }).where(eq(schema.apiClients.id, client.id))])
+    ).catch(e => console.error("api_request_log write failed:", e));
+    return res;
+  };
+}
+
+/** The student, if it exists and this client may see it (a client tied to a guide sees only that guide's students) */
+export async function visibleStudent(client: ApiClient, studentId: number) {
+  if (!Number.isInteger(studentId) || studentId <= 0) return null;
+  const [student] = await db.select().from(schema.students).where(eq(schema.students.id, studentId)).limit(1);
+  if (!student || (client.guideId !== null && student.guideId !== client.guideId)) return null;
+  return student;
+}
