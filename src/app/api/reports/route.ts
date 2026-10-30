@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
   const staff = session.role === "guide" || session.role === "admin";
   const visible = staff
     ? sessions
-    : sessions.map(s => ({ ...s, guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null }));
+    : sessions.map(s => ({ ...s, forcedClose: null, guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null }));
 
   // Separate completed from in-progress for the client
   const completed = visible.filter(s => s.completedAt !== null);
