@@ -4,6 +4,8 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, and, sql } from "drizzle-orm";
 import { getServingLevels } from "@/lib/level-progression";
+import { getAffinities, topicsForCache } from "@/lib/interest-graph";
+import { pickForFeed } from "@/lib/interest-graph/serving";
 
 // Serve pre-cached articles to a student based on their reading level and feed mix.
 // Respects: no repeats (via student_article_history), daily cap, buffer management, gradual mix.
@@ -54,47 +56,47 @@ export async function POST(req: NextRequest) {
   const feedMix = student.feedMix as any;
   const servingLevels = getServingLevels(level, feedMix, 3);
 
-  // Group levels needed and fetch articles for each
-  const toServe: (typeof schema.articleCache.$inferSelect & { _serveLevel: number })[] = [];
-  const levelCounts = new Map<number, number>();
-  for (const l of servingLevels) {
-    levelCounts.set(l, (levelCounts.get(l) || 0) + 1);
-  }
-
-  for (const [serveLevel, count] of levelCounts) {
-    // News articles expire after 7 days — don't serve stale news to new students
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
+  // Candidate pool per level: unseen, unflagged, news no older than 7 days. Falls back to an
+  // adjacent level when a level has nothing left.
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const fetchPool = async (l: number) => {
     const cached = await db.select().from(schema.articleCache)
       .where(and(
-        eq(schema.articleCache.readingLevel, serveLevel),
+        eq(schema.articleCache.readingLevel, l),
         eq(schema.articleCache.flagged, false),
         sql`(${schema.articleCache.category} != 'news' OR ${schema.articleCache.generatedDate} IS NULL OR ${schema.articleCache.generatedDate} >= ${sevenDaysAgo.toISOString().split('T')[0]})`,
       ))
       .orderBy(sql`RANDOM()`)
-      .limit(20);
-
-    let available = cached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
-
-    // Fallback: if no articles at this level, try adjacent levels
-    if (available.length === 0) {
-      const fallbackLevel = serveLevel < 6 ? serveLevel + 1 : serveLevel - 1;
-      const fallbackCached = await db.select().from(schema.articleCache)
-        .where(and(
-          eq(schema.articleCache.readingLevel, fallbackLevel),
-          eq(schema.articleCache.flagged, false),
-          sql`(${schema.articleCache.category} != 'news' OR ${schema.articleCache.generatedDate} IS NULL OR ${schema.articleCache.generatedDate} >= ${sevenDaysAgo.toISOString().split('T')[0]})`,
-        ))
-        .orderBy(sql`RANDOM()`)
-        .limit(20);
-      available = fallbackCached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
-    }
-
-    for (const a of available.slice(0, count)) {
-      toServe.push({ ...a, _serveLevel: serveLevel });
-    }
+      .limit(60);
+    return cached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
+  };
+  const pools = new Map<number, typeof schema.articleCache.$inferSelect[]>();
+  for (const l of new Set(servingLevels)) {
+    let pool = await fetchPool(l);
+    if (pool.length === 0) pool = await fetchPool(l < 6 ? l + 1 : l - 1);
+    pools.set(l, pool);
   }
+
+  // Rank by the student's interests, with every third slot exploring (see interest-graph/serving)
+  const allIds = [...pools.values()].flat().map(a => a.id);
+  const [affinities, cacheTopics] = await Promise.all([
+    getAffinities(student.id).catch(e => { console.error("Affinities unavailable, serving unranked:", e); return []; }),
+    topicsForCache(allIds).catch(() => new Map<number, string[]>()),
+  ]);
+  const affinityMap = new Map(affinities.map(a => [a.topicSlug, a]));
+  const avoid = new Set<string>();
+  const taken = new Set<number>();
+  const toServe: (typeof schema.articleCache.$inferSelect & { _serveLevel: number })[] = [];
+  servingLevels.forEach((serveLevel, position) => {
+    const pool = (pools.get(serveLevel) ?? [])
+      .filter(a => !taken.has(a.id) && !toServe.some(t => t.title === a.title))
+      .map(a => ({ id: a.id, topics: cacheTopics.get(a.id) ?? [], article: a }));
+    const [pick] = pickForFeed(pool, affinityMap, 1, { startPosition: position, avoid });
+    if (!pick) return;
+    taken.add(pick.id);
+    toServe.push({ ...pick.article, _serveLevel: serveLevel });
+  });
 
   if (toServe.length === 0) {
     return NextResponse.json({ message: "No new articles available", count: 0 });

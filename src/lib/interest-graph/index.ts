@@ -11,13 +11,14 @@
  */
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { tracked } from "../ai-usage";
 import { parseJsonResponse } from "../claude-json";
 import { MODELS } from "../models";
 import { normalizeInterestProfile } from "../normalize-interests";
-import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type SignalType } from "./affinity";
+import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type Signal, type SignalType } from "./affinity";
+import { checkinDue, checkinTopics } from "./checkin";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
 
 export { SIGNALS, type Affinity, type SignalType } from "./affinity";
@@ -157,6 +158,11 @@ export async function recordSignals(inputs: SignalInput[]): Promise<void> {
 
 /** A student's affinities, strongest first, including rejected topics (score 0, status "rejected") */
 export async function getAffinities(studentId: number, now = new Date()): Promise<Affinity[]> {
+  return computeAffinities(await getSignals(studentId), now);
+}
+
+/** Every topic signal for a student, oldest first */
+export async function getSignals(studentId: number): Promise<Signal[]> {
   const rows = await db.select({
     topicSlug: schema.interestSignals.topicSlug,
     signalType: schema.interestSignals.signalType,
@@ -164,8 +170,9 @@ export async function getAffinities(studentId: number, now = new Date()): Promis
     sourceRef: schema.interestSignals.sourceRef,
     createdAt: schema.interestSignals.createdAt,
   }).from(schema.interestSignals)
-    .where(and(eq(schema.interestSignals.studentId, studentId), isNotNull(schema.interestSignals.topicSlug)));
-  return computeAffinities(rows.map(r => ({ ...r, topicSlug: r.topicSlug!, signalType: r.signalType as SignalType })), now);
+    .where(and(eq(schema.interestSignals.studentId, studentId), isNotNull(schema.interestSignals.topicSlug)))
+    .orderBy(schema.interestSignals.createdAt);
+  return rows.map(r => ({ ...r, topicSlug: r.topicSlug!, signalType: r.signalType as SignalType }));
 }
 
 /** Record a "Still into these?" answer for one topic */
@@ -224,6 +231,18 @@ export async function tagCacheArticle(articleCacheId: number, phrases: string[],
     .values(slugs.map((topicSlug, i) => ({ articleCacheId, topicSlug, role: i === 0 ? "primary" : "secondary" })))
     .onConflictDoNothing();
   return slugs;
+}
+
+/** Topics of cache articles (adaptations report their base article's tags) */
+export async function topicsForCache(cacheIds: number[]): Promise<Map<number, string[]>> {
+  const out = new Map<number, string[]>();
+  if (cacheIds.length === 0) return out;
+  const c = schema.articleCache;
+  const rows = await db.select({ id: c.id, tag: schema.articleTopics.topicSlug }).from(c)
+    .innerJoin(schema.articleTopics, eq(schema.articleTopics.articleCacheId, sql`COALESCE(${c.baseArticleId}, ${c.id})`))
+    .where(inArray(c.id, cacheIds));
+  for (const r of rows) out.set(r.id, [...(out.get(r.id) ?? []), r.tag]);
+  return out;
 }
 
 /**
@@ -310,6 +329,44 @@ export async function tagUntaggedCache(limit = 500): Promise<number> {
   let tagged = 0;
   for (const a of untagged) if ((await tagCacheArticle(a.id, [a.topic])).length > 0) tagged++;
   return tagged;
+}
+
+// ─── "Still into these?" ──────────────────────────────────────────────────────
+
+const CHECKIN_EVENT = "interest_checkin";
+
+/**
+ * The topics to ask about today, or [] when no check-in is due. Call only once the student has
+ * reached the daily goal; the page shows this instead of the "tomorrow" question.
+ */
+export async function checkinFor(studentId: number, now = new Date()): Promise<{ slug: string; label: string }[]> {
+  const [last] = await db.select({ at: schema.articleFeedEvents.createdAt }).from(schema.articleFeedEvents)
+    .where(and(eq(schema.articleFeedEvents.studentId, studentId), eq(schema.articleFeedEvents.eventType, CHECKIN_EVENT)))
+    .orderBy(desc(schema.articleFeedEvents.createdAt)).limit(1);
+  const signals = await getSignals(studentId);
+  if (!checkinDue(last?.at ?? null, signals[0]?.createdAt ?? null, now)) return [];
+
+  const since = new Date(now.getTime() - 30 * 86_400_000);
+  const served = await db.select({ id: schema.articles.id }).from(schema.articles)
+    .where(and(eq(schema.articles.studentId, studentId), gte(schema.articles.createdAt, since)));
+  const servedCounts = new Map<string, number>();
+  for (const topics of (await topicsForArticles(served.map(a => a.id))).values()) {
+    for (const t of topics) servedCounts.set(t, (servedCounts.get(t) ?? 0) + 1);
+  }
+  const rejected = new Set(computeAffinities(signals, now).filter(a => a.status === "rejected").map(a => a.topicSlug));
+  const slugs = checkinTopics(signals, servedCounts, rejected, now);
+  const labels = await topicLabels(slugs);
+  return slugs.filter(s => labels.has(s)).map(slug => ({ slug, label: labels.get(slug)! }));
+}
+
+export type CheckinAnswer = "keep" | "less" | "reject";
+
+/** Save a check-in (answered or skipped). It counts as asked either way, so the next is two weeks out. */
+export async function saveCheckin(studentId: number, answers: { slug: string; answer: CheckinAnswer }[]) {
+  const [event] = await db.insert(schema.articleFeedEvents)
+    .values({ studentId, eventType: CHECKIN_EVENT, metadata: { answers } })
+    .returning({ id: schema.articleFeedEvents.id });
+  for (const a of answers) await recordCheckin(studentId, a.slug, a.answer, String(event.id));
 }
 
 // ─── Backfill ─────────────────────────────────────────────────────────────────
