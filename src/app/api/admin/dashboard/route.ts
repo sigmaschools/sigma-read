@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { chicagoNow } from "@/lib/batch/runs";
 import { sql, eq, gte, count, desc, and } from "drizzle-orm";
 
 export async function GET() {
@@ -70,13 +71,26 @@ export async function GET() {
     alerts.push(`Only ${baseCount.count} base articles in cache`);
   }
 
-  // Morning batch check
-  if (latestBatch?.date) {
-    const batchDate = new Date(latestBatch.date);
-    const hoursSince = (now.getTime() - batchDate.getTime()) / (1000 * 60 * 60);
-    if (hoursSince > 36) {
-      alerts.push(`Morning batch hasn't run in ${Math.round(hoursSince)} hours`);
-    }
+  // Morning batch check, from the cron's run log (batch_runs)
+  const batchRuns = await db.select({
+    runDate: schema.batchRuns.runDate,
+    status: schema.batchRuns.status,
+    attempts: schema.batchRuns.attempts,
+    startedAt: schema.batchRuns.startedAt,
+    finishedAt: schema.batchRuns.finishedAt,
+    counts: schema.batchRuns.counts,
+    lastError: schema.batchRuns.lastError,
+  }).from(schema.batchRuns).orderBy(desc(schema.batchRuns.runDate)).limit(7)
+    .then(rows => ({ rows, ok: true }))
+    .catch(e => { console.error("batch_runs query failed:", e); return { rows: [], ok: false }; });
+  const chicago = chicagoNow(now);
+  const todaysRun = batchRuns.rows.find(r => r.runDate === chicago.date);
+  if (!batchRuns.ok) {
+    alerts.push("Couldn't read the morning batch log (batch_runs)");
+  } else if (chicago.hour >= 7 && todaysRun?.status !== "complete") {
+    alerts.push(todaysRun
+      ? `Morning batch is ${todaysRun.status} after ${todaysRun.attempts} attempt${todaysRun.attempts === 1 ? "" : "s"}${todaysRun.lastError ? `: ${todaysRun.lastError.slice(0, 200)}` : ""}`
+      : "Morning batch hasn't run today");
   }
 
   // Level changes this week
@@ -107,6 +121,7 @@ export async function GET() {
       totalVersions: Object.values(cacheMap).reduce((a, b) => a + b, 0),
       lastBatchDate: latestBatch?.date || null,
     },
+    batchRuns: batchRuns.rows,
     guides: allGuides,
     alerts,
   });
