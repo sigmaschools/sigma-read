@@ -396,7 +396,11 @@ export async function interestSummaryFor(studentId: number, now = new Date()) {
     const seen = firstSeen.get(s.topicSlug);
     if (!seen || s.createdAt < seen) firstSeen.set(s.topicSlug, s.createdAt);
   }
-  const summary = summarizeInterests(computeAffinities(signals, now), firstSeen, now);
+  // Topics whose latest remove/restore was a restore
+  const toggles = new Map<string, string>();
+  for (const s of signals) if (s.signalType === "removed" || s.signalType === "restored") toggles.set(s.topicSlug, s.signalType);
+  const restored = new Set([...toggles].filter(([, t]) => t === "restored").map(([slug]) => slug));
+  const summary = summarizeInterests(computeAffinities(signals, now), firstSeen, now, restored);
   const labels = await topicLabels([...summary.current, ...summary.fading, ...summary.removed].map(t => t.slug));
   const label = <T extends { slug: string }>(list: T[]) => list.filter(t => labels.has(t.slug)).map(t => ({ ...t, label: labels.get(t.slug)! }));
   return { current: label(summary.current), fading: label(summary.fading), removed: label(summary.removed) };

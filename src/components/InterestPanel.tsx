@@ -62,7 +62,7 @@ export default function InterestPanel({ studentId, profileInterests }: { student
                   <button
                     onClick={() => setRemoved(t.slug, true)}
                     disabled={busy === t.slug}
-                    title={`Stop serving ${t.label}`}
+                    title={`Take ${t.label} off their interests`}
                     aria-label={`Remove ${t.label}`}
                     className="ml-0.5 w-5 h-5 rounded-full hover:bg-[var(--accent)]/20 leading-none disabled:opacity-40"
                   >

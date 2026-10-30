@@ -39,5 +39,7 @@ const sig = (topicSlug: string, signalType: SignalType, age: number, extra: Part
   assert.ok(reset[0].score > 0.5, "restoring doesn't bring back dislikes from before the student's own reset");
   const declaredTurnedNegative = computeAffinities([sig("cars", "onboarding", 200), sig("cars", "disliked", 5, { sourceRef: "article:3:rating:cars:0" }), sig("cars", "disliked", 4, { sourceRef: "article:4:rating:cars:0" })], NOW);
   assert.deepEqual(summarizeInterests(declaredTurnedNegative, new Map(), NOW).fading.map(f => f.slug), ["cars"], "a declared topic that turned negative still shows as fading");
+  const faint = computeAffinities([sig("knots", "chose_article", 120), sig("knots", "removed", 10), sig("knots", "restored", 1)], NOW);
+  assert.deepEqual(summarizeInterests(faint, new Map(), NOW, new Set(["knots"])).fading.map(f => f.slug), ["knots"], "a restored topic with a faint score still shows");
   console.log("✅ removed and restored");
 }
