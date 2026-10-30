@@ -49,5 +49,8 @@ function endsWithPrompt(text: string): boolean {
   if (endsWithQuestion(text)) return true;
   const last = text.split(/(?<=[.!?])\s+/).pop() || text;
   // The directive can open the sentence or follow a dash, colon or "so": "Check the part about X — tell me what..."
-  return /(^|[—–:;,]\s*|\s-\s|\bso\s)(and |now |ok,? |okay,? )?(tell|walk|explain|describe|show|talk|say|pick|imagine|think|give|look|find|share|name|compare|check)\b/i.test(last);
+  const verbs = "tell|walk|explain|describe|show|talk|say|pick|imagine|think|give|look|find|share|name|compare|check";
+  if (new RegExp(`(^|[—–:;]\\s*|\\s-\\s|\\bso\\s)(and |now |ok,? |okay,? )?(${verbs})\\b`, "i").test(last)) return true;
+  // After a comma only the unambiguous forms count: "..., tell me why" but not "Yeah, give or take"
+  return /,\s*(tell|walk) me\b/i.test(last);
 }
