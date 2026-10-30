@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { guideOwnsStudent } from "@/lib/ownership";
 import { REPORT_FLAGS, type ReportFlag } from "@/lib/skills";
-import { eq } from "drizzle-orm";
+import { and, eq, or, isNull, ne, type SQL } from "drizzle-orm";
 
 /** The report's student, or null if it doesn't exist */
 async function reportStudentId(reportId: number): Promise<number | null> {
@@ -16,6 +16,19 @@ async function reportStudentId(reportId: number): Promise<number | null> {
     .limit(1);
   return row?.studentId ?? null;
 }
+
+/**
+ * Rows this caller may change: admins any, guides only ones an admin hasn't flagged.
+ * Part of the UPDATE itself, so a guide can't overwrite or clear an admin's flag.
+ */
+function writable(reportId: number, role: string): SQL {
+  const r = schema.comprehensionReports;
+  return role === "admin"
+    ? eq(r.id, reportId)
+    : and(eq(r.id, reportId), or(isNull(r.guideFlaggedRole), ne(r.guideFlaggedRole, "admin")))!;
+}
+
+const adminFlagged = () => NextResponse.json({ error: "This report was flagged by an admin" }, { status: 403 });
 
 /** Guides may flag reports for their own students; admins for anyone */
 async function authorize(id: string) {
@@ -44,32 +57,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (flag === "other" && !note) return NextResponse.json({ error: "Add a note saying what's off" }, { status: 400 });
 
   const flaggedAt = new Date();
-  await db.update(schema.comprehensionReports).set({
+  const updated = await db.update(schema.comprehensionReports).set({
     guideFlag: flag,
     guideNote: note || null,
     guideFlaggedBy: auth.session.userId,
     guideFlaggedRole: auth.session.role,
     guideFlaggedAt: flaggedAt,
-  }).where(eq(schema.comprehensionReports.id, auth.reportId));
+  }).where(writable(auth.reportId, auth.session.role)).returning({ id: schema.comprehensionReports.id });
+  if (updated.length === 0) return adminFlagged();
 
   return NextResponse.json({ guideFlag: flag, guideNote: note || null, guideFlaggedAt: flaggedAt, guideFlaggedRole: auth.session.role });
 }
 
 /** Withdraw a flag */
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authorize((await params).id);
   if ("error" in auth) return auth.error;
 
-  // A guide can't withdraw an admin's flag
-  if (auth.session.role === "guide") {
-    const [report] = await db.select({ role: schema.comprehensionReports.guideFlaggedRole })
-      .from(schema.comprehensionReports).where(eq(schema.comprehensionReports.id, auth.reportId)).limit(1);
-    if (report?.role === "admin") return NextResponse.json({ error: "This flag was set by an admin" }, { status: 403 });
-  }
-
-  await db.update(schema.comprehensionReports).set({
+  const updated = await db.update(schema.comprehensionReports).set({
     guideFlag: null, guideNote: null, guideFlaggedBy: null, guideFlaggedRole: null, guideFlaggedAt: null,
-  }).where(eq(schema.comprehensionReports.id, auth.reportId));
+  }).where(writable(auth.reportId, auth.session.role)).returning({ id: schema.comprehensionReports.id });
+  if (updated.length === 0) return adminFlagged();
 
   return NextResponse.json({ guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null });
 }
