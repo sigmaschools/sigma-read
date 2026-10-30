@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date, numeric, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date, numeric, real, uniqueIndex, index } from "drizzle-orm/pg-core";
 
 export const generatedTopics = pgTable("generated_topics", {
   id: serial("id").primaryKey(),
@@ -301,3 +301,63 @@ export const apiRequestLog = pgTable("api_request_log", {
   status: integer("status").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, t => [index("api_request_log_client_time_idx").on(t.clientId, t.createdAt)]);
+
+// ─── Interest graph (see src/lib/interest-graph) ─────────────────────────────
+// Topics and signals refer to topics by slug, a stable ID that will travel to Compass.
+
+// The shared topic map: domain → category → topic
+export const topics = pgTable("topics", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull(),
+  label: text("label").notNull(),
+  parentSlug: text("parent_slug"),
+  domain: text("domain").notNull(), // the top-level topic's slug
+  safetyStatus: varchar("safety_status", { length: 20 }).default("approved").notNull(), // approved, pending, blocked
+  wikidataId: text("wikidata_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, t => [uniqueIndex("topics_slug_unique").on(t.slug)]);
+
+// Free text → topic. `alias` is stored normalized (see normalizePhrase in interest-graph/resolve.ts)
+export const topicAliases = pgTable("topic_aliases", {
+  id: serial("id").primaryKey(),
+  alias: text("alias").notNull(),
+  topicSlug: text("topic_slug").notNull(),
+  origin: varchar("origin", { length: 20 }).default("seed").notNull(), // seed, ai, admin
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, t => [uniqueIndex("topic_aliases_alias_unique").on(t.alias)]);
+
+// Links across the tree (parents and siblings are related through parentSlug already)
+export const topicRelations = pgTable("topic_relations", {
+  id: serial("id").primaryKey(),
+  fromSlug: text("from_slug").notNull(),
+  toSlug: text("to_slug").notNull(),
+  relation: varchar("relation", { length: 20 }).default("related").notNull(),
+  weight: real("weight").default(1).notNull(),
+  origin: varchar("origin", { length: 20 }).default("seeded").notNull(), // seeded, learned
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, t => [uniqueIndex("topic_relations_pair_unique").on(t.fromSlug, t.toSlug, t.relation)]);
+
+// Topics of a base cache article; its level adaptations share them (via base_article_id)
+export const articleTopics = pgTable("article_topics", {
+  id: serial("id").primaryKey(),
+  articleCacheId: integer("article_cache_id").notNull(),
+  topicSlug: text("topic_slug").notNull(),
+  role: varchar("role", { length: 10 }).default("primary").notNull(), // primary, secondary
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, t => [uniqueIndex("article_topics_article_topic_unique").on(t.articleCacheId, t.topicSlug)]);
+
+// Append-only log of what each student did, the source of truth for affinities
+export const interestSignals = pgTable("interest_signals", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull(),
+  topicSlug: text("topic_slug"), // null when the phrase didn't match a topic yet
+  phrase: text("phrase"), // the student's own words, when the signal came from text
+  signalType: varchar("signal_type", { length: 30 }).notNull(),
+  weight: real("weight").notNull(),
+  sourceApp: varchar("source_app", { length: 30 }).default("sigmaread").notNull(),
+  sourceRef: text("source_ref"), // what produced it, e.g. "article:123"; makes re-recording a no-op
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, t => [
+  uniqueIndex("interest_signals_source_unique").on(t.studentId, t.signalType, t.sourceRef),
+  index("interest_signals_student_time_idx").on(t.studentId, t.createdAt),
+]);

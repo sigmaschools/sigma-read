@@ -10,6 +10,7 @@ import { INTEREST_INTERVIEW, READING_LEVEL_ASSESSMENT } from "@/lib/prompts";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { getWelcomeArticle } from "@/lib/welcome-article";
+import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 
 const anthropic = new Anthropic();
 
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
           onboardingComplete: true,
         })
         .where(eq(schema.students.id, session.userId));
+      await quietly(recordDeclaredInterests(session.userId, profile.interests, "onboarding", { client: anthropic }), "onboarding interests");
 
       // Insert welcome tutorial article only if one doesn't already exist
       // (prevents duplicates on account reset + re-onboarding).
