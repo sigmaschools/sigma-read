@@ -42,6 +42,10 @@ import { ratingForScore, verifiedEvidence, reportConfidence, clampScore } from "
     { skill: "vocabulary", quote: "" },
   ], said);
   assert.deepEqual(kept.map(e => e.quote), ["squirts ink and swims away", "three hearts"]);
+  assert.equal(verifiedEvidence([{ skill: "key_details", quote: "ink" }], ["i think so"]).length, 0, "no match inside a word");
+  assert.equal(verifiedEvidence([{ skill: "key_details", quote: "la pieuvre a trois cœurs" }], ["La pieuvre a trois cœurs!"]).length, 1, "non-ASCII text matches");
+  const many = Array.from({ length: 5 }, () => ({ skill: "key_details" as const, quote: "three hearts" }));
+  assert.equal(verifiedEvidence(many, said).length, 3, "capped at 3");
   console.log("✅ verifiedEvidence keeps only real student quotes");
 }
 

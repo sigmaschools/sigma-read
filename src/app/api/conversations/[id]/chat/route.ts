@@ -231,7 +231,11 @@ async function saveComprehensionReport(args: {
         output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
       });
       report = parseJsonResponse<ComprehensionReport>(reportResponse);
-      if (!report) console.error(`Report attempt ${attempt} unusable (stop_reason: ${reportResponse.stop_reason})`);
+      if (!report) {
+        console.error(`Report attempt ${attempt} unusable (stop_reason: ${reportResponse.stop_reason})`);
+        // A refusal won't change on an identical retry
+        if (reportResponse.stop_reason === "refusal") break;
+      }
     } catch (e) {
       console.error(`Report attempt ${attempt} failed:`, e);
     }
