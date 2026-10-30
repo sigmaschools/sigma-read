@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
+import { tracked } from "@/lib/ai-usage";
 import { batchPlannerPrompt, articleGenerationPrompt } from "@/lib/prompts";
 
 const anthropic = new Anthropic();
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
   const interests = JSON.stringify(student.interestProfile);
 
   // Step 1: Plan the batch (fast model)
-  const planResponse = await anthropic.messages.create({
+  const planResponse = await tracked(anthropic, "article_generate", student.id).messages.create({
     model: MODELS.light,
     max_tokens: 1024,
     messages: [{ role: "user", content: batchPlannerPrompt(student.readingLevel, interests, existingArticles.map(a => a.title), count) }],
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
   // Step 2: Generate articles in parallel (Sonnet for quality + speed)
   const results = await Promise.allSettled(
     topics.slice(0, count).map(async (t) => {
-      const artResponse = await anthropic.messages.create({
+      const artResponse = await tracked(anthropic, "article_generate", student.id).messages.create({
         model: MODELS.standard,
         max_tokens: 2048,
         messages: [{ role: "user", content: articleGenerationPrompt(student.readingLevel || 2, t.topic, t.type) }],

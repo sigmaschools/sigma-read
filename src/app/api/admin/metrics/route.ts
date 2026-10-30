@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { count, gte, sql, eq, desc } from "drizzle-orm";
+import { count, gte, sql, eq, desc, and, isNull } from "drizzle-orm";
 
 export async function GET() {
   const session = await getSession();
@@ -69,7 +69,27 @@ export async function GET() {
   // cacheCount now already counts only base articles
   const articleCost = (cacheCount.count || 0) * 0.09;
 
+  // Tracked spend (ai_usage), last 30 days. Empty until the table exists and calls are recorded.
+  const u = schema.aiUsage;
+  const spendSum = sql<string>`COALESCE(SUM(${u.costUsd}), 0)`;
+  const usage = await Promise.all([
+    db.select({ feature: u.feature, calls: count(), pricedCalls: count(u.costUsd), cost: spendSum, inputTokens: sql<string>`SUM(${u.inputTokens})`, outputTokens: sql<string>`SUM(${u.outputTokens})` })
+      .from(u).where(gte(u.createdAt, thirtyDaysAgo)).groupBy(u.feature).orderBy(desc(spendSum)),
+    db.select({ date: sql<string>`DATE(${u.createdAt})`, cost: spendSum })
+      .from(u).where(gte(u.createdAt, thirtyDaysAgo)).groupBy(sql`DATE(${u.createdAt})`).orderBy(sql`DATE(${u.createdAt})`),
+    db.select({ unpriced: count() }).from(u).where(and(gte(u.createdAt, thirtyDaysAgo), isNull(u.costUsd))),
+  ]).then(([byFeature, byDay, [unpriced]]) => ({
+    byFeature: byFeature.map(f => ({ feature: f.feature, calls: f.calls, pricedCalls: f.pricedCalls, cost: Number(f.cost), inputTokens: Number(f.inputTokens), outputTokens: Number(f.outputTokens) })),
+    byDay: byDay.map(d => ({ date: d.date, cost: Number(d.cost) })),
+    total30d: byFeature.reduce((sum, f) => sum + Number(f.cost), 0),
+    unpricedCalls: unpriced.unpriced,
+  })).catch(e => {
+    console.error("ai_usage query failed:", e);
+    return { byFeature: [], byDay: [], total30d: 0, unpricedCalls: 0 };
+  });
+
   return NextResponse.json({
+    usage,
     sessionsPerDay,
     scoresByLevel,
     selfAssessment: { accurate, overconfident: over, underconfident: under, total: assessTotal },
