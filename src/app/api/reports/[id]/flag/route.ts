@@ -18,7 +18,7 @@ async function reportStudentId(reportId: number): Promise<number | null> {
 }
 
 /** Guides may flag reports for their own students; admins for anyone */
-async function authorize(req: NextRequest, id: string) {
+async function authorize(id: string) {
   const session = await getSession();
   if (!session || (session.role !== "guide" && session.role !== "admin")) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
@@ -34,7 +34,7 @@ async function authorize(req: NextRequest, id: string) {
 
 /** Flag a report as wrong: { flag: "score_too_high" | "score_too_low" | "other", note?: string } */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorize(req, (await params).id);
+  const auth = await authorize((await params).id);
   if ("error" in auth) return auth.error;
 
   const body = await req.json().catch(() => null);
@@ -52,17 +52,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     guideFlaggedAt: flaggedAt,
   }).where(eq(schema.comprehensionReports.id, auth.reportId));
 
-  return NextResponse.json({ guideFlag: flag, guideNote: note || null, guideFlaggedAt: flaggedAt });
+  return NextResponse.json({ guideFlag: flag, guideNote: note || null, guideFlaggedAt: flaggedAt, guideFlaggedRole: auth.session.role });
 }
 
 /** Withdraw a flag */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorize(req, (await params).id);
+  const auth = await authorize((await params).id);
   if ("error" in auth) return auth.error;
+
+  // A guide can't withdraw an admin's flag
+  if (auth.session.role === "guide") {
+    const [report] = await db.select({ role: schema.comprehensionReports.guideFlaggedRole })
+      .from(schema.comprehensionReports).where(eq(schema.comprehensionReports.id, auth.reportId)).limit(1);
+    if (report?.role === "admin") return NextResponse.json({ error: "This flag was set by an admin" }, { status: 403 });
+  }
 
   await db.update(schema.comprehensionReports).set({
     guideFlag: null, guideNote: null, guideFlaggedBy: null, guideFlaggedRole: null, guideFlaggedAt: null,
   }).where(eq(schema.comprehensionReports.id, auth.reportId));
 
-  return NextResponse.json({ guideFlag: null });
+  return NextResponse.json({ guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null });
 }

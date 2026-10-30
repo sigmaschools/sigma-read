@@ -45,7 +45,7 @@ const FILTERS = [
   { value: "low", label: "Low confidence" },
   { value: "forced", label: "Forced close" },
   { value: "gap", label: "Self-assessment gap" },
-  { value: "disputed", label: "Disputed by guide" },
+  { value: "disputed", label: "Disputed" },
   { value: "missing", label: "Missing report" },
 ];
 

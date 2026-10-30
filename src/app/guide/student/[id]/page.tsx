@@ -37,6 +37,7 @@ interface SessionReport {
   guideFlag: string | null;
   guideNote: string | null;
   guideFlaggedAt: string | null;
+  guideFlaggedRole: string | null;
 }
 
 interface Student {
@@ -337,8 +338,10 @@ export default function StudentDetailPage() {
                 reportId={s.reportId}
                 flag={s.guideFlag}
                 note={s.guideNote}
-                onChange={(guideFlag, guideNote) => {
-                  const updated = { ...s, guideFlag, guideNote };
+                flaggedRole={s.guideFlaggedRole}
+                viewerRole={role}
+                onChange={(fields) => {
+                  const updated = { ...s, ...fields };
                   setSelectedSession(updated);
                   setSessions(prev => prev.map(x => x.sessionId === s.sessionId ? updated : x));
                 }}
@@ -598,11 +601,15 @@ export default function StudentDetailPage() {
 }
 
 /** "Disagree" with a report: the guide says what's off, and it shows up in the admin review queue */
-function ReportFlagControl({ reportId, flag, note, onChange }: {
+type FlagFields = Pick<SessionReport, "guideFlag" | "guideNote" | "guideFlaggedAt" | "guideFlaggedRole">;
+
+function ReportFlagControl({ reportId, flag, note, flaggedRole, viewerRole, onChange }: {
   reportId: number;
   flag: string | null;
   note: string | null;
-  onChange: (flag: string | null, note: string | null) => void;
+  flaggedRole: string | null;
+  viewerRole: string | null;
+  onChange: (fields: FlagFields) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState<ReportFlag>("score_too_high");
@@ -621,7 +628,10 @@ function ReportFlagControl({ reportId, flag, note, onChange }: {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error || "Couldn't save"); return; }
-      onChange(data.guideFlag ?? null, data.guideNote ?? null);
+      onChange({
+        guideFlag: data.guideFlag ?? null, guideNote: data.guideNote ?? null,
+        guideFlaggedAt: data.guideFlaggedAt ?? null, guideFlaggedRole: data.guideFlaggedRole ?? null,
+      });
       setOpen(false);
       setText("");
     } catch {
@@ -632,15 +642,22 @@ function ReportFlagControl({ reportId, flag, note, onChange }: {
   }
 
   if (flag) {
+    // Guides can't withdraw an admin's flag
+    const canWithdraw = !(flaggedRole === "admin" && viewerRole === "guide");
     return (
-      <div className="pt-3 border-t border-[var(--border)] flex items-start justify-between gap-3 text-sm">
-        <p className="text-amber-700">
-          ⚑ You disagreed: {REPORT_FLAG_LABELS[flag as ReportFlag] ?? flag}
-          {note && <span className="text-[var(--muted)]"> · &ldquo;{note}&rdquo;</span>}
-        </p>
-        <button onClick={() => send("DELETE")} disabled={saving} className="text-xs text-[var(--muted)] hover:text-[var(--fg)] shrink-0">
-          Withdraw
-        </button>
+      <div className="pt-3 border-t border-[var(--border)] space-y-1 text-sm">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-amber-700">
+            ⚑ {flaggedRole === viewerRole ? "You disagreed" : flaggedRole === "admin" ? "An admin disagreed" : "The guide disagreed"}: {REPORT_FLAG_LABELS[flag as ReportFlag] ?? flag}
+            {note && <span className="text-[var(--muted)]"> · &ldquo;{note}&rdquo;</span>}
+          </p>
+          {canWithdraw && (
+            <button onClick={() => send("DELETE")} disabled={saving} className="text-xs text-[var(--muted)] hover:text-[var(--fg)] shrink-0">
+              Withdraw
+            </button>
+          )}
+        </div>
+        {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
       </div>
     );
   }
