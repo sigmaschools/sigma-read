@@ -14,7 +14,7 @@ export const MAX_TUTOR_WORDS: Record<number, number> = { 1: 15, 2: 20, 3: 40, 4:
 const BANNED_PRAISE = /(^|[.!?]\s+)(nice|exactly right|great job|awesome|cool|great work|amazing|perfect)\b/i;
 const CORRECTION_ACTUALLY = /(^|[.!?]\s+)actually\b/i;
 const MARKDOWN = /(\*\*|__|^#+\s|^\s*[-*]\s|`)/m;
-const CHORE_FRAMING = /\b(sooner (we|you)('re| are)? (finish|done)|get through this|almost done)\b/i;
+const CHORE_FRAMING = /\b(sooner (we|you)('re| are)? (finish|done)|get through this)\b/i;
 
 export const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length;
 

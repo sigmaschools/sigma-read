@@ -72,6 +72,7 @@ async function main() {
     const { client } = fakeClient({ message: "Want to read another one?", progressDelta: 0 });
     const r = await run(client, convo(6), 60);
     assert.equal(r.message, FALLBACK_CLOSING);
+    assert.equal(r.usedFallback, "closing_question");
     console.log("✅ closing question replaced with the fallback");
   }
 
@@ -121,6 +122,7 @@ async function main() {
     assert.equal(opener.message, FALLBACK_OPENER);
     const close = await run(fakeClient({ message: "  ", progressDelta: 0 }).client, convo(6), 60);
     assert.equal(close.message, FALLBACK_CLOSING);
+    assert.equal(close.usedFallback, "empty");
     console.log("✅ empty messages are replaced");
   }
 
