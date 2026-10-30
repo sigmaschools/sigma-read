@@ -63,22 +63,28 @@ export default function AdminReportsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<number | null>(null);
-  const [details, setDetails] = useState<Record<number, Detail>>({});
+  const [details, setDetails] = useState<Record<number, Detail | { error: string }>>({});
 
   useEffect(() => {
+    let stale = false;
     setLoading(true);
     setOpenId(null);
     fetch(`/api/admin/reports?filter=${filter}`)
       .then(r => r.json())
-      .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(d => { if (!stale) { setRows(Array.isArray(d) ? d : []); setLoading(false); } })
+      .catch(() => { if (!stale) setLoading(false); });
+    // Ignore a slow response for a filter the admin already moved away from
+    return () => { stale = true; };
   }, [filter]);
 
   function toggle(id: number) {
     if (openId === id) { setOpenId(null); return; }
     setOpenId(id);
     if (!details[id]) {
-      fetch(`/api/admin/reports/${id}`).then(r => r.json()).then(d => setDetails(prev => ({ ...prev, [id]: d })));
+      fetch(`/api/admin/reports/${id}`)
+        .then(async r => (r.ok ? await r.json() : { error: `Couldn't load this conversation (${r.status})` }))
+        .catch(() => ({ error: "Couldn't load this conversation" }))
+        .then(d => setDetails(prev => ({ ...prev, [id]: d })));
     }
   }
 
@@ -132,7 +138,7 @@ export default function AdminReportsPage() {
   );
 }
 
-function ReportRow({ row, open, detail, onToggle }: { row: Row; open: boolean; detail?: Detail; onToggle: () => void }) {
+function ReportRow({ row, open, detail, onToggle }: { row: Row; open: boolean; detail?: Detail | { error: string }; onToggle: () => void }) {
   return (
     <>
       <tr onClick={onToggle} className="border-b border-[var(--border)] hover:bg-gray-50 transition cursor-pointer align-top">
@@ -162,7 +168,9 @@ function ReportRow({ row, open, detail, onToggle }: { row: Row; open: boolean; d
       {open && (
         <tr className="border-b border-[var(--border)] bg-gray-50/50">
           <td colSpan={7} className="px-6 py-5">
-            {!detail ? <p className="text-sm text-[var(--muted)]">Loading…</p> : <DetailView row={row} detail={detail} />}
+            {!detail ? <p className="text-sm text-[var(--muted)]">Loading…</p>
+              : "error" in detail ? <p className="text-sm text-[var(--danger)]">{detail.error}</p>
+              : <DetailView row={row} detail={detail} />}
           </td>
         </tr>
       )}

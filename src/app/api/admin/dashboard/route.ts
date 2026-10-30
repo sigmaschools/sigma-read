@@ -80,10 +80,14 @@ export async function GET() {
     finishedAt: schema.batchRuns.finishedAt,
     counts: schema.batchRuns.counts,
     lastError: schema.batchRuns.lastError,
-  }).from(schema.batchRuns).orderBy(desc(schema.batchRuns.runDate)).limit(7).catch(() => []);
+  }).from(schema.batchRuns).orderBy(desc(schema.batchRuns.runDate)).limit(7)
+    .then(rows => ({ rows, ok: true }))
+    .catch(e => { console.error("batch_runs query failed:", e); return { rows: [], ok: false }; });
   const chicago = chicagoNow(now);
-  const todaysRun = batchRuns.find(r => r.runDate === chicago.date);
-  if (chicago.hour >= 7 && todaysRun?.status !== "complete") {
+  const todaysRun = batchRuns.rows.find(r => r.runDate === chicago.date);
+  if (!batchRuns.ok) {
+    alerts.push("Couldn't read the morning batch log (batch_runs)");
+  } else if (chicago.hour >= 7 && todaysRun?.status !== "complete") {
     alerts.push(todaysRun
       ? `Morning batch is ${todaysRun.status} after ${todaysRun.attempts} attempt${todaysRun.attempts === 1 ? "" : "s"}${todaysRun.lastError ? `: ${todaysRun.lastError}` : ""}`
       : "Morning batch hasn't run today");
@@ -117,7 +121,7 @@ export async function GET() {
       totalVersions: Object.values(cacheMap).reduce((a, b) => a + b, 0),
       lastBatchDate: latestBatch?.date || null,
     },
-    batchRuns,
+    batchRuns: batchRuns.rows,
     guides: allGuides,
     alerts,
   });
