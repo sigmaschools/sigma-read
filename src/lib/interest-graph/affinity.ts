@@ -108,7 +108,7 @@ export function lessWeight(currentScore: number): number {
  * A student can change a like to a dislike and back. Each change is a new signal whose ref is
  * "<rating ref>:<time>", and only the latest per rating counts.
  */
-function latestRatings(signals: Signal[]): Signal[] {
+export function latestRatings(signals: Signal[]): Signal[] {
   const latest = new Map<string, Signal>();
   const rest: Signal[] = [];
   for (const s of signals) {
