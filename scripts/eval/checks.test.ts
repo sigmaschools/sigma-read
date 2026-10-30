@@ -33,6 +33,8 @@ const rules = (msgs: Msg[], level = 3, closing: number | null = null) =>
 {
   assert.ok(!rules([{ role: "assistant", content: "The octopus has perfect camouflage. Tell me how it hides." }]).includes("empty_praise"));
   assert.ok(rules([{ role: "assistant", content: "That's what he said." }]).includes("no_directive"));
+  assert.ok(!rules([{ role: "assistant", content: "Check the part about the straight line — tell me what it has to do with the flowers." }]).includes("no_directive"), "a directive after a dash counts");
+  assert.ok(!rules([{ role: "assistant", content: "One last thing: the article mentions 175 years, so tell me what that means today." }]).includes("no_directive"), "a directive after 'so' counts");
   console.log("✅ heuristics avoid common false positives");
 }
 

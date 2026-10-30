@@ -48,5 +48,6 @@ export function checkTranscript(messages: Msg[], level: number, closingIndex: nu
 function endsWithPrompt(text: string): boolean {
   if (endsWithQuestion(text)) return true;
   const last = text.split(/(?<=[.!?])\s+/).pop() || text;
-  return /^(so |and |now |ok,? |okay,? )?(tell|walk|explain|describe|show|talk|say|pick|imagine|think|give|look|find|share|name|compare)\b/i.test(last);
+  // The directive can open the sentence or follow a dash, colon or "so": "Check the part about X — tell me what..."
+  return /(^|[—–:;,]\s*|\s-\s|\bso\s)(and |now |ok,? |okay,? )?(tell|walk|explain|describe|show|talk|say|pick|imagine|think|give|look|find|share|name|compare|check)\b/i.test(last);
 }
