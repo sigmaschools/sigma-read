@@ -38,7 +38,7 @@ Every report carries `disputed: true` when a guide or admin has flagged it as wr
 
 ## Audit and limits
 
-Every call with a recognised key, revoked keys included, writes an `api_request_log` row (client, method, path with query, status). A key is limited to 120 calls a minute (429 with `Retry-After: 60`). Rejected calls don't count toward it, and it is a soft limit: a burst of parallel calls can pass it slightly. The limit counts log rows, so if log writes fail (logged as `api_request_log write failed`), calls are neither recorded nor limited until they recover; the response is still returned. Responses carry `Cache-Control: no-store`.
+Every call with a recognised key, revoked keys included, writes an `api_request_log` row (client, method, path with query, status). A key is limited to 120 calls a minute (429 with `Retry-After: 60`). Calls answered with a 429 don't count toward it (other errors do), and it is a soft limit: a burst of parallel calls can pass it slightly. The limit counts log rows, so if log writes fail (logged as `api_request_log write failed`), calls are neither recorded nor limited until they recover; the response is still returned. Responses carry `Cache-Control: no-store`.
 
 ## Not in v1
 

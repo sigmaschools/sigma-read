@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   let guideId: number | null = null;
   if (body?.guideId !== undefined && body?.guideId !== null && body?.guideId !== "") {
     guideId = Number(body.guideId);
-    const [guide] = Number.isInteger(guideId)
+    const [guide] = Number.isInteger(guideId) && guideId > 0 && guideId <= 2_147_483_647
       ? await db.select({ id: schema.guides.id }).from(schema.guides).where(eq(schema.guides.id, guideId)).limit(1)
       : [];
     if (!guide) return NextResponse.json({ error: "Guide not found" }, { status: 400 });
