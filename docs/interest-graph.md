@@ -1,8 +1,8 @@
 # Interest graph
 
-What each student is into, as scores over a shared topic map. Phase 1 of the design in the
-"Student interest graph" doc: the data and the signals. Serving by affinity and the
-"Still into these?" check-in come next.
+What each student is into, as scores over a shared topic map, used to choose their articles.
+Phase 1 of the design in the "Student interest graph" doc. Horizon topics chosen per student,
+learned topic links, chat-mention extraction and the guide/parent panel come later.
 
 All code goes through `src/lib/interest-graph` (`recordSignals`, `getAffinities`, `getRelated`,
 `resolveTopics` and helpers), never the tables, so the graph can move to Compass later by
@@ -32,7 +32,7 @@ generated from it (`npx tsx scripts/gen-topic-seed.ts`), and a test fails if the
 | `liked` / `disliked` | ±0.3 | Thumbs after reading. Changing your mind replaces the earlier rating |
 | `favorite` | +0.4 | The day's favorite pick |
 | `strong_engagement` | +0.1 | A report scores 80+ over 4+ student messages, without a forced close |
-| `checkin_keep` / `checkin_less` / `checkin_reject` | +0.3 / −half / reject | "Still into these?" answers (UI comes next) |
+| `checkin_keep` / `checkin_less` / `checkin_reject` | +0.3 / −half / reject | "Still into these?" answers |
 | `show_different`, `chat_mention`, `restored` | −0.1, +0.2, 0 | Defined for later phases |
 
 `source_ref` makes recording idempotent: the same (student, type, ref) is stored once. Every call
@@ -52,6 +52,38 @@ Computed from the log on read, never stored:
 Half-life is 90 days for declared interests and 45 for everything else, with no floor. "No more"
 marks a topic rejected (score 0) until the student names it again or an adult restores it.
 `confidence` grows with the amount of recent evidence, not its direction.
+
+## Serving
+
+Both serving paths (`/api/articles/serve-cached` when the feed runs low, and the batch's serving
+step) pick from the unseen articles at the student's level with `pickForFeed`
+(`src/lib/interest-graph/serving.ts`):
+
+- An article's match is its best topic's score; untagged articles score 0.
+- Any rejected topic rules the article out.
+- Two of every three slots take the best match, preferring a topic not already served in this
+  round, with a little randomness so near-equal articles take turns.
+- Every third slot explores: a random article whose match is between −0.2 and 0.1, so the feed
+  widens without serving something the student dislikes.
+- A student with no signals gets the same random mix as before, and so does anyone whose
+  affinities or article tags can't be read (logged), so the feed never comes up empty.
+- Candidates per level are a random sample of 60 unseen articles plus up to 40 tagged with the
+  student's top 10 topics, so their interests are in the pool however large the cache gets.
+  Seen articles are excluded in SQL. The batch ranks the 50 newest unseen.
+- "Never served" for rejected topics holds whenever the graph can be read; it is best-effort
+  during a database failure, when serving falls back to unranked.
+
+## "Still into these?"
+
+On a goal day, after the favorite pick, the page shows this check-in instead of the "anything you
+want to read about tomorrow?" question, so the student only ever sees one question. It is due
+two weeks after the last check-in (or after the student's first signal), and asks about up to
+three topics, most pressing first: two dislikes in a row, passed over 3+ times in 30 days, a
+declared interest with no positive signal for 30 days, then the most-served topics. Topics
+answered in the last 30 days and rejected topics are skipped. Each topic gets "Still love it",
+"Not as much" or "No more"; Skip saves what was answered and counts as asked. Only a due check-in is
+saved, for the topics it offered, so a double-click or replay changes nothing. Dislikes from
+before a topic's last check-in answer don't bring it back.
 
 ## Upkeep
 

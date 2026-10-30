@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
+import { checkinFor } from "@/lib/interest-graph";
 
 const DAILY_GOAL = 3;
 
@@ -55,13 +56,20 @@ export async function GET() {
     ));
   const favoritePicked = Number(favResult?.count || 0) > 0;
 
+  // "Still into these?" replaces the "tomorrow" question about every two weeks, on goal days
+  const done = completedToday.length >= DAILY_GOAL;
+  const interestCheckin = done && !favoritePicked
+    ? await checkinFor(session.userId).catch(e => { console.error("Interest check-in unavailable:", e); return []; })
+    : [];
+
   return NextResponse.json({
     completedToday: completedToday.map(c => ({ title: c.articleTitle, id: c.articleId })),
     count: completedToday.length,
     dailyGoal: DAILY_GOAL,
     dailyCap: student.dailyArticleCap || 5,
-    done: completedToday.length >= DAILY_GOAL,
+    done,
     totalSessions,
     favoritePicked,
+    interestCheckin,
   });
 }
