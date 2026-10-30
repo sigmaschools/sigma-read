@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { apiRoute, apiError, apiJson, visibleStudent } from "@/lib/api-v1/auth";
 import { hasScope } from "@/lib/api-v1/keys";
 
-/** GET /api/v1/sessions/{id} — the full report; the transcript only with transcripts:read */
+/** GET /api/v1/sessions/{id} — a completed session's full report; the transcript only with transcripts:read */
 export const GET = apiRoute<{ id: string }>("reports:read", async (_req, client, { id }) => {
   const sessionId = Number(id);
   if (!Number.isInteger(sessionId) || sessionId <= 0) return apiError(404, "Session not found");
@@ -15,7 +15,10 @@ export const GET = apiRoute<{ id: string }>("reports:read", async (_req, client,
     .leftJoin(schema.conversations, eq(schema.conversations.id, sql`(SELECT max(id) FROM conversations WHERE reading_session_id = ${schema.readingSessions.id})`))
     .where(eq(schema.readingSessions.id, sessionId))
     .limit(1);
-  if (!row || !(await visibleStudent(client, row.session.studentId))) return apiError(404, "Session not found");
+  // Like the list, only completed sessions: an in-progress chat isn't a record yet
+  if (!row || row.session.completedAt === null || !(await visibleStudent(client, row.session.studentId))) {
+    return apiError(404, "Session not found");
+  }
 
   const [report] = row.conversation
     ? await db.select().from(schema.comprehensionReports)

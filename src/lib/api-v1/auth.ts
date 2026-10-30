@@ -31,34 +31,41 @@ export function apiRoute<P = Record<string, never>>(scope: ApiScope, handler: Ha
     const key = bearerKey(req.headers.get("authorization"));
     if (!key) return apiError(401, "Missing or malformed API key");
 
-    const [client] = await db.select().from(schema.apiClients)
-      .where(and(eq(schema.apiClients.keyHash, hashApiKey(key)), isNull(schema.apiClients.revokedAt)))
-      .limit(1);
+    let client: ApiClient | undefined;
+    try {
+      [client] = await db.select().from(schema.apiClients)
+        .where(and(eq(schema.apiClients.keyHash, hashApiKey(key)), isNull(schema.apiClients.revokedAt)))
+        .limit(1);
+    } catch (e) {
+      console.error("api/v1 key lookup failed:", e);
+      return apiError(500, "Internal error");
+    }
     if (!client) return apiError(401, "Invalid or revoked API key");
 
     let res: NextResponse;
-    if (!hasScope(client.scopes, scope)) {
-      res = apiError(403, `This key lacks the ${scope} scope`);
-    } else {
-      const [recent] = await db.select({ n: count() }).from(schema.apiRequestLog)
-        // Rejected calls don't count, so a client that backs off recovers within the minute.
-        // A soft limit: parallel bursts can pass it slightly, since rows are written after the handler.
-        .where(and(
-          eq(schema.apiRequestLog.clientId, client.id),
-          gte(schema.apiRequestLog.createdAt, new Date(Date.now() - 60_000)),
-          ne(schema.apiRequestLog.status, 429),
-        ));
-      if (recent.n >= RATE_LIMIT_PER_MINUTE) {
-        res = apiError(429, "Rate limit exceeded");
-        res.headers.set("Retry-After", "60");
+    try {
+      if (!hasScope(client.scopes, scope)) {
+        res = apiError(403, `This key lacks the ${scope} scope`);
       } else {
-        try {
+        // Fails closed: if the count can't be read, the call is a 500, not unlimited
+        const [recent] = await db.select({ n: count() }).from(schema.apiRequestLog)
+          // Rejected calls don't count, so a client that backs off recovers within the minute.
+          // A soft limit: parallel bursts can pass it slightly, since rows are written after the handler.
+          .where(and(
+            eq(schema.apiRequestLog.clientId, client.id),
+            gte(schema.apiRequestLog.createdAt, new Date(Date.now() - 60_000)),
+            ne(schema.apiRequestLog.status, 429),
+          ));
+        if (recent.n >= RATE_LIMIT_PER_MINUTE) {
+          res = apiError(429, "Rate limit exceeded");
+          res.headers.set("Retry-After", "60");
+        } else {
           res = await handler(req, client, await ctx.params);
-        } catch (e) {
-          console.error("api/v1 error:", req.nextUrl.pathname, e);
-          res = apiError(500, "Internal error");
         }
       }
+    } catch (e) {
+      console.error("api/v1 error:", req.nextUrl.pathname, e);
+      res = apiError(500, "Internal error");
     }
 
     // The audit trail must not break the response
