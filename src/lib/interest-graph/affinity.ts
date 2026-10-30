@@ -62,7 +62,9 @@ export function decay(signal: Pick<Signal, "signalType" | "createdAt">, now: Dat
   return Math.pow(0.5, ageDays / HALF_LIFE_DAYS[SIGNALS[signal.signalType].kind]);
 }
 
-const DECLARING: SignalType[] = ["onboarding", "typed_interest", "restored"];
+/** What the student told us. An adult's restore also lifts a rejection, but doesn't make a topic declared. */
+const STUDENT_DECLARING: SignalType[] = ["onboarding", "typed_interest"];
+const DECLARING: SignalType[] = [...STUDENT_DECLARING, "restored"];
 const REJECTING: SignalType[] = ["checkin_reject", "removed"];
 
 /** Affinities for one student from their signals, strongest first. Rejected topics are kept (score 0) so callers can exclude them. */
@@ -81,7 +83,8 @@ export function computeAffinities(signals: Signal[], now = new Date()): Affinity
     const lastReject = lastAt(list, REJECTING);
     const lastDeclare = lastAt(list, DECLARING);
     const rejected = lastReject !== null && (lastDeclare === null || lastDeclare < lastReject);
-    const counted = list.filter(s => s.createdAt.getTime() >= freshStart(list));
+    const start = freshStart(list);
+    const counted = list.filter(s => s.createdAt.getTime() >= start);
 
     let sum = 0, evidence = 0;
     for (const s of counted) {
@@ -89,7 +92,7 @@ export function computeAffinities(signals: Signal[], now = new Date()): Affinity
       sum += s.weight * d;
       evidence += d;
     }
-    const declared = counted.some(s => DECLARING.includes(s.signalType));
+    const declared = counted.some(s => STUDENT_DECLARING.includes(s.signalType));
     out.push({
       topicSlug,
       score: rejected ? 0 : round(Math.max(-1, Math.min(1, sum))),
@@ -136,7 +139,7 @@ function freshStart(list: Signal[]): number {
   for (const s of list) {
     if (REJECTING.includes(s.signalType)) off = true;
     else if (s.signalType === "restored") off = false;
-    else if (off && DECLARING.includes(s.signalType)) { start = s.createdAt.getTime(); off = false; }
+    else if (off && STUDENT_DECLARING.includes(s.signalType)) { start = s.createdAt.getTime(); off = false; }
   }
   return start;
 }

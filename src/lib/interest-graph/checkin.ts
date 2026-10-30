@@ -15,7 +15,7 @@ const WINDOW_DAYS = 30;
 export const MAX_CHECKIN_TOPICS = 3;
 
 const POSITIVE: SignalType[] = ["chose_article", "liked", "favorite", "chat_mention", "strong_engagement", "checkin_keep"];
-const DECLARING: SignalType[] = ["onboarding", "typed_interest", "restored"];
+const DECLARING: SignalType[] = ["onboarding", "typed_interest"];
 const CHECKIN: SignalType[] = ["checkin_keep", "checkin_less", "checkin_reject"];
 
 /** Due when the last check-in (or, for a first one, the first signal) is at least two weeks old */
