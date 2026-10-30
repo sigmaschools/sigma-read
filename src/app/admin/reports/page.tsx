@@ -24,7 +24,7 @@ interface Row {
 }
 
 interface Detail {
-  conversation: { messages: { role: string; content: string; type?: string }[]; progressScore: number; style: string | null };
+  conversation: { messages: { role: string; content: string; type?: string }[] | null; progressScore: number; style: string | null };
   report: {
     understood: string;
     missed: string;
@@ -62,6 +62,7 @@ export default function AdminReportsPage() {
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
   const [details, setDetails] = useState<Record<number, Detail | { error: string }>>({});
 
@@ -69,10 +70,15 @@ export default function AdminReportsPage() {
     let stale = false;
     setLoading(true);
     setOpenId(null);
+    setRows([]);
+    setError("");
     fetch(`/api/admin/reports?filter=${filter}`)
-      .then(r => r.json())
-      .then(d => { if (!stale) { setRows(Array.isArray(d) ? d : []); setLoading(false); } })
-      .catch(() => { if (!stale) setLoading(false); });
+      .then(async r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(d => { if (!stale) { setRows(d); setLoading(false); } })
+      .catch(e => { if (!stale) { setError(`Couldn't load reports (${e.message}).`); setLoading(false); } });
     // Ignore a slow response for a filter the admin already moved away from
     return () => { stale = true; };
   }, [filter]);
@@ -109,6 +115,8 @@ export default function AdminReportsPage() {
 
       {loading ? (
         <div className="text-[var(--muted)] text-sm py-8">Loading…</div>
+      ) : error ? (
+        <div className="text-[var(--danger)] text-sm py-8">{error}</div>
       ) : rows.length === 0 ? (
         <div className="text-[var(--muted)] text-sm py-8">Nothing here.</div>
       ) : (
@@ -134,6 +142,7 @@ export default function AdminReportsPage() {
           </table>
         </div>
       )}
+      {rows.length === 50 && <p className="text-xs text-[var(--muted)] mt-3">Showing the latest 50.</p>}
     </div>
   );
 }
@@ -218,7 +227,7 @@ function DetailView({ row, detail }: { row: Row; detail: Detail }) {
         )}
       </div>
       <div className="space-y-2 max-h-[480px] overflow-y-auto pr-2">
-        {conversation.messages.map((m, i) => (
+        {(conversation.messages ?? []).map((m, i) => (
           <div key={i} className={`text-sm px-3 py-2 rounded-lg ${
             m.role === "user" ? "bg-blue-50 ml-8" : m.type === "coaching" ? "bg-violet-50 mr-8 italic" : "bg-white border border-[var(--border)] mr-8"
           }`}>
