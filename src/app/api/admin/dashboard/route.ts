@@ -108,6 +108,23 @@ export async function GET() {
     }
   }
 
+  // Recent admin actions (edits, level overrides, impersonation)
+  const recentActions = await db.select({
+    id: schema.adminAuditLog.id,
+    action: schema.adminAuditLog.action,
+    targetType: schema.adminAuditLog.targetType,
+    targetId: schema.adminAuditLog.targetId,
+    details: schema.adminAuditLog.details,
+    createdAt: schema.adminAuditLog.createdAt,
+  }).from(schema.adminAuditLog).orderBy(desc(schema.adminAuditLog.id)).limit(10)
+    .catch(e => { console.error("admin_audit_log query failed:", e); return []; });
+  const adminActions = recentActions.map(a => ({
+    ...a,
+    targetName: a.targetType === "student" ? allStudents.find(s => s.id === a.targetId)?.name ?? null
+      : a.targetType === "guide" ? allGuides.find(g => g.id === a.targetId)?.name ?? null
+      : null,
+  }));
+
   return NextResponse.json({
     stats: {
       totalStudents,
@@ -124,5 +141,6 @@ export async function GET() {
     batchRuns: batchRuns.rows,
     guides: allGuides,
     alerts,
+    adminActions,
   });
 }
