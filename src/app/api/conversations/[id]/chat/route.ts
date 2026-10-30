@@ -5,11 +5,11 @@ import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt } from "@/lib/prompts";
-import { parseProgressResponse, clampDelta, isConversationComplete } from "@/lib/progress-scoring";
 import { MODELS } from "@/lib/models";
-import { REPLY_SCHEMA, REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, ratingForScore, verifiedEvidence, type ComprehensionReport } from "@/lib/report-schema";
+import { REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, ratingForScore, verifiedEvidence, type ComprehensionReport } from "@/lib/report-schema";
 import { parseJsonResponse } from "@/lib/claude-json";
 import { getStudentConversation } from "@/lib/ownership";
+import { runTutorTurn } from "@/lib/conversation-turn";
 
 const anthropic = new Anthropic();
 
@@ -74,12 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // Exchange tracking: count real student messages only (no synthetic offset)
-  const studentMessageCount = messages.filter(m => m.role === "user").length;
-  const exchangeNumber = studentMessageCount;
-
-  // Safety backstop — force wrap-up after 6 real student messages
-  const forceComplete = studentMessageCount >= 6;
+  const exchangeNumber = messages.filter(m => m.role === "user").length;
 
   // Fetch previous articles for cross-article connections (last 5 read articles, excluding current)
   const previousArticles = await db.select({ title: schema.articles.title, topic: schema.articles.topic })
@@ -109,52 +104,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         exchangeNumber
       );
 
-  // Build messages for AI — if at hard limit OR already at threshold, inject closing instruction
-  const alreadyComplete = (conversation.progressScore || 0) >= 100 && exchangeNumber >= 3;
-  const finalMessages = messages.length > 0
-    ? messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
-    : [{ role: "user" as const, content: "[The student just finished reading. Start the conversation. Open the way a real person would — share one specific thing from the article that you found surprising, interesting, or worth talking about. Make it feel like you actually read it too. Then invite the student in with a single open directive. No greetings, no 'great article', no generic openers. The student has not said anything yet — this is your first message.]" }];
-  if (forceComplete || alreadyComplete) {
-    finalMessages.push({ role: "user" as const, content: `[SYSTEM: The student has demonstrated sufficient understanding. This is your final message. Wrap up in one warm sentence acknowledging what they got right. Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]` });
-  }
-
-  const request = { model: MODELS.heavy, max_tokens: 1024, system: systemPrompt, messages: finalMessages };
-  const response = await anthropic.messages.create({
-    ...request,
-    output_config: { format: { type: "json_schema", schema: REPLY_SCHEMA } },
-  }).catch(e => {
-    // If the API ever rejects the schema (e.g. a model without structured outputs), keep the
-    // student's chat working: retry as plain text and let parseProgressResponse handle it
-    if (e instanceof Anthropic.BadRequestError) {
-      console.error("Structured tutor turn rejected, retrying as text:", e.message);
-      return anthropic.messages.create(request);
-    }
-    throw e;
+  const turn = await runTutorTurn({
+    client: anthropic,
+    model: MODELS.heavy,
+    systemPrompt,
+    messages,
+    priorProgress: conversation.progressScore || 0,
   });
-
-  // Structured output guarantees the JSON shape; fall back to the old text parser on a refusal or cut-off
-  const assistantText = response.content.filter(b => b.type === "text").map(b => b.text).join("");
-  const parsedResponse = parseJsonResponse<{ message: string; progressDelta: number }>(response)
-    ?? parseProgressResponse(assistantText);
-  const clampedDelta = clampDelta(parsedResponse.progressDelta);
-  const newProgressScore = (conversation.progressScore || 0) + clampedDelta;
-  let isComplete = isConversationComplete({ progressScore: newProgressScore, exchangeNumber, forceComplete });
-  let cleanText = parsedResponse.message.replace("[CONVERSATION_COMPLETE]", "").trim();
-
-  // Safety net: if AI's closing instruction was active and the AI still asked a question,
-  // replace with a canned closing so the session doesn't end on an unanswerable question.
-  if ((forceComplete || alreadyComplete) && cleanText.trim().endsWith("?")) {
-    cleanText = "You've clearly engaged with this article thoughtfully — great work today.";
-  }
-
-  // Defer completion if the closing instruction wasn't explicitly injected.
-  // When alreadyComplete/forceComplete was false, the AI was in mid-conversation mode and
-  // almost certainly ended with a directive or question expecting a reply — always defer so
-  // the student can answer. On the next exchange, alreadyComplete will be true and the proper
-  // closing will be triggered cleanly.
-  if (isComplete && !forceComplete && !alreadyComplete) {
-    isComplete = false;
-  }
+  const cleanText = turn.message;
+  const isComplete = turn.complete;
+  const newProgressScore = turn.progressScore;
 
   messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
 
@@ -185,7 +144,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         level: student.readingLevel || 2,
         messages,
         transcript,
-        forcedClose: forceComplete,
+        forcedClose: turn.closing === "forced",
         inChatScore: newProgressScore,
       }).catch(e => console.error("Report save failed:", e)),
       anthropic.messages.create({
