@@ -14,12 +14,6 @@ export function levelGrade(level: number): string {
 }
 
 export function buildStudentSystemPrompt(persona: StudentPersona, level: number): string {
-  const selfAssessMap = {
-    accurate: "Rate your understanding honestly",
-    overconfident: "Tend to think you understood more than you did",
-    underconfident: "Tend to doubt yourself even when you got it right",
-  };
-
   return `You are simulating a SPECIFIC student in a reading comprehension discussion.
 
 STUDENT: ${persona.username}

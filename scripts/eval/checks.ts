@@ -3,6 +3,8 @@
  * Pure functions so they can be unit tested and reused on real transcripts later.
  */
 
+import { endsWithQuestion } from "../../src/lib/conversation-turn";
+
 export interface Msg { role: "user" | "assistant"; content: string }
 
 /** Rough word ceilings per level, from the message-length table in conversation-design.md */
@@ -36,7 +38,7 @@ export function checkTranscript(messages: Msg[], level: number, closingIndex: nu
     if (CORRECTION_ACTUALLY.test(t)) out.push({ turn: i, rule: "actually_correction", text: t });
     if (MARKDOWN.test(t)) out.push({ turn: i, rule: "markdown", text: t });
     if (CHORE_FRAMING.test(t)) out.push({ turn: i, rule: "chore_framing", text: t });
-    if (isClosing && t.endsWith("?")) out.push({ turn: i, rule: "closing_question", text: t });
+    if (isClosing && endsWithQuestion(t)) out.push({ turn: i, rule: "closing_question", text: t });
     if (!isClosing && !endsWithPrompt(t)) out.push({ turn: i, rule: "no_directive", text: t });
   });
   return out;
@@ -44,7 +46,7 @@ export function checkTranscript(messages: Msg[], level: number, closingIndex: nu
 
 /** A mid-conversation tutor message should end by inviting a reply */
 function endsWithPrompt(text: string): boolean {
-  if (text.endsWith("?")) return true;
+  if (endsWithQuestion(text)) return true;
   const last = text.split(/(?<=[.!?])\s+/).pop() || text;
   return /^(so |and |now |ok,? |okay,? )?(tell|walk|explain|describe|show|talk|say|pick|imagine|think|give|look|find|share|name|compare)\b/i.test(last);
 }
