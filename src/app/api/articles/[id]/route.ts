@@ -7,6 +7,7 @@ import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
 import { preReadingPrompt } from "@/lib/prompts";
+import { quietly, recordArticleRating } from "@/lib/interest-graph";
 
 const anthropic = new Anthropic();
 
@@ -56,5 +57,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .where(and(eq(schema.articles.id, parseInt(id)), eq(schema.articles.studentId, session.userId)))
     .returning();
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await quietly(recordArticleRating(session.userId, updated.id, body.liked), "article rating");
   return NextResponse.json(updated);
 }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { and, eq } from "drizzle-orm";
+import { quietly, recordArticleSignal } from "@/lib/interest-graph";
 
 // Save a student's favorite article for the day
 export async function POST(req: NextRequest) {
@@ -18,10 +19,11 @@ export async function POST(req: NextRequest) {
     .limit(1);
   if (!article) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db.insert(schema.articleFavorites).values({
+  const [favorite] = await db.insert(schema.articleFavorites).values({
     studentId: session.userId,
     articleId,
-  });
+  }).returning({ id: schema.articleFavorites.id });
+  await quietly(recordArticleSignal(session.userId, article.id, "favorite", `favorite:${favorite.id}`), "favorite");
 
   return NextResponse.json({ ok: true });
 }
