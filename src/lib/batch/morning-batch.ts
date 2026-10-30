@@ -26,7 +26,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
-import { backfillSignals, quietly, tagCacheArticle, tagUntaggedCache } from "../interest-graph";
+import { backfillSignals, getAffinities, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
+import { pickForFeed } from "../interest-graph/serving";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -777,7 +778,16 @@ async function serveToStudents(students: Student[]): Promise<number> {
       ORDER BY created_at DESC LIMIT 50
     `;
     const unseen = available.filter((a: any) => !seen.has(a.title));
-    const toServe = unseen.slice(0, needed);
+    // Rank the newest unseen articles by the student's interests, exploring every third slot
+    const [affinities, cacheTopics] = await Promise.all([
+      getAffinities(student.id).catch(() => []),
+      topicsForCache(unseen.map((a: any) => a.id as number)).catch(() => new Map<number, string[]>()),
+    ]);
+    const toServe = pickForFeed(
+      unseen.map((a: any) => ({ id: a.id as number, topics: cacheTopics.get(a.id) ?? [], row: a })),
+      new Map(affinities.map(a => [a.topicSlug, a])),
+      needed,
+    ).map(c => c.row);
 
     for (const a of toServe) {
       await sql`INSERT INTO articles (student_id, title, topic, body_text, reading_level, sources, estimated_read_time, category, source_cache_id)

@@ -73,6 +73,10 @@ export default function StudentHome() {
   const [favoritePicked, setFavoritePicked] = useState(false);
   const [totalSessions, setTotalSessions] = useState(0);
   const [showRating, setShowRating] = useState(false);
+  // "Still into these?" topics, offered instead of the "tomorrow" question about every two weeks
+  const [checkinTopics, setCheckinTopics] = useState<{ slug: string; label: string }[]>([]);
+  const [checkinAnswers, setCheckinAnswers] = useState<Record<string, string>>({});
+  const [showCheckin, setShowCheckin] = useState(false);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const dailyGoal = 3;
   const router = useRouter();
@@ -99,6 +103,7 @@ export default function StudentHome() {
         setGoalReached(true);
         // Show favorite pick if they haven't picked one today
         if (!prog.favoritePicked) setShowFavoritePick(true);
+        setCheckinTopics(prog.interestCheckin || []);
         // Show rating prompt every 20 sessions
         if ((prog.totalSessions || 0) % 20 === 0 && prog.totalSessions > 0) setShowRating(true);
       }
@@ -120,6 +125,15 @@ export default function StudentHome() {
   }
 
   
+
+  async function saveCheckin(answers: Record<string, string>) {
+    setShowCheckin(false);
+    await fetch("/api/student/interest-checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers: Object.entries(answers).map(([slug, answer]) => ({ slug, answer })) }),
+    }).catch(() => {});
+  }
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -238,7 +252,8 @@ export default function StudentHome() {
                           });
                           setFavoritePicked(true);
                           setShowFavoritePick(false);
-                          setShowGoalChat(true);
+                          if (checkinTopics.length > 0) setShowCheckin(true);
+                          else setShowGoalChat(true);
                         }}
                         className="block w-full text-left px-4 py-2.5 text-sm bg-white border border-[var(--border)] rounded-lg hover:border-[var(--accent)] hover:text-[var(--accent)] transition"
                       >
@@ -246,6 +261,43 @@ export default function StudentHome() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Still into these? */}
+              {showCheckin && (
+                <div className="mb-4 animate-fade-in">
+                  <p className="text-sm font-medium text-[var(--fg)] mb-2">Still into these?</p>
+                  <div className="space-y-2">
+                    {checkinTopics.filter(t => !checkinAnswers[t.slug]).map((t) => (
+                      <div key={t.slug} className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-[var(--fg)] mr-auto">{t.label}</span>
+                        {[
+                          { label: "Still love it", value: "keep" },
+                          { label: "Not as much", value: "less" },
+                          { label: "No more", value: "reject" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              const next = { ...checkinAnswers, [t.slug]: opt.value };
+                              setCheckinAnswers(next);
+                              if (checkinTopics.every(c => next[c.slug])) saveCheckin(next);
+                            }}
+                            className="px-3 py-1.5 text-xs bg-white border border-[var(--border)] rounded-lg hover:border-[var(--accent)] hover:text-[var(--accent)] transition"
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => saveCheckin(checkinAnswers)}
+                    className="mt-2 text-xs text-[var(--muted)] hover:text-[var(--fg)]"
+                  >
+                    Skip
+                  </button>
                 </div>
               )}
 
@@ -291,7 +343,7 @@ export default function StudentHome() {
               )}
 
               {/* Rating prompt (every 20 sessions) */}
-              {showRating && !ratingSubmitted && !showFavoritePick && !showGoalChat && (
+              {showRating && !ratingSubmitted && !showFavoritePick && !showGoalChat && !showCheckin && (
                 <div className="mb-4 animate-fade-in">
                   <p className="text-sm font-medium text-[var(--fg)] mb-2">How are the articles we&apos;re picking for you?</p>
                   <div className="flex gap-2 flex-wrap">
@@ -331,7 +383,7 @@ export default function StudentHome() {
               )}
 
               {/* Closing message */}
-              {!showFavoritePick && !showGoalChat && !showRating && (
+              {!showFavoritePick && !showGoalChat && !showRating && !showCheckin && (
                 <p className="text-sm text-[var(--muted)]">See you tomorrow ✌️</p>
               )}
             </div>
