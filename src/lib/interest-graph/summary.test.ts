@@ -4,8 +4,8 @@ import { summarizeInterests } from "./summary";
 
 const NOW = new Date("2026-10-30T12:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
-const sig = (topicSlug: string, signalType: SignalType, age: number): Signal =>
-  ({ topicSlug, signalType, weight: SIGNALS[signalType].weight, createdAt: daysAgo(age) });
+const sig = (topicSlug: string, signalType: SignalType, age: number, extra: Partial<Signal> = {}): Signal =>
+  ({ topicSlug, signalType, weight: SIGNALS[signalType].weight, createdAt: daysAgo(age), ...extra });
 
 {
   const signals = [
@@ -27,7 +27,7 @@ const sig = (topicSlug: string, signalType: SignalType, age: number): Signal =>
 
 {
   const restored = computeAffinities([sig("chess", "liked", 3), sig("chess", "removed", 2), sig("chess", "restored", 1)], NOW);
-  assert.equal(restored[0].status, "declared", "an adult can restore a removed topic");
+  assert.equal(restored[0].status, "inferred", "an adult can restore a removed topic, without making it a declared one");
   assert.ok(restored[0].score > 0.28, "restoring keeps the topic's history");
   // The student reset the topic by naming it again; an adult's later remove and restore keeps that reset
   const reset = computeAffinities([
@@ -37,7 +37,7 @@ const sig = (topicSlug: string, signalType: SignalType, age: number): Signal =>
   ], NOW);
   assert.equal(reset[0].status, "declared");
   assert.ok(reset[0].score > 0.5, "restoring doesn't bring back dislikes from before the student's own reset");
-  const declinedThenRemoved = computeAffinities([sig("cars", "onboarding", 200), sig("cars", "disliked", 5, { sourceRef: "article:3:rating:cars:0" }), sig("cars", "disliked", 4, { sourceRef: "article:4:rating:cars:0" })], NOW);
-  assert.deepEqual(summarizeInterests(declinedThenRemoved, new Map(), NOW).fading.map(f => f.slug), ["cars"], "a declared topic that turned negative still shows as fading");
+  const declaredTurnedNegative = computeAffinities([sig("cars", "onboarding", 200), sig("cars", "disliked", 5, { sourceRef: "article:3:rating:cars:0" }), sig("cars", "disliked", 4, { sourceRef: "article:4:rating:cars:0" })], NOW);
+  assert.deepEqual(summarizeInterests(declaredTurnedNegative, new Map(), NOW).fading.map(f => f.slug), ["cars"], "a declared topic that turned negative still shows as fading");
   console.log("✅ removed and restored");
 }

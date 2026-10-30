@@ -51,7 +51,11 @@ Computed from the log on read, never stored:
     score = clamp(Σ weight · 0.5^(age / half-life), −1, 1)
 
 Half-life is 90 days for declared interests and 45 for everything else, with no floor. "No more"
-marks a topic rejected (score 0) until the student names it again or an adult restores it.
+or an adult's removal marks a topic rejected (score 0) until the student names it again (in
+onboarding or a typed interest, which starts the topic over) or an adult restores it (which keeps
+its history since the student's last fresh start, and doesn't make it a declared interest). So a
+removed topic comes back if the student asks for it again. Articles on rejected topics are never
+served; the morning batch can still generate from the raw profile strings until that is pruned.
 `confidence` grows with the amount of recent evidence, not its direction.
 
 ## Serving
