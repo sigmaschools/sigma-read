@@ -46,10 +46,9 @@ async function main() {
   if (applied.size === 0) {
     const [{ exists }] = await sql`SELECT to_regclass('public.students') IS NOT NULL AS exists`;
     if (exists) {
-      for (const name of BASELINE) {
-        await sql`INSERT INTO schema_migrations (name) VALUES (${name}) ON CONFLICT DO NOTHING`;
-        applied.add(name);
-      }
+      // One transaction, so a crash can't leave a partial baseline that re-runs 0001/0002
+      await sql.transaction(BASELINE.map(name => sql`INSERT INTO schema_migrations (name) VALUES (${name}) ON CONFLICT DO NOTHING`));
+      BASELINE.forEach(name => applied.add(name));
       console.log(`migrate: recorded ${BASELINE.length} pre-existing migrations as applied`);
     }
   }
