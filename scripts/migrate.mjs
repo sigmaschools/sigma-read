@@ -59,14 +59,18 @@ async function main() {
     const name = file.replace(/\.sql$/, "");
     if (applied.has(name)) continue;
 
+    const text = readFileSync(join(DIR, file), "utf8");
+    if (text.includes("$$")) throw new Error(`${file} contains a $$ block, which the statement splitter can't handle`);
+
     // drizzle-kit separates statements with "--> statement-breakpoint"; hand-written files use ";" at line end
-    const statements = readFileSync(join(DIR, file), "utf8")
+    const statements = text
       .split(/--> statement-breakpoint|;\s*$/m)
       .map(s => s.trim())
       .filter(s => s && !/^(--[^\n]*\n?)+$/.test(s));
 
     console.log(`migrate: applying ${name} (${statements.length} statements)`);
-    // Transaction-level advisory lock so two overlapping deploys can't apply the same file
+    // Advisory lock serializes overlapping deploys; a second deploy may re-run a file, which is safe
+    // only because files must be idempotent
     await sql.transaction([
       sql`SELECT pg_advisory_xact_lock(724501)`,
       ...statements.map(statement => sql.query(statement)),
