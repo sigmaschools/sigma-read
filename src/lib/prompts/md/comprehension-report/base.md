@@ -38,7 +38,7 @@ SKILLS — rate each one from what the conversation gave the student a chance to
 
 For each: "shown", "partly", "not_shown", or "not_tested". Use "not_tested" when the conversation never gave them a fair chance to show it. That is a property of the conversation, not the student, and it must not lower the score.
 
-EVIDENCE — 1 to 3 short quotes of the student's own words from the transcript, each tagged with the skill it shows (or fails to show). Quote exactly; never paraphrase or invent.
+EVIDENCE — 1 to 3 short quotes of the student's own words from the transcript, each tagged with the skill it relates to and whether it shows that skill (shows: true) or shows it missing (shows: false). Quote exactly; never paraphrase or invent.
 
 Output fields:
 - score: 1-100, calibrated as above

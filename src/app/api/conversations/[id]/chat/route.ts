@@ -118,12 +118,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     finalMessages.push({ role: "user" as const, content: `[SYSTEM: The student has demonstrated sufficient understanding. This is your final message. Wrap up in one warm sentence acknowledging what they got right. Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]` });
   }
 
+  const request = { model: MODELS.heavy, max_tokens: 1024, system: systemPrompt, messages: finalMessages };
   const response = await anthropic.messages.create({
-    model: MODELS.heavy,
-    max_tokens: 1024,
-    system: systemPrompt,
-    messages: finalMessages,
+    ...request,
     output_config: { format: { type: "json_schema", schema: REPLY_SCHEMA } },
+  }).catch(e => {
+    // If the API ever rejects the schema (e.g. a model without structured outputs), keep the
+    // student's chat working: retry as plain text and let parseProgressResponse handle it
+    if (e instanceof Anthropic.BadRequestError) {
+      console.error("Structured tutor turn rejected, retrying as text:", e.message);
+      return anthropic.messages.create(request);
+    }
+    throw e;
   });
 
   // Structured output guarantees the JSON shape; fall back to the old text parser on a refusal or cut-off

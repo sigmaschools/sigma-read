@@ -36,15 +36,15 @@ import { ratingForScore, verifiedEvidence, reportConfidence, clampScore } from "
 {
   const said = ["It squirts INK and swims away!", "um i think the three hearts"];
   const kept = verifiedEvidence([
-    { skill: "key_details", quote: "squirts ink and swims away" },
-    { skill: "main_idea", quote: "octopuses are masters of disguise" },
-    { skill: "key_details", quote: "three hearts" },
-    { skill: "vocabulary", quote: "" },
+    { skill: "key_details", quote: "squirts ink and swims away", shows: true },
+    { skill: "main_idea", quote: "octopuses are masters of disguise", shows: true },
+    { skill: "key_details", quote: "three hearts", shows: true },
+    { skill: "vocabulary", quote: "", shows: false },
   ], said);
   assert.deepEqual(kept.map(e => e.quote), ["squirts ink and swims away", "three hearts"]);
-  assert.equal(verifiedEvidence([{ skill: "key_details", quote: "ink" }], ["i think so"]).length, 0, "no match inside a word");
-  assert.equal(verifiedEvidence([{ skill: "key_details", quote: "la pieuvre a trois cœurs" }], ["La pieuvre a trois cœurs!"]).length, 1, "non-ASCII text matches");
-  const many = Array.from({ length: 5 }, () => ({ skill: "key_details" as const, quote: "three hearts" }));
+  assert.equal(verifiedEvidence([{ skill: "key_details", quote: "ink", shows: true }], ["i think so"]).length, 0, "no match inside a word");
+  assert.equal(verifiedEvidence([{ skill: "key_details", quote: "la pieuvre a trois cœurs", shows: true }], ["La pieuvre a trois cœurs!"]).length, 1, "non-ASCII text matches");
+  const many = Array.from({ length: 5 }, () => ({ skill: "key_details" as const, quote: "three hearts", shows: true }));
   assert.equal(verifiedEvidence(many, said).length, 3, "capped at 3");
   console.log("✅ verifiedEvidence keeps only real student quotes");
 }
