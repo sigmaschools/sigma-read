@@ -86,7 +86,8 @@ export default function AdminReportsPage() {
   function toggle(id: number) {
     if (openId === id) { setOpenId(null); return; }
     setOpenId(id);
-    if (!details[id]) {
+    const cached = details[id];
+    if (!cached || "error" in cached) {
       fetch(`/api/admin/reports/${id}`)
         .then(async r => (r.ok ? await r.json() : { error: `Couldn't load this conversation (${r.status})` }))
         .catch(() => ({ error: "Couldn't load this conversation" }))
@@ -219,7 +220,7 @@ function DetailView({ row, detail }: { row: Row; detail: Detail }) {
             <Field label="Engagement" text={report.engagementNote} />
             {report.nextStep && <Field label="Next step" text={report.nextStep} />}
             <p className="text-xs text-[var(--muted)]">
-              In-chat progress {report.inChatScore ?? conversation.progressScore} · style {conversation.style ?? "—"} · {report.model ?? "model ?"} · {row.promptVersion ?? "report-v1"}
+              In-chat progress {report.inChatScore ?? conversation.progressScore} · style {conversation.style ?? "—"} · {report.model ?? "model ?"} · {row.promptVersion ?? "prompt ?"}
             </p>
           </>
         ) : (
