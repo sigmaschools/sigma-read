@@ -48,8 +48,9 @@ export const REPORT_SCHEMA = {
         properties: {
           skill: { type: "string", enum: [...SKILLS] },
           quote: { type: "string" },
+          shows: { type: "boolean" },
         },
-        required: ["skill", "quote"],
+        required: ["skill", "quote", "shows"],
         additionalProperties: false,
       },
     },
@@ -67,7 +68,8 @@ export interface ComprehensionReport {
   depth: string;
   engagement: string;
   skills: Record<Skill, SkillRating>;
-  evidence: { skill: Skill; quote: string }[];
+  /** shows: true if the quote demonstrates the skill, false if it shows the skill missing */
+  evidence: { skill: Skill; quote: string; shows: boolean }[];
   summary: string;
   nextStep: string;
 }
