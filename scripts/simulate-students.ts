@@ -1,5 +1,9 @@
 /**
  * Student Activity Simulator
+ *
+ * Writes simulated sessions to the database it's pointed at; never point it at production.
+ * For testing prompt changes, use scripts/eval-conversations.ts (npm run eval), which runs
+ * the real tutor-turn logic in memory. This script still uses its own older turn loop.
  * 
  * Runs automated student sessions with persona-driven, organic conversations.
  * Each student has a unique personality that affects how they discuss articles.

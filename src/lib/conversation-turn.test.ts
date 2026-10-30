@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, closingInstruction, FALLBACK_CLOSING, FALLBACK_PROMPT, OPENER_INSTRUCTION, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, endsWithQuestion, closingInstruction, FALLBACK_CLOSING, FALLBACK_PROMPT, OPENER_INSTRUCTION, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -120,6 +120,23 @@ async function main() {
     const close = await run(fakeClient({ message: "  ", progressDelta: 0 }).client, convo(6), 60);
     assert.equal(close.message, FALLBACK_CLOSING);
     console.log("✅ empty messages are replaced");
+  }
+
+  // ─── Question detection ignores trailing quotes and emoji ──────────────────
+  {
+    assert.ok(endsWithQuestion("Want to try another?\""));
+    assert.ok(endsWithQuestion("Ready for more? 🚀"));
+    assert.ok(endsWithQuestion("(Any questions?)"));
+    assert.ok(!endsWithQuestion("You figured out the dance is a map."));
+    console.log("✅ endsWithQuestion handles trailing punctuation");
+  }
+
+  // ─── The closing turn adds no progress ─────────────────────────────────────
+  {
+    const r = await run(fakeClient({ message: "You noticed the ink trick.", progressDelta: 30 }).client, convo(6), 60);
+    assert.equal(r.progressDelta, 0);
+    assert.equal(r.progressScore, 60);
+    console.log("✅ closing turn adds no progress");
   }
 
   // ─── Deltas are clamped ────────────────────────────────────────────────────

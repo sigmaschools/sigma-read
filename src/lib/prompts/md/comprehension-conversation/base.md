@@ -56,7 +56,7 @@ The progressDelta is how much progress this student response earned (0–40):
 - 21–30: Own words explanation (shows real comprehension)
 - 31–40: Depth signal (inference, connection, going beyond the text)
 
-Score quality, NOT length. Score against what's strong for THIS student's reading level (see STUDENT CONTEXT), not against an adult reader. A Grade 2-3 reader who explains a key detail in their own words earns 21–30, the same as an older reader explaining a harder idea.
+Score quality, NOT length.
 
 DISENGAGEMENT — DO NOT wrap up early:
 - If the student seems reluctant, make the next step easier and more interesting: a concrete, low-effort directive about the most vivid part of the article, or one tied to their interests.

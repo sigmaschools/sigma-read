@@ -22,7 +22,7 @@ export type ClosingKind = "earned" | "forced";
 export function closingInstruction(kind: ClosingKind): string {
   const body = kind === "earned"
     ? "The student has shown solid understanding. Wrap up in one warm sentence that names something specific they got right."
-    : "We're out of time for this conversation. Wrap up in one warm sentence that names one specific thing the student said or noticed. Don't claim they mastered the article, and don't correct anything.";
+    : "We're out of time for this conversation. Wrap up in one warm sentence that names one specific thing the student said or noticed. Don't claim they mastered the article, and don't correct anything. If nothing they said was on track, just thank them for sticking with it, without praise.";
   return `[SYSTEM: This is your final message. ${body} Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]`;
 }
 
@@ -84,12 +84,13 @@ export async function runTutorTurn(args: {
   const assistantText = response.content.filter(b => b.type === "text").map(b => b.text).join("");
   const structured = parseJsonResponse<{ message: string; progressDelta: number }>(response);
   const parsed = structured?.message?.trim() ? structured : parseProgressResponse(assistantText);
-  const progressDelta = clampDelta(parsed.progressDelta);
+  // The closing turn scores nothing; the student's last answer was already counted
+  const progressDelta = closing ? 0 : clampDelta(parsed.progressDelta);
   const progressScore = args.priorProgress + progressDelta;
 
   let message = (parsed.message || "").replace("[CONVERSATION_COMPLETE]", "").trim();
   // Never end the session on a question the student can't answer, or show an empty turn
-  if (closing && (message.endsWith("?") || !message)) message = FALLBACK_CLOSING;
+  if (closing && (endsWithQuestion(message) || !message)) message = FALLBACK_CLOSING;
   if (!message) message = FALLBACK_PROMPT;
 
   // Complete only on a closing turn. When the threshold is first crossed mid-conversation, the
@@ -98,4 +99,9 @@ export async function runTutorTurn(args: {
   const complete = closing !== null;
 
   return { message, progressDelta, progressScore, complete, closing };
+}
+
+/** True if the text ends in a question, ignoring trailing quotes, brackets and emoji */
+export function endsWithQuestion(text: string): boolean {
+  return /\?[\s"'”’)\]\p{Extended_Pictographic}]*$/u.test(text);
 }
