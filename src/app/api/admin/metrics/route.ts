@@ -73,13 +73,13 @@ export async function GET() {
   const u = schema.aiUsage;
   const spendSum = sql<string>`COALESCE(SUM(${u.costUsd}), 0)`;
   const usage = await Promise.all([
-    db.select({ feature: u.feature, calls: count(), cost: spendSum, inputTokens: sql<string>`SUM(${u.inputTokens})`, outputTokens: sql<string>`SUM(${u.outputTokens})` })
+    db.select({ feature: u.feature, calls: count(), pricedCalls: count(u.costUsd), cost: spendSum, inputTokens: sql<string>`SUM(${u.inputTokens})`, outputTokens: sql<string>`SUM(${u.outputTokens})` })
       .from(u).where(gte(u.createdAt, thirtyDaysAgo)).groupBy(u.feature).orderBy(desc(spendSum)),
     db.select({ date: sql<string>`DATE(${u.createdAt})`, cost: spendSum })
       .from(u).where(gte(u.createdAt, thirtyDaysAgo)).groupBy(sql`DATE(${u.createdAt})`).orderBy(sql`DATE(${u.createdAt})`),
     db.select({ unpriced: count() }).from(u).where(and(gte(u.createdAt, thirtyDaysAgo), isNull(u.costUsd))),
   ]).then(([byFeature, byDay, [unpriced]]) => ({
-    byFeature: byFeature.map(f => ({ feature: f.feature, calls: f.calls, cost: Number(f.cost), inputTokens: Number(f.inputTokens), outputTokens: Number(f.outputTokens) })),
+    byFeature: byFeature.map(f => ({ feature: f.feature, calls: f.calls, pricedCalls: f.pricedCalls, cost: Number(f.cost), inputTokens: Number(f.inputTokens), outputTokens: Number(f.outputTokens) })),
     byDay: byDay.map(d => ({ date: d.date, cost: Number(d.cost) })),
     total30d: byFeature.reduce((sum, f) => sum + Number(f.cost), 0),
     unpricedCalls: unpriced.unpriced,

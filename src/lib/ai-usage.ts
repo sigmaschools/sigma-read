@@ -36,8 +36,14 @@ async function record(feature: AiFeature, studentId: number | undefined, request
   }
 }
 
+/**
+ * Only messages.create is wrapped, so the type exposes only that: using .stream(), .parse()
+ * or .withResponse() on a tracked client is a compile error rather than a runtime one.
+ */
+export type MessagesClient = { messages: Pick<Anthropic["messages"], "create"> };
+
 /** A client whose messages.create records usage under `feature`. Non-streaming calls only. */
-export function tracked(client: Anthropic, feature: AiFeature, studentId?: number): Anthropic {
+export function tracked(client: Anthropic, feature: AiFeature, studentId?: number): MessagesClient {
   return {
     messages: {
       create: async (body: { model: string }, options?: unknown) => {
@@ -46,5 +52,5 @@ export function tracked(client: Anthropic, feature: AiFeature, studentId?: numbe
         return res;
       },
     },
-  } as unknown as Anthropic;
+  } as unknown as MessagesClient;
 }
