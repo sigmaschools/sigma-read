@@ -6,6 +6,7 @@
  *   npm run eval
  *   npm run eval -- --personas=emma,marcus --articles=octopus --runs=2
  *   npm run eval -- --label=after-prompt-fix --no-report
+ *   npm run eval -- --style=SURPRISE --runs=3   # pin the style and repeat to reduce noise
  *
  * Writes eval-results/<time>-<label>/results.jsonl (one line per conversation, with transcript)
  * and summary.md (rule violations, exchanges, progress, report scores). Compare two runs'
@@ -34,7 +35,11 @@ if (!process.env.ANTHROPIC_API_KEY) {
 const anthropic = new Anthropic();
 
 const args = process.argv.slice(2);
-const getArg = (name: string) => args.find(a => a.startsWith(`--${name}=`))?.split("=")[1] ?? null;
+const getArg = (name: string) => args.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? null;
+const intArg = (name: string, fallback: number) => {
+  const n = parseInt(getArg(name) ?? "");
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
 const listArg = (name: string) => getArg(name)?.split(",").filter(Boolean) ?? null;
 
 // Child personas only by default: "wayne" is an adult boundary-tester
@@ -44,8 +49,10 @@ const personas = PERSONAS.filter(p => personaNames ? personaNames.includes(p.use
   .filter(p => !EXCLUDED_USERNAMES.includes(p.username));
 const articleIds = listArg("articles");
 const articles = EVAL_ARTICLES.filter(a => !articleIds || articleIds.includes(a.id));
-const runs = parseInt(getArg("runs") || "1");
-const concurrency = parseInt(getArg("concurrency") || "3");
+const runs = intArg("runs", 1);
+const concurrency = intArg("concurrency", 3);
+// Pin one conversation style so a before/after comparison isn't confounded by the random pick
+const fixedStyle = getArg("style");
 const withReport = !args.includes("--no-report");
 const label = getArg("label") || "run";
 
@@ -85,7 +92,7 @@ async function studentReply(persona: StudentPersona, article: EvalArticle, trans
 }
 
 async function runConversation(persona: StudentPersona, article: EvalArticle): Promise<Result> {
-  const style = pickConversationStyle();
+  const style = fixedStyle || pickConversationStyle();
   const systemPrompt = comprehensionConversationPrompt(
     article.bodyText, article.level, JSON.stringify({ interests: persona.interests }), undefined, null, style,
   );
@@ -111,15 +118,20 @@ async function runConversation(persona: StudentPersona, article: EvalArticle): P
 
   let report: Result["report"] = null;
   if (withReport) {
-    const text = transcript.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
-    const res = await anthropic.messages.create({
-      model: MODELS.heavy,
-      max_tokens: 2048,
-      messages: [{ role: "user", content: comprehensionReportPrompt(article.bodyText, text, article.level) }],
-      output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
-    });
-    const parsed = parseJsonResponse<ComprehensionReport>(res);
-    if (parsed) report = { score: parsed.score, rating: parsed.rating, skills: parsed.skills, summary: parsed.summary, nextStep: parsed.nextStep };
+    // A failed report shouldn't throw away a finished transcript
+    try {
+      const text = transcript.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
+      const res = await anthropic.messages.create({
+        model: MODELS.heavy,
+        max_tokens: 2048,
+        messages: [{ role: "user", content: comprehensionReportPrompt(article.bodyText, text, article.level) }],
+        output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
+      });
+      const parsed = parseJsonResponse<ComprehensionReport>(res);
+      if (parsed) report = { score: parsed.score, rating: parsed.rating, skills: parsed.skills, summary: parsed.summary, nextStep: parsed.nextStep };
+    } catch (e) {
+      console.log(`  ${persona.username} / ${article.id}: report failed: ${e instanceof Error ? e.message : e}`);
+    }
   }
 
   return {
@@ -167,7 +179,7 @@ function summarize(results: Result[]): string {
   for (const level of [...new Set(ok.map(r => r.level))].sort()) {
     const rs = ok.filter(r => r.level === level);
     const mean = (xs: number[]) => xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1) : "-";
-    lines.push(`| L${level} | ${rs.length} | ${mean(rs.map(r => r.exchanges))} | ${rs.filter(r => r.closing !== "earned").length} | ${mean(rs.flatMap(r => r.report ? [r.report.score] : []))} | ${mean(rs.map(r => r.tutorAvgWords))} |`);
+    lines.push(`| L${level} | ${rs.length} | ${mean(rs.map(r => r.exchanges))} | ${rs.filter(r => r.closing === "forced").length} | ${mean(rs.flatMap(r => r.report ? [r.report.score] : []))} | ${mean(rs.map(r => r.tutorAvgWords))} |`);
   }
   lines.push("");
 
