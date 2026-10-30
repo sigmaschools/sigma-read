@@ -30,6 +30,8 @@ Clients send `Authorization: Bearer <key>`.
 
 Lists are cursor-paginated: pass the response's `nextCursor` back as `cursor` until it is null. `limit` is 1–100 (default 50). Dates are ISO 8601 UTC. Only completed sessions are listed or returned (an in-progress session is a 404), newest started first, and each shows its latest report. `since` filters on completion time and takes a date (midnight UTC) or a datetime ending in `Z` or an offset (send `+` as `%2B`).
 
+Every report carries `disputed: true` when a guide or admin has flagged it as wrong. The student detail's `last30Days` averages include disputed reports, the same as the guide dashboard; use the session list's `disputed` to filter them out. In a report, `comprehension` is what the student understood and `depth` is what they missed or could go further on.
+
 ## Identity
 
 `students.external_id` and `guides.external_id` hold the Compass IDs (unique, nullable). An admin sets a student's on the student edit form ("Compass ID"). Compass can then use `/students/by-external/{externalId}` without knowing SigmaRead's ids.
