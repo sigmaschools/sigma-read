@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { getServingLevels } from "@/lib/level-progression";
 import { getAffinities, topicsForCache } from "@/lib/interest-graph";
 import { pickForFeed } from "@/lib/interest-graph/serving";
@@ -56,49 +56,59 @@ export async function POST(req: NextRequest) {
   const feedMix = student.feedMix as any;
   const servingLevels = getServingLevels(level, feedMix, 3);
 
-  // Candidate pool per level: unseen, unflagged, news no older than 7 days. Falls back to an
-  // adjacent level when a level has nothing left.
+  // The student's interests rank the candidates (see interest-graph/serving). If they can't be
+  // read, serving goes unranked as before the graph rather than leaving the feed empty.
+  const affinities = await getAffinities(student.id)
+    .catch(e => { console.error("Affinities unavailable, serving unranked:", e); return []; });
+  const affinityMap = new Map(affinities.map(a => [a.topicSlug, a]));
+  const topTopics = affinities.filter(a => a.status !== "rejected" && a.score > 0).slice(0, 10).map(a => a.topicSlug);
+
+  // Candidates per level: unseen, unflagged, news no older than 7 days. A random sample, plus a
+  // sample tagged with the student's top topics so their interests are in the pool even when the
+  // cache is large. Light columns only; the winners' full rows are fetched after picking.
+  // Falls back to an adjacent level when a level has nothing left.
+  const c = schema.articleCache;
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const fetchPool = async (l: number) => {
-    const cached = await db.select().from(schema.articleCache)
-      .where(and(
-        eq(schema.articleCache.readingLevel, l),
-        eq(schema.articleCache.flagged, false),
-        sql`(${schema.articleCache.category} != 'news' OR ${schema.articleCache.generatedDate} IS NULL OR ${schema.articleCache.generatedDate} >= ${sevenDaysAgo.toISOString().split('T')[0]})`,
-        // Unseen in SQL, so the sample doesn't shrink as the student reads more
-        sql`NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ${schema.articleCache.title})`,
-      ))
-      .orderBy(sql`RANDOM()`)
-      .limit(100);
-    return cached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
+    const where = and(
+      eq(c.readingLevel, l),
+      eq(c.flagged, false),
+      sql`(${c.category} != 'news' OR ${c.generatedDate} IS NULL OR ${c.generatedDate} >= ${sevenDaysAgo.toISOString().split('T')[0]})`,
+      sql`NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ${c.title})`,
+    );
+    const [random, matching] = await Promise.all([
+      db.select({ id: c.id, title: c.title }).from(c).where(where).orderBy(sql`RANDOM()`).limit(60),
+      topTopics.length === 0 ? [] : db.select({ id: c.id, title: c.title }).from(c)
+        .where(and(where, sql`EXISTS (SELECT 1 FROM article_topics t WHERE t.article_cache_id = COALESCE(${c.baseArticleId}, ${c.id}) AND t.topic_slug IN ${topTopics})`))
+        .orderBy(sql`RANDOM()`).limit(40),
+    ]);
+    const byId = new Map([...random, ...matching].map(a => [a.id, a]));
+    return [...byId.values()].filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
   };
-  const pools = new Map<number, typeof schema.articleCache.$inferSelect[]>();
+  const pools = new Map<number, { id: number; title: string }[]>();
   for (const l of new Set(servingLevels)) {
     let pool = await fetchPool(l);
     if (pool.length === 0) pool = await fetchPool(l < 6 ? l + 1 : l - 1);
     pools.set(l, pool);
   }
 
-  // Rank by the student's interests, with every third slot exploring (see interest-graph/serving).
-  // If the graph can't be read, serve unranked as before the graph rather than leave the feed empty.
-  const allIds = [...pools.values()].flat().map(a => a.id);
-  const [affinities, cacheTopics] = await Promise.all([
-    getAffinities(student.id).catch(e => { console.error("Affinities unavailable, serving unranked:", e); return []; }),
-    topicsForCache(allIds).catch(e => { console.error("Article topics unavailable, serving unranked:", e); return new Map<number, string[]>(); }),
-  ]);
-  const affinityMap = new Map(affinities.map(a => [a.topicSlug, a]));
+  // Every third slot explores; the rhythm restarts with each serving of three
+  const cacheTopics = await topicsForCache([...pools.values()].flat().map(a => a.id))
+    .catch(e => { console.error("Article topics unavailable, serving unranked:", e); return new Map<number, string[]>(); });
   const avoid = new Set<string>();
-  const taken = new Set<number>();
-  const toServe: (typeof schema.articleCache.$inferSelect & { _serveLevel: number })[] = [];
+  const picks: { id: number; title: string; serveLevel: number }[] = [];
   servingLevels.forEach((serveLevel, position) => {
     const pool = (pools.get(serveLevel) ?? [])
-      .filter(a => !taken.has(a.id) && !toServe.some(t => t.title === a.title))
-      .map(a => ({ id: a.id, topics: cacheTopics.get(a.id) ?? [], article: a }));
+      .filter(a => !picks.some(p => p.id === a.id || p.title === a.title))
+      .map(a => ({ ...a, topics: cacheTopics.get(a.id) ?? [] }));
     const [pick] = pickForFeed(pool, affinityMap, 1, { startPosition: position, avoid });
-    if (!pick) return;
-    taken.add(pick.id);
-    toServe.push({ ...pick.article, _serveLevel: serveLevel });
+    if (pick) picks.push({ id: pick.id, title: pick.title, serveLevel });
+  });
+  const rows = picks.length === 0 ? [] : await db.select().from(c).where(inArray(c.id, picks.map(p => p.id)));
+  const toServe = picks.flatMap(p => {
+    const row = rows.find(r => r.id === p.id);
+    return row ? [{ ...row, _serveLevel: p.serveLevel }] : [];
   });
 
   if (toServe.length === 0) {

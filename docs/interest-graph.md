@@ -67,8 +67,11 @@ step) pick from the unseen articles at the student's level with `pickForFeed`
   widens without serving something the student dislikes.
 - A student with no signals gets the same random mix as before, and so does anyone whose
   affinities or article tags can't be read (logged), so the feed never comes up empty.
-- Candidates are a random sample of up to 100 unseen articles per level (seen ones are
-  excluded in SQL); the batch ranks the 50 newest unseen.
+- Candidates per level are a random sample of 60 unseen articles plus up to 40 tagged with the
+  student's top 10 topics, so their interests are in the pool however large the cache gets.
+  Seen articles are excluded in SQL. The batch ranks the 50 newest unseen.
+- "Never served" for rejected topics holds whenever the graph can be read; it is best-effort
+  during a database failure, when serving falls back to unranked.
 
 ## "Still into these?"
 
