@@ -26,6 +26,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
+import { backfillSignals, quietly, tagCacheArticle, tagUntaggedCache } from "../interest-graph";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -869,6 +870,14 @@ async function runSteps(result: BatchResult) {
   // Always flag expired articles first — before threshold checks or serving
   await flagExpiredArticles();
 
+  // Interest graph upkeep: tag older articles and turn pre-graph likes, favorites and
+  // profile interests into signals. Exact matches only, and idempotent, so it's cheap to repeat.
+  await quietly((async () => {
+    const tagged = await tagUntaggedCache();
+    const signals = await backfillSignals();
+    if (tagged || signals) console.log(`🧭 Interest graph: tagged ${tagged} articles, backfilled ${signals} signals`);
+  })(), "batch upkeep");
+
   // Check if we already have base articles from a partial run today
   const TARGET_BASE_ARTICLES = 5; // 5 articles/day = 3 interest, 1 news, 1 horizon
   const [existingToday] = await sql`
@@ -927,6 +936,8 @@ async function runSteps(result: BatchResult) {
       RETURNING id
     `;
     result.baseArticles++;
+    // The interest the batch searched for is the article's main topic; the rewrite's own tag is a fallback
+    await quietly(tagCacheArticle(inserted.id, t.type === "news" ? [article.topic] : [t.query, article.topic], { client: anthropic }), "article tagging");
     baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
     await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${t.query ?? null})`;
     console.log(`     ✅ "${article.title}" (source: ${t.sourceUrl.substring(0, 50)}...)`);
