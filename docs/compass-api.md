@@ -15,7 +15,7 @@ Clients send `Authorization: Bearer <key>`.
 | --- | --- |
 | `students:read` | Student list and detail: name, grade, reading level, guide, last active, sessions this week, level history, 30-day score and skill trend |
 | `reports:read` | Sessions and comprehension reports |
-| `transcripts:read` | The conversation transcript on `/sessions/{id}` (needs `reports:read`) |
+| `transcripts:read` | The conversation transcript and the report's `evidence` quotes on `/sessions/{id}` (needs `reports:read`) |
 
 ## Endpoints
 
@@ -25,7 +25,7 @@ Clients send `Authorization: Bearer <key>`.
 | `GET /api/v1/students/{id}` | `students:read` |
 | `GET /api/v1/students/by-external/{externalId}` | `students:read` |
 | `GET /api/v1/students/{id}/sessions?since=&limit=&cursor=` | `reports:read` |
-| `GET /api/v1/sessions/{id}` | `reports:read` (+ `transcripts:read` for the transcript) |
+| `GET /api/v1/sessions/{id}` | `reports:read` (+ `transcripts:read` for the transcript and evidence) |
 | `GET /api/v1/openapi.json` | none (the spec, no data) |
 
 Lists are cursor-paginated: pass the response's `nextCursor` back as `cursor` until it is null. `limit` is 1–100 (default 50). Dates are ISO 8601 UTC. Only completed sessions are listed or returned (an in-progress session is a 404), newest started first, and each shows its latest report. `since` filters on completion time and takes a date (midnight UTC) or a datetime ending in `Z` or an offset (send `+` as `%2B`).
@@ -38,7 +38,7 @@ Every report carries `disputed: true` when a guide or admin has flagged it as wr
 
 ## Audit and limits
 
-Every authenticated call writes an `api_request_log` row (client, method, path with query, status). A key is limited to 120 calls a minute (429 with `Retry-After: 60`). Rejected calls don't count toward it, and it is a soft limit: a burst of parallel calls can pass it slightly. The limit counts log rows, so if log writes fail (logged as `api_request_log write failed`), calls are neither recorded nor limited until they recover; the response is still returned. Responses carry `Cache-Control: no-store`.
+Every call with a recognised key, revoked keys included, writes an `api_request_log` row (client, method, path with query, status). A key is limited to 120 calls a minute (429 with `Retry-After: 60`). Rejected calls don't count toward it, and it is a soft limit: a burst of parallel calls can pass it slightly. The limit counts log rows, so if log writes fail (logged as `api_request_log write failed`), calls are neither recorded nor limited until they recover; the response is still returned. Responses carry `Cache-Control: no-store`.
 
 ## Not in v1
 
