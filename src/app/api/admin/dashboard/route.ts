@@ -89,7 +89,7 @@ export async function GET() {
     alerts.push("Couldn't read the morning batch log (batch_runs)");
   } else if (chicago.hour >= 7 && todaysRun?.status !== "complete") {
     alerts.push(todaysRun
-      ? `Morning batch is ${todaysRun.status} after ${todaysRun.attempts} attempt${todaysRun.attempts === 1 ? "" : "s"}${todaysRun.lastError ? `: ${todaysRun.lastError}` : ""}`
+      ? `Morning batch is ${todaysRun.status} after ${todaysRun.attempts} attempt${todaysRun.attempts === 1 ? "" : "s"}${todaysRun.lastError ? `: ${todaysRun.lastError.slice(0, 200)}` : ""}`
       : "Morning batch hasn't run today");
   }
 

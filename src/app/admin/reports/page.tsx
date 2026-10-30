@@ -87,7 +87,8 @@ export default function AdminReportsPage() {
     if (openId === id) { setOpenId(null); return; }
     setOpenId(id);
     const cached = details[id];
-    if (!cached || "error" in cached) {
+    // Refetch errors and "no report yet", which may have changed since the last open
+    if (!cached || "error" in cached || !cached.report) {
       fetch(`/api/admin/reports/${id}`)
         .then(async r => (r.ok ? await r.json() : { error: `Couldn't load this conversation (${r.status})` }))
         .catch(() => ({ error: "Couldn't load this conversation" }))
