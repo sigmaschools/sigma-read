@@ -179,6 +179,12 @@ export const comprehensionReports = pgTable("comprehension_reports", {
   inChatScore: integer("in_chat_score"), // progressScore at completion, for comparing with score
   model: varchar("model", { length: 50 }),
   promptVersion: varchar("prompt_version", { length: 20 }),
+  // A guide or admin disagreeing with the report ("Disagree" button)
+  guideFlag: varchar("guide_flag", { length: 20 }), // score_too_high | score_too_low | other
+  guideNote: text("guide_note"),
+  guideFlaggedBy: integer("guide_flagged_by"),
+  guideFlaggedRole: varchar("guide_flagged_role", { length: 10 }), // guide | admin
+  guideFlaggedAt: timestamp("guide_flagged_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

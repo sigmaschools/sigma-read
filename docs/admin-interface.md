@@ -54,6 +54,12 @@ Features:
 - Edit (✏️): name, guide, grade, age, articles per day, weekly session target, and reading level. A level change is a guide override (`docs/level-progression.md` rule 5): it resets the level mix to the default and writes `level_history`, which restarts the evaluation window. Every edit is written to `admin_audit_log`.
 - Bulk actions (not built): reset data
 
+### 2a. Report Review (`/admin/reports`)
+
+Queue of recent comprehension reports with filters: all, low confidence, forced close, self-assessment gap, disputed, and missing report. A disputed report shows its flag and note in the summary column. Click a row for skills, evidence and the transcript.
+
+Guides can press "Disagree with this report?" on a session (score too high, score too low, or something else plus a note). Admins can flag from the same student page (All Students → 📋). The flag is stored on the report (`guide_flag`, `guide_note`, and who set it), shows under "Disputed" here, and is visible only to guides and admins. A guide can't withdraw an admin's flag. It doesn't change the score or level progression. It's a signal for tuning the report prompt.
+
 ### 3. All Guides (`/admin/guides`)
 
 **Guide management.**

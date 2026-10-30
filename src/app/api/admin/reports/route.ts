@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { and, desc, eq, isNull, isNotNull, ne, or, lt, gt, sql } from "drizzle-orm";
 
-type ReviewFilter = "all" | "low" | "forced" | "gap" | "missing";
+type ReviewFilter = "all" | "low" | "forced" | "gap" | "disputed" | "missing";
 
 /**
  * Report review queue: recent comprehension reports, or completed conversations with no report.
@@ -12,13 +12,14 @@ type ReviewFilter = "all" | "low" | "forced" | "gap" | "missing";
  *   ?filter=low      low-confidence reports
  *   ?filter=forced   conversations that hit the 6-message backstop
  *   ?filter=gap      self-assessment far from the score (said "really well" under 60, or "lost" over 80)
+ *   ?filter=disputed reports a guide or admin disagreed with
  *   ?filter=missing  completed conversations with no report at all
  */
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const FILTERS: ReviewFilter[] = ["all", "low", "forced", "gap", "missing"];
+  const FILTERS: ReviewFilter[] = ["all", "low", "forced", "gap", "disputed", "missing"];
   const requested = req.nextUrl.searchParams.get("filter") as ReviewFilter;
   const filter: ReviewFilter = FILTERS.includes(requested) ? requested : "all";
   const limit = Math.max(1, Math.min(200, parseInt(req.nextUrl.searchParams.get("limit") || "50") || 50));
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
   }
   if (filter === "low") conditions.push(eq(r.confidence, "low"));
   if (filter === "forced") conditions.push(eq(r.forcedClose, true));
+  if (filter === "disputed") conditions.push(isNotNull(r.guideFlag));
   if (filter === "gap") {
     conditions.push(or(
       and(eq(r.selfAssessment, "really_well"), lt(r.score, 60)),
@@ -67,6 +69,8 @@ export async function GET(req: NextRequest) {
     exchangeCount: r.exchangeCount,
     summary: r.summary,
     promptVersion: r.promptVersion,
+    guideFlag: r.guideFlag,
+    guideNote: r.guideNote,
   })
     .from(schema.conversations)
     .innerJoin(schema.readingSessions, eq(schema.conversations.readingSessionId, schema.readingSessions.id))

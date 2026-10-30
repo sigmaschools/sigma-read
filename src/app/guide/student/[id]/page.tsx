@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ScoreZoneChart from "@/components/ScoreZoneChart";
+import { SKILL_LABELS, SKILL_RATING_LABELS, SKILL_COLORS, REPORT_FLAGS, REPORT_FLAG_LABELS, skillSummary, type ReportFlag } from "@/lib/skills";
 
 interface SessionReport {
   sessionId: number;
@@ -27,6 +28,17 @@ interface SessionReport {
   studentAvgWords: number | null;
   redirectCount: number | null;
   exchangeCount: number | null;
+  skills: Record<string, string> | null;
+  evidence: { skill: string; quote: string; shows?: boolean }[] | null;
+  reportSummary: string | null;
+  nextStep: string | null;
+  confidence: string | null;
+  forcedClose: boolean | null;
+  guideFlag: string | null;
+  guideNote: string | null;
+  guideFlaggedAt: string | null;
+  guideFlaggedRole: string | null;
+  guideFlaggedBy: number | null;
 }
 
 interface Student {
@@ -73,6 +85,7 @@ export default function StudentDetailPage() {
   const [selectedSession, setSelectedSession] = useState<SessionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
+  const [viewerId, setViewerId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "sessions">("overview");
 
@@ -100,6 +113,7 @@ export default function StudentDetailPage() {
       const me = await meRes.json();
       if (me.role !== "guide" && me.role !== "admin") { router.push("/login"); return; }
       setRole(me.role);
+      setViewerId(me.userId ?? null);
 
       const studRes = await fetch("/api/students");
       if (!studRes.ok) { setError("Could not load student data."); setLoading(false); return; }
@@ -202,6 +216,7 @@ export default function StudentDetailPage() {
   const interests = student.interestProfile;
 
   const chartScores = [...scoredSessions].reverse().map((s) => s.score!);
+  const skills = skillSummary(scoredSessions);
 
   // Session detail view
   if (selectedSession) {
@@ -269,20 +284,72 @@ export default function StudentDetailPage() {
 
           {/* Comprehension Report */}
           {s.reportId && (
-            <div className="mb-6 p-5 bg-[var(--surface)] border border-[var(--border)] rounded-xl space-y-3">
-              <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Comprehension Report</h2>
-              <div>
-                <p className="text-xs font-medium text-green-600 mb-1">Comprehension</p>
-                <p className="text-sm">{s.understood}</p>
+            <div className="mb-6 p-5 bg-[var(--surface)] border border-[var(--border)] rounded-xl space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Comprehension Report</h2>
+                {s.confidence === "low" && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title={s.forcedClose ? "The conversation hit the message limit before the student showed full understanding" : "Short conversation or very short answers"}>
+                    Low confidence
+                  </span>
+                )}
               </div>
-              <div>
-                <p className="text-xs font-medium text-blue-500 mb-1">Depth</p>
-                <p className="text-sm">{s.missed}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-[var(--muted)] mb-1">Engagement</p>
-                <p className="text-sm">{s.engagementNote}</p>
-              </div>
+              {s.reportSummary && <p className="text-sm leading-relaxed">{s.reportSummary}</p>}
+              {s.skills && (
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(s.skills).map(([skill, rating]) => (
+                    <span key={skill} className={`text-xs px-2 py-0.5 rounded-full ${SKILL_COLORS[rating] ?? "bg-gray-100"}`}>
+                      {SKILL_LABELS[skill as keyof typeof SKILL_LABELS] ?? skill}: {SKILL_RATING_LABELS[rating] ?? rating}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {s.evidence && s.evidence.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-[var(--muted)] mb-1">In their words</p>
+                  {s.evidence.map((e, i) => (
+                    <p key={i} className="text-sm mb-1">
+                      <span className="text-xs text-[var(--muted)]">{SKILL_LABELS[e.skill as keyof typeof SKILL_LABELS] ?? e.skill}{e.shows === false ? " (missing)" : ""}: </span>
+                      &ldquo;{e.quote}&rdquo;
+                    </p>
+                  ))}
+                </div>
+              )}
+              {s.nextStep && (
+                <div>
+                  <p className="text-xs font-medium text-[var(--accent)] mb-1">Try next</p>
+                  <p className="text-sm">{s.nextStep}</p>
+                </div>
+              )}
+              <details key={s.reportId} className="text-sm" open={!s.reportSummary}>
+                <summary className="text-xs font-medium text-[var(--muted)] cursor-pointer">Full report</summary>
+                <div className="space-y-3 mt-3">
+                  <div>
+                    <p className="text-xs font-medium text-green-600 mb-1">Comprehension</p>
+                    <p className="text-sm">{s.understood}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-blue-500 mb-1">Depth</p>
+                    <p className="text-sm">{s.missed}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-[var(--muted)] mb-1">Engagement</p>
+                    <p className="text-sm">{s.engagementNote}</p>
+                  </div>
+                </div>
+              </details>
+              <ReportFlagControl
+                reportId={s.reportId}
+                flag={s.guideFlag}
+                note={s.guideNote}
+                flaggedRole={s.guideFlaggedRole}
+                flaggedByViewer={s.guideFlaggedRole === role && s.guideFlaggedBy === viewerId}
+                viewerRole={role}
+                onChange={(fields) => {
+                  const updated = { ...s, ...fields };
+                  setSelectedSession(updated);
+                  setSessions(prev => prev.map(x => x.sessionId === s.sessionId ? updated : x));
+                }}
+              />
             </div>
           )}
 
@@ -372,6 +439,34 @@ export default function StudentDetailPage() {
                 <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Score Trend</h2>
                 <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 overflow-hidden">
                   <ScoreZoneChart scores={chartScores} />
+                </div>
+              </div>
+            )}
+
+            {/* Skills across recent reports */}
+            {skills.reports > 0 && (
+              <div className="mb-6">
+                <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">
+                  Skills <span className="normal-case tracking-normal font-normal">· last {skills.reports} report{skills.reports === 1 ? "" : "s"}</span>
+                </h2>
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl divide-y divide-[var(--border)]">
+                  {skills.rows.map(row => (
+                    <div key={row.skill} className="px-4 py-2.5 flex items-center gap-3 text-sm">
+                      <span className="w-28 shrink-0">{row.label}</span>
+                      {row.tested === 0 ? (
+                        <span className="text-xs text-[var(--muted)]">Not tested yet</span>
+                      ) : (
+                        <>
+                          <div className="flex-1 flex h-2 rounded-full overflow-hidden bg-gray-100" title={`${row.shown} shown, ${row.partly} partly, ${row.notShown} not shown`}>
+                            <div className="bg-green-500" style={{ width: `${(row.shown / row.tested) * 100}%` }} />
+                            <div className="bg-amber-400" style={{ width: `${(row.partly / row.tested) * 100}%` }} />
+                            <div className="bg-red-400" style={{ width: `${(row.notShown / row.tested) * 100}%` }} />
+                          </div>
+                          <span className="w-32 shrink-0 text-right text-xs text-[var(--muted)]">shown {row.shown} of {row.tested}</span>
+                        </>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -488,6 +583,7 @@ export default function StudentDetailPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {s.guideFlag && <span className="text-xs text-amber-700" title={s.guideNote ?? undefined}>⚑ Disputed</span>}
                     {s.score !== null && (
                       <div className="text-right">
                         <span className={`text-lg font-semibold ${scoreColor(s.score)}`}>{s.score}</span>
@@ -503,6 +599,109 @@ export default function StudentDetailPage() {
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** "Disagree" with a report: the guide says what's off, and it shows up in the admin review queue */
+type FlagFields = Pick<SessionReport, "guideFlag" | "guideNote" | "guideFlaggedAt" | "guideFlaggedRole" | "guideFlaggedBy">;
+
+function ReportFlagControl({ reportId, flag, note, flaggedRole, flaggedByViewer, viewerRole, onChange }: {
+  reportId: number;
+  flag: string | null;
+  note: string | null;
+  flaggedRole: string | null;
+  flaggedByViewer: boolean;
+  viewerRole: string | null;
+  onChange: (fields: FlagFields) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState<ReportFlag>("score_too_high");
+  const [text, setText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function send(method: "POST" | "DELETE") {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/reports/${reportId}/flag`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: method === "POST" ? JSON.stringify({ flag: choice, note: text }) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error || "Couldn't save"); return; }
+      onChange({
+        guideFlag: data.guideFlag ?? null, guideNote: data.guideNote ?? null,
+        guideFlaggedAt: data.guideFlaggedAt ?? null, guideFlaggedRole: data.guideFlaggedRole ?? null,
+        guideFlaggedBy: data.guideFlaggedBy ?? null,
+      });
+      setOpen(false);
+      setText("");
+    } catch {
+      setError("Couldn't save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (flag) {
+    // Guides can't withdraw an admin's flag
+    const canWithdraw = !(flaggedRole === "admin" && viewerRole === "guide");
+    return (
+      <div className="pt-3 border-t border-[var(--border)] space-y-1 text-sm">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-amber-700">
+            ⚑ {flaggedByViewer ? "You disagreed" : flaggedRole === "admin" ? "An admin disagreed" : "A guide disagreed"}: {REPORT_FLAG_LABELS[flag as ReportFlag] ?? flag}
+            {note && <span className="text-[var(--muted)]"> · &ldquo;{note}&rdquo;</span>}
+          </p>
+          {canWithdraw && (
+            <button onClick={() => send("DELETE")} disabled={saving} className="text-xs text-[var(--muted)] hover:text-[var(--fg)] shrink-0">
+              Withdraw
+            </button>
+          )}
+        </div>
+        {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="pt-3 border-t border-[var(--border)]">
+        <button onClick={() => setOpen(true)} className="text-xs text-[var(--muted)] hover:text-[var(--fg)]">
+          Disagree with this report?
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-3 border-t border-[var(--border)] space-y-2">
+      <div className="flex flex-wrap gap-3 text-sm">
+        {REPORT_FLAGS.map(f => (
+          <label key={f} className="flex items-center gap-1.5">
+            <input type="radio" name={`flag-${reportId}`} checked={choice === f} onChange={() => setChoice(f)} />
+            {REPORT_FLAG_LABELS[f]}
+          </label>
+        ))}
+      </div>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder={choice === "other" ? "What's off? (required)" : "Anything to add? (optional)"}
+        rows={2}
+        maxLength={1000}
+        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white outline-none focus:border-[var(--accent)]"
+      />
+      {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+      <div className="flex gap-2">
+        <button onClick={() => send("POST")} disabled={saving || (choice === "other" && !text.trim())} className="px-3 py-1.5 bg-[var(--accent)] text-white text-sm rounded-lg disabled:opacity-50">
+          {saving ? "Saving…" : "Send"}
+        </button>
+        <button onClick={() => { setOpen(false); setError(""); }} className="px-3 py-1.5 text-sm border border-[var(--border)] rounded-lg">Cancel</button>
       </div>
     </div>
   );
