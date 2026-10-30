@@ -22,7 +22,7 @@ export type ClosingKind = "earned" | "forced";
 export function closingInstruction(kind: ClosingKind): string {
   const body = kind === "earned"
     ? "The student has shown solid understanding. Wrap up in one warm sentence that names something specific they got right."
-    : "We're out of time for this conversation. Wrap up in one warm sentence that names one specific thing the student said or noticed. Don't claim they mastered the article, and don't correct anything. If nothing they said was on track, just thank them for sticking with it, without praise.";
+    : "We're out of time for this conversation. Wrap up in one warm sentence that names one specific thing the student said or noticed. Don't claim they mastered or nailed the article, and don't correct anything. If nothing they said was on track, just thank them for sticking with it, without praise.";
   return `[SYSTEM: This is your final message. ${body} Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]`;
 }
 
