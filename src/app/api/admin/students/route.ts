@@ -18,6 +18,8 @@ export async function GET() {
     readingLevel: schema.students.readingLevel,
     gradeLevel: schema.students.gradeLevel,
     age: schema.students.age,
+    dailyArticleCap: schema.students.dailyArticleCap,
+    weeklySessionTarget: schema.students.weeklySessionTarget,
     onboardingComplete: schema.students.onboardingComplete,
     totalSessionsCompleted: schema.students.totalSessionsCompleted,
     createdAt: schema.students.createdAt,
