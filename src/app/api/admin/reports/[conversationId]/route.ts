@@ -21,7 +21,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ con
 
   const [report] = await db.select().from(schema.comprehensionReports)
     .where(eq(schema.comprehensionReports.conversationId, conversationId))
-    .orderBy(desc(schema.comprehensionReports.createdAt))
+    // Same rule as the list: the latest report is the one with the highest id
+    .orderBy(desc(schema.comprehensionReports.id))
     .limit(1);
 
   return NextResponse.json({ conversation, report: report ?? null });

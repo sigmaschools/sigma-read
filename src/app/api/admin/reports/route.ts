@@ -18,7 +18,9 @@ export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const filter = (req.nextUrl.searchParams.get("filter") || "all") as ReviewFilter;
+  const FILTERS: ReviewFilter[] = ["all", "low", "forced", "gap", "missing"];
+  const requested = req.nextUrl.searchParams.get("filter") as ReviewFilter;
+  const filter: ReviewFilter = FILTERS.includes(requested) ? requested : "all";
   const limit = Math.max(1, Math.min(200, parseInt(req.nextUrl.searchParams.get("limit") || "50") || 50));
   const r = schema.comprehensionReports;
 
@@ -30,7 +32,10 @@ export async function GET(req: NextRequest) {
   if (filter === "missing") {
     conditions.push(isNull(r.id));
     // The report is written a few seconds after completion; don't flag ones still being generated
-    conditions.push(lt(schema.readingSessions.completedAt, new Date(Date.now() - 10 * 60 * 1000)));
+    conditions.push(or(
+      isNull(schema.readingSessions.completedAt),
+      lt(schema.readingSessions.completedAt, new Date(Date.now() - 10 * 60 * 1000)),
+    )!);
   } else {
     conditions.push(isNotNull(r.id));
   }
