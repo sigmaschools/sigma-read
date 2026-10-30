@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { apiRoute, apiError, apiJson, visibleStudent } from "@/lib/api-v1/auth";
 import { hasScope } from "@/lib/api-v1/keys";
@@ -12,7 +12,7 @@ export const GET = apiRoute<{ id: string }>("reports:read", async (_req, client,
   const [row] = await db.select({ session: schema.readingSessions, article: schema.articles, conversation: schema.conversations })
     .from(schema.readingSessions)
     .innerJoin(schema.articles, eq(schema.readingSessions.articleId, schema.articles.id))
-    .leftJoin(schema.conversations, eq(schema.conversations.readingSessionId, schema.readingSessions.id))
+    .leftJoin(schema.conversations, eq(schema.conversations.id, sql`(SELECT max(id) FROM conversations WHERE reading_session_id = ${schema.readingSessions.id})`))
     .where(eq(schema.readingSessions.id, sessionId))
     .limit(1);
   if (!row || !(await visibleStudent(client, row.session.studentId))) return apiError(404, "Session not found");
@@ -52,7 +52,9 @@ export const GET = apiRoute<{ id: string }>("reports:read", async (_req, client,
     } : null,
     // Coaching tips are app UI, not part of the conversation
     transcript: hasScope(client.scopes, "transcripts:read") && c
-      ? (c.messages || []).filter(m => m.type !== "coaching").map(m => ({ role: m.role === "user" ? "student" : "tutor", content: m.content, timestamp: m.timestamp ?? null }))
+      ? (c.messages || [])
+        .filter(m => m.type !== "coaching" && (m.role === "user" || m.role === "assistant"))
+        .map(m => ({ role: m.role === "user" ? "student" : "tutor", content: m.content, timestamp: m.timestamp ?? null }))
       : undefined,
   });
 });

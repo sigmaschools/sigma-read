@@ -37,7 +37,8 @@ export const GET = apiRoute<{ id: string }>("reports:read", async (req, client, 
   })
     .from(rs)
     .innerJoin(schema.articles, eq(rs.articleId, schema.articles.id))
-    .leftJoin(schema.conversations, eq(schema.conversations.readingSessionId, rs.id))
+    // One conversation per session (the latest, should there ever be two), so rows and cursors stay unique
+    .leftJoin(schema.conversations, eq(schema.conversations.id, sql`(SELECT max(id) FROM conversations WHERE reading_session_id = ${rs.id})`))
     // Latest report only
     .leftJoin(r, eq(r.id, sql`(SELECT max(id) FROM comprehension_reports WHERE conversation_id = ${schema.conversations.id})`))
     .where(and(...conditions))

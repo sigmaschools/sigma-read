@@ -28,7 +28,7 @@ Clients send `Authorization: Bearer <key>`.
 | `GET /api/v1/sessions/{id}` | `reports:read` (+ `transcripts:read` for the transcript) |
 | `GET /api/v1/openapi.json` | none (the spec, no data) |
 
-Lists are cursor-paginated: pass the response's `nextCursor` back as `cursor` until it is null. `limit` is 1–100 (default 50). Dates are ISO 8601 UTC. Only completed sessions are listed, and each shows its latest report.
+Lists are cursor-paginated: pass the response's `nextCursor` back as `cursor` until it is null. `limit` is 1–100 (default 50). Dates are ISO 8601 UTC. Only completed sessions are listed, newest started first, and each shows its latest report. `since` filters on completion time and takes a date (midnight UTC) or a datetime ending in `Z` or an offset (send `+` as `%2B`).
 
 ## Identity
 
@@ -36,10 +36,11 @@ Lists are cursor-paginated: pass the response's `nextCursor` back as `cursor` un
 
 ## Audit and limits
 
-Every authenticated call writes an `api_request_log` row (client, method, path with query, status). A key is limited to 120 calls a minute (429 with `Retry-After: 60`). Responses carry `Cache-Control: no-store`.
+Every authenticated call writes an `api_request_log` row (client, method, path with query, status). A key is limited to 120 calls a minute (429 with `Retry-After: 60`). Rejected calls don't count toward it, and it is a soft limit: a burst of parallel calls can pass it slightly. Responses carry `Cache-Control: no-store`.
 
 ## Not in v1
 
 - No `updated_since` on the student list, because students have no `updated_at` column. Poll the list, or use `sessions?since=` for new activity.
 - No webhooks or single sign-on yet (see the improvement proposals doc).
 - There's no admin UI for guide external IDs yet.
+- `api_request_log` has no retention rule yet. It needs one (for example 12 months) once real clients use the API.

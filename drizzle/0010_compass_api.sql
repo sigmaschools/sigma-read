@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS "api_clients" (
   "id" serial PRIMARY KEY NOT NULL,
   "name" text NOT NULL,
   "key_prefix" varchar(16) NOT NULL,
-  "key_hash" text NOT NULL UNIQUE,
+  "key_hash" text NOT NULL,
   "scopes" jsonb DEFAULT '[]'::jsonb NOT NULL,
   "guide_id" integer,
   "created_by" integer,
@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS "api_clients" (
   "revoked_at" timestamp,
   "created_at" timestamp DEFAULT now() NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS "api_clients_key_hash_unique" ON "api_clients" ("key_hash");
 CREATE TABLE IF NOT EXISTS "api_request_log" (
   "id" serial PRIMARY KEY NOT NULL,
   "client_id" integer NOT NULL,
