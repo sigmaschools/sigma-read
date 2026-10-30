@@ -171,7 +171,7 @@ export const comprehensionReports = pgTable("comprehension_reports", {
   redirectCount: integer("redirect_count"), // times AI redirected/corrected student
   exchangeCount: integer("exchange_count"), // total message exchanges
   skills: jsonb("skills").$type<Record<string, string>>(), // main_idea, key_details, vocabulary, inference, connection → shown | partly | not_shown | not_tested
-  evidence: jsonb("evidence").$type<{ skill: string; quote: string }[]>(), // student quotes backing the skill ratings
+  evidence: jsonb("evidence").$type<{ skill: string; quote: string; shows?: boolean }[]>(), // student quotes backing the skill ratings
   summary: text("summary"), // two sentences for the guide
   nextStep: text("next_step"), // one thing the guide could try next
   confidence: varchar("confidence", { length: 10 }), // high | medium | low, from conversation shape
