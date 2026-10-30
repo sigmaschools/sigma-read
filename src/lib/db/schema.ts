@@ -38,6 +38,7 @@ export const guides = pgTable("guides", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  externalId: text("external_id"), // Compass ID, set by an admin (unique index in drizzle/0010)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -47,6 +48,7 @@ export const students = pgTable("students", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   guideId: integer("guide_id").references(() => guides.id).notNull(),
+  externalId: text("external_id"), // Compass ID, set by an admin (unique index in drizzle/0010)
   readingLevel: integer("reading_level"), // 1-6, null until assessed
   gradeLevel: integer("grade_level"), // actual grade (2-8+)
   age: integer("age"), // student age
@@ -273,5 +275,29 @@ export const aiUsage = pgTable("ai_usage", {
   cacheReadTokens: integer("cache_read_tokens").default(0).notNull(),
   cacheWriteTokens: integer("cache_write_tokens").default(0).notNull(),
   costUsd: numeric("cost_usd", { precision: 12, scale: 6 }), // null when the model has no listed price
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Service clients of the read-only /api/v1 (Compass). Keys are shown once and stored hashed.
+export const apiClients = pgTable("api_clients", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  keyPrefix: varchar("key_prefix", { length: 16 }).notNull(), // first characters, to recognise a key in the admin list
+  keyHash: text("key_hash").notNull().unique(), // sha256 hex of the full key
+  scopes: jsonb("scopes").$type<string[]>().notNull().default([]), // students:read | reports:read | transcripts:read
+  guideId: integer("guide_id"), // when set, only this guide's students are visible
+  createdBy: integer("created_by"),
+  lastUsedAt: timestamp("last_used_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// One row per /api/v1 call: the audit trail for data about minors, and the rate limit window
+export const apiRequestLog = pgTable("api_request_log", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  method: varchar("method", { length: 8 }).notNull(),
+  path: text("path").notNull(),
+  status: integer("status").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

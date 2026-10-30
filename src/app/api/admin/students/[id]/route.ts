@@ -59,7 +59,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       details: { from: student.readingLevel, to: readingLevel },
     }));
   }
-  if (queries.length > 0) await db.batch(queries as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
+  if (queries.length > 0) {
+    try {
+      await db.batch(queries as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
+    } catch (e) {
+      // Unique index on external_id
+      if ((e as { code?: string }).code === "23505") return NextResponse.json({ error: "That Compass ID is already used by another student" }, { status: 409 });
+      throw e;
+    }
+  }
 
   const [updated] = await db.select({
     id: schema.students.id,
@@ -70,6 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     age: schema.students.age,
     dailyArticleCap: schema.students.dailyArticleCap,
     weeklySessionTarget: schema.students.weeklySessionTarget,
+    externalId: schema.students.externalId,
   }).from(schema.students).where(eq(schema.students.id, studentId)).limit(1);
 
   return NextResponse.json({ student: updated, changed: Object.keys(changes).concat(levelChanged ? ["readingLevel"] : []) });
