@@ -34,6 +34,7 @@ export const GET = apiRoute<{ id: string }>("reports:read", async (req, client, 
     skills: r.skills,
     selfAssessment: r.selfAssessment,
     confidence: r.confidence,
+    guideFlag: r.guideFlag,
   })
     .from(rs)
     .innerJoin(schema.articles, eq(rs.articleId, schema.articles.id))
@@ -56,6 +57,7 @@ export const GET = apiRoute<{ id: string }>("reports:read", async (req, client, 
       discussionSeconds: s.discussionSeconds,
       report: s.score === null ? null : {
         score: s.score, rating: s.rating, skills: s.skills, selfAssessment: s.selfAssessment, confidence: s.confidence,
+        disputed: s.guideFlag !== null,
       },
     })),
     nextCursor,
