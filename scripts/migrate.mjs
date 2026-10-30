@@ -71,8 +71,8 @@ async function main() {
     // Advisory lock serializes overlapping deploys; a second deploy may re-run a file, which is safe
     // only because files must be idempotent
     await sql.transaction([
+      sql`SET LOCAL lock_timeout = '10s'`, // caps the advisory-lock wait and DDL waits behind live queries
       sql`SELECT pg_advisory_xact_lock(724501)`,
-      sql`SET LOCAL lock_timeout = '10s'`, // fail fast instead of hanging the build behind live queries
       ...statements.map(statement => sql.query(statement)),
       sql`INSERT INTO schema_migrations (name) VALUES (${name}) ON CONFLICT DO NOTHING`,
     ]);
