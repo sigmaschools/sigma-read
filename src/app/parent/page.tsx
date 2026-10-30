@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import InterestPanel from "@/components/InterestPanel";
 import ScoreZoneChart from "@/components/ScoreZoneChart";
 
 interface Child {
@@ -484,16 +485,7 @@ function ParentPortal() {
                   </div>
 
                   {/* Interests */}
-                  {interests?.interests && interests.interests.length > 0 && (
-                    <div className="mb-6">
-                      <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Interests</h2>
-                      <div className="flex flex-wrap gap-2">
-                        {interests.interests.map((t: string) => (
-                          <span key={t} className="px-3 py-1 bg-[var(--accent)]/10 text-[var(--accent)] text-sm rounded-full font-medium">{t}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <InterestPanel studentId={selectedChild.id} profileInterests={interests?.interests ?? []} />
 
                   {/* Score Trend */}
                   {chartScores.length >= 2 && (

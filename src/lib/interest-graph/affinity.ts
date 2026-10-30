@@ -26,6 +26,8 @@ export const SIGNALS = {
   checkin_keep: { weight: 0.3, kind: "behaviour" },
   checkin_less: { weight: 0, kind: "declared" }, // fades with the declared interest it offsets
   checkin_reject: { weight: 0, kind: "behaviour" },
+  // A guide, parent or admin takes a topic off (removed) or puts it back (restored)
+  removed: { weight: 0, kind: "behaviour" },
   restored: { weight: 0, kind: "behaviour" },
 } as const satisfies Record<string, { weight: number; kind: SignalKind }>;
 
@@ -61,6 +63,7 @@ export function decay(signal: Pick<Signal, "signalType" | "createdAt">, now: Dat
 }
 
 const DECLARING: SignalType[] = ["onboarding", "typed_interest", "restored"];
+const REJECTING: SignalType[] = ["checkin_reject", "removed"];
 
 /** Affinities for one student from their signals, strongest first. Rejected topics are kept (score 0) so callers can exclude them. */
 export function computeAffinities(signals: Signal[], now = new Date()): Affinity[] {
@@ -75,11 +78,15 @@ export function computeAffinities(signals: Signal[], now = new Date()): Affinity
   const out: Affinity[] = [];
   for (const [topicSlug, list] of byTopic) {
     list.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    const lastReject = lastAt(list, ["checkin_reject"]);
+    const lastReject = lastAt(list, REJECTING);
     const lastDeclare = lastAt(list, DECLARING);
     const rejected = lastReject !== null && (lastDeclare === null || lastDeclare < lastReject);
-    // A topic named again after "No more" starts over: only signals since then count
-    const counted = lastReject !== null && !rejected ? list.filter(s => s.createdAt.getTime() >= lastDeclare!) : list;
+    // A topic the student names again after "No more" starts over: only signals since then
+    // count. An adult's restore undoes the removal instead, keeping the history.
+    const restoredLast = list.filter(s => DECLARING.includes(s.signalType)).pop()?.signalType === "restored";
+    const counted = lastReject !== null && !rejected && !restoredLast
+      ? list.filter(s => s.createdAt.getTime() >= lastDeclare!)
+      : list;
 
     let sum = 0, evidence = 0;
     for (const s of counted) {

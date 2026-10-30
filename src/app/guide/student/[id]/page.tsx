@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import InterestPanel from "@/components/InterestPanel";
 import ScoreZoneChart from "@/components/ScoreZoneChart";
 import { SKILL_LABELS, SKILL_RATING_LABELS, SKILL_COLORS, REPORT_FLAGS, REPORT_FLAG_LABELS, skillSummary, type ReportFlag } from "@/lib/skills";
 
@@ -422,16 +423,7 @@ export default function StudentDetailPage() {
         {activeTab === "overview" && (
           <>
             {/* Interests */}
-            {interests?.interests?.length > 0 && (
-              <div className="mb-6">
-                <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider mb-2">Interests</h2>
-                <div className="flex flex-wrap gap-2">
-                  {interests.interests.map((t: string) => (
-                    <span key={t} className="px-3 py-1 bg-[var(--accent)]/10 text-[var(--accent)] text-sm rounded-full font-medium">{t}</span>
-                  ))}
-                </div>
-              </div>
-            )}
+            <InterestPanel studentId={student.id} profileInterests={interests?.interests ?? []} />
 
             {/* Score Trend — only when meaningful variation exists */}
             {chartScores.length >= 2 && (
