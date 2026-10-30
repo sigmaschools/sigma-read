@@ -1,0 +1,9 @@
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "skills" jsonb;
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "evidence" jsonb;
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "summary" text;
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "next_step" text;
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "confidence" varchar(10);
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "forced_close" boolean;
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "in_chat_score" integer;
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "model" varchar(50);
+ALTER TABLE "comprehension_reports" ADD COLUMN IF NOT EXISTS "prompt_version" varchar(20);
