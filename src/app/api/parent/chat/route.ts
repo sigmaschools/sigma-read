@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { eq, and, desc } from "drizzle-orm";
 import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
+import { tracked } from "@/lib/ai-usage";
 import { parentChatPrompt } from "@/lib/prompts";
 
 const anthropic = new Anthropic();
@@ -203,7 +204,7 @@ export async function POST(req: NextRequest) {
     content: m.content,
   }));
 
-  const response = await anthropic.messages.create({
+  const response = await tracked(anthropic, "parent_chat", studentId).messages.create({
     model: MODELS.standard,
     max_tokens: 1024,
     system: systemPrompt,

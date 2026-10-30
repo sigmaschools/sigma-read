@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date, numeric } from "drizzle-orm/pg-core";
 
 export const generatedTopics = pgTable("generated_topics", {
   id: serial("id").primaryKey(),
@@ -253,5 +253,19 @@ export const adminAuditLog = pgTable("admin_audit_log", {
   targetType: varchar("target_type", { length: 20 }), // student | guide
   targetId: integer("target_id"),
   details: jsonb("details").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// One row per Claude API call from the app (scripts and evals aren't recorded)
+export const aiUsage = pgTable("ai_usage", {
+  id: serial("id").primaryKey(),
+  feature: varchar("feature", { length: 40 }).notNull(), // see AiFeature in src/lib/ai-usage.ts
+  model: varchar("model", { length: 80 }).notNull(),
+  studentId: integer("student_id"), // no FK: usage history outlives deleted students
+  inputTokens: integer("input_tokens").notNull(),
+  outputTokens: integer("output_tokens").notNull(),
+  cacheReadTokens: integer("cache_read_tokens").default(0).notNull(),
+  cacheWriteTokens: integer("cache_write_tokens").default(0).notNull(),
+  costUsd: numeric("cost_usd", { precision: 12, scale: 6 }), // null when the model has no listed price
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

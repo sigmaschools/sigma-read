@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
+import { tracked } from "@/lib/ai-usage";
 import { wordDefinitionPrompt } from "@/lib/prompts";
 import { MODELS } from "@/lib/models";
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   const { word, sentence } = await req.json();
   if (!word) return NextResponse.json({ error: "Word required" }, { status: 400 });
 
-  const response = await anthropic.messages.create({
+  const response = await tracked(anthropic, "definition", session.role === "student" ? session.userId : undefined).messages.create({
     model: MODELS.standard,
     max_tokens: 256,
     messages: [{ role: "user", content: wordDefinitionPrompt(word, sentence || "") }],

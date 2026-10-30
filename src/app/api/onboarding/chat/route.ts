@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
+import { tracked } from "@/lib/ai-usage";
 import { INTEREST_INTERVIEW, READING_LEVEL_ASSESSMENT } from "@/lib/prompts";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
   const systemPrompt = (phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT)
     + `\n\nThe student's name is ${studentName}.`;
 
-  const response = await anthropic.messages.create({
+  const response = await tracked(anthropic, "onboarding", session.userId).messages.create({
     model: MODELS.standard,
     max_tokens: 2048,
     system: systemPrompt,

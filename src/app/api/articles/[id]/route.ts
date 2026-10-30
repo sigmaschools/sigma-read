@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { and, eq } from "drizzle-orm";
 import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
+import { tracked } from "@/lib/ai-usage";
 import { preReadingPrompt } from "@/lib/prompts";
 
 const anthropic = new Anthropic();
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // Generate pre-reading prompt if not cached
   if (!article.preReadingPrompt) {
     try {
-      const response = await anthropic.messages.create({
+      const response = await tracked(anthropic, "pre_reading", session.userId).messages.create({
         model: MODELS.light,
         max_tokens: 100,
         messages: [{ role: "user", content: preReadingPrompt(article.title, article.topic, article.readingLevel) }],
