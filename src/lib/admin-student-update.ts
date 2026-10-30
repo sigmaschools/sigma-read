@@ -11,6 +11,8 @@ export interface StudentUpdate {
   dailyArticleCap?: number;
   /** null means auto (dailyArticleCap × 5) */
   weeklySessionTarget?: number | null;
+  /** Compass ID; null clears it */
+  externalId?: string | null;
   /** Handled separately: resets the feed mix and writes level history */
   readingLevel?: number;
 }
@@ -37,6 +39,13 @@ export function parseStudentUpdate(body: unknown): Result {
     if (typeof b.name !== "string" || !b.name.trim()) return { ok: false, error: "name must not be empty" };
     if (b.name.trim().length > 100) return { ok: false, error: "name is too long" };
     update.name = b.name.trim();
+  }
+
+  if ("externalId" in b && b.externalId !== undefined) {
+    if (b.externalId === null || b.externalId === "") update.externalId = null;
+    else if (typeof b.externalId !== "string" || !/^[\w.:-]{1,100}$/.test(b.externalId.trim())) {
+      return { ok: false, error: "externalId must be 1–100 letters, digits, or . _ : -" };
+    } else update.externalId = b.externalId.trim();
   }
 
   const fields: [keyof StudentUpdate, number, number, boolean][] = [

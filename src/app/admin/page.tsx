@@ -45,6 +45,8 @@ const ACTION_LABELS: Record<string, string> = {
   "student.level_override": "Changed level for",
   "impersonate.start": "Viewed as",
   "impersonate.end": "Stopped viewing as",
+  "api_client.create": "Created API key",
+  "api_client.revoke": "Revoked API key",
 };
 
 /** Short description of what changed, e.g. "L2 → L3" or "grade, age" */
@@ -52,6 +54,7 @@ function actionDetail(a: AdminAction): string {
   if (!a.details) return "";
   if (a.action === "student.level_override") return `L${a.details.from ?? "?"} → L${a.details.to}`;
   if (a.action === "student.update") return Object.keys(a.details).join(", ");
+  if (a.action === "api_client.create") return String(a.details.name ?? "");
   return "";
 }
 

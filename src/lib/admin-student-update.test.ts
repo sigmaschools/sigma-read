@@ -29,3 +29,9 @@ console.log("✅ invalid updates rejected");
 // Unknown keys are ignored, not written
 assert.deepEqual(ok({ name: "Ada", passwordHash: "x", interestProfile: {} }), { name: "Ada" });
 console.log("✅ unknown fields ignored");
+
+assert.deepEqual(ok({ externalId: " cmp-123 " }), { externalId: "cmp-123" });
+assert.deepEqual(ok({ externalId: "" }), { externalId: null });
+bad({ externalId: "has spaces" });
+bad({ externalId: 42 });
+console.log("✅ externalId validated");

@@ -20,6 +20,7 @@ export async function GET() {
     age: schema.students.age,
     dailyArticleCap: schema.students.dailyArticleCap,
     weeklySessionTarget: schema.students.weeklySessionTarget,
+    externalId: schema.students.externalId,
     onboardingComplete: schema.students.onboardingComplete,
     totalSessionsCompleted: schema.students.totalSessionsCompleted,
     createdAt: schema.students.createdAt,

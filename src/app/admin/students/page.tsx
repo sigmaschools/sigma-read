@@ -19,6 +19,7 @@ interface AdminStudent {
   age: number | null;
   dailyArticleCap: number | null;
   weeklySessionTarget: number | null;
+  externalId: string | null;
   onboardingComplete: boolean;
   totalSessionsCompleted: number;
   avgScore: number | null;
@@ -300,6 +301,7 @@ function EditStudent({ student, guides, onCancel, onSaved }: {
   const [readingLevel, setReadingLevel] = useState(str(student.readingLevel));
   const [dailyArticleCap, setDailyArticleCap] = useState(str(student.dailyArticleCap ?? 5));
   const [weeklySessionTarget, setWeeklySessionTarget] = useState(str(student.weeklySessionTarget));
+  const [externalId, setExternalId] = useState(student.externalId ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -312,14 +314,15 @@ function EditStudent({ student, guides, onCancel, onSaved }: {
     setSaving(true);
     setError("");
     // Send only what the admin changed, so saving never rewrites untouched settings
-    const next: Record<string, string> = { name, guideId, gradeLevel, age, dailyArticleCap, weeklySessionTarget };
+    const next: Record<string, string> = { name, guideId, gradeLevel, age, dailyArticleCap, weeklySessionTarget, externalId };
     const loaded: Record<string, string> = {
       name: student.name, guideId: String(student.guideId), gradeLevel: str(student.gradeLevel), age: str(student.age),
       dailyArticleCap: str(student.dailyArticleCap ?? 5), weeklySessionTarget: str(student.weeklySessionTarget),
+      externalId: student.externalId ?? "",
     };
     const body: Record<string, unknown> = {};
     for (const key of Object.keys(next)) {
-      if (next[key] !== loaded[key]) body[key] = key === "name" ? next[key] : key === "guideId" ? Number(next[key]) : num(next[key]);
+      if (next[key] !== loaded[key]) body[key] = key === "name" || key === "externalId" ? next[key] : key === "guideId" ? Number(next[key]) : num(next[key]);
     }
     if (levelChanging) body.readingLevel = Number(readingLevel);
     if (Object.keys(body).length === 0) { onCancel(); return; }
@@ -373,6 +376,10 @@ function EditStudent({ student, guides, onCancel, onSaved }: {
         <label className="text-xs text-[var(--muted)] space-y-1">
           <span>Weekly session target</span>
           <input type="number" min="1" max="100" value={weeklySessionTarget} onChange={e => setWeeklySessionTarget(e.target.value)} placeholder="Auto" className={inputClass} />
+        </label>
+        <label className="text-xs text-[var(--muted)] space-y-1">
+          <span>Compass ID</span>
+          <input type="text" value={externalId} onChange={e => setExternalId(e.target.value)} placeholder="None" maxLength={100} className={inputClass} />
         </label>
       </div>
       {levelChanging && (

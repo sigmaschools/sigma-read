@@ -97,4 +97,5 @@ Branch naming: use short descriptive names like `fix/admin-student-access`, `fea
 | `docs/content-safety.md` | 3-layer content filtering |
 | `docs/student-onboarding.md` | Onboarding walkthrough |
 | `docs/admin-interface.md` | Admin capabilities |
+| `docs/compass-api.md` | Read-only `/api/v1` for Compass: keys, scopes, endpoints |
 | `DEPLOYMENT.md` | Live URLs, test credentials, env vars |
