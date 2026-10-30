@@ -2,7 +2,7 @@
 
 What each student is into, as scores over a shared topic map, used to choose their articles.
 Phase 1 of the design in the "Student interest graph" doc. Horizon topics chosen per student,
-learned topic links, chat-mention extraction and the guide/parent panel come later.
+learned topic links and chat-mention extraction come later.
 
 All code goes through `src/lib/interest-graph` (`recordSignals`, `getAffinities`, `getRelated`,
 `resolveTopics` and helpers), never the tables, so the graph can move to Compass later by
@@ -33,7 +33,8 @@ generated from it (`npx tsx scripts/gen-topic-seed.ts`), and a test fails if the
 | `favorite` | +0.4 | The day's favorite pick |
 | `strong_engagement` | +0.1 | A report scores 80+ over 4+ student messages, without a forced close |
 | `checkin_keep` / `checkin_less` / `checkin_reject` | +0.3 / −half / reject | "Still into these?" answers |
-| `show_different`, `chat_mention`, `restored` | −0.1, +0.2, 0 | Defined for later phases |
+| `removed` / `restored` | 0 | A guide, parent or admin takes a topic off, or puts it back (keeps its history) |
+| `show_different`, `chat_mention` | −0.1, +0.2 | Defined for later phases |
 
 `source_ref` makes recording idempotent: the same (student, type, ref) is stored once. Every call
 site wraps recording in `quietly()`, so a graph failure never breaks the student's page.
@@ -50,7 +51,11 @@ Computed from the log on read, never stored:
     score = clamp(Σ weight · 0.5^(age / half-life), −1, 1)
 
 Half-life is 90 days for declared interests and 45 for everything else, with no floor. "No more"
-marks a topic rejected (score 0) until the student names it again or an adult restores it.
+or an adult's removal marks a topic rejected (score 0) until the student names it again (in
+onboarding or a typed interest, which starts the topic over) or an adult restores it (which keeps
+its history since the student's last fresh start, and doesn't make it a declared interest). So a
+removed topic comes back if the student asks for it again. Articles on rejected topics are never
+served; the morning batch can still generate from the raw profile strings until that is pruned.
 `confidence` grows with the amount of recent evidence, not its direction.
 
 ## Serving
@@ -84,6 +89,15 @@ answered in the last 30 days and rejected topics are skipped. Each topic gets "S
 "Not as much" or "No more"; Skip saves what was answered and counts as asked. Only a due check-in is
 saved, for the topics it offered, so a double-click or replay changes nothing. Dislikes from
 before a topic's last check-in answer don't bring it back.
+
+## What adults see
+
+The guide's student page and the parent's child view show an Interests panel
+(`src/components/InterestPanel.tsx`, `GET/POST /api/students/{id}/interests`): current interests
+(score 0.15 or more, at most 8, "new" when first seen in the last two weeks and not declared),
+declared interests that are fading, and topics the student or an adult turned off, each with
+remove or restore. Guides see their own students, parents their linked children, admins all.
+Before a student has any signals the panel shows their profile list as before.
 
 ## Upkeep
 

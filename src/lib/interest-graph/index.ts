@@ -19,6 +19,7 @@ import { MODELS } from "../models";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type Signal, type SignalType } from "./affinity";
 import { checkinDue, checkinTopics } from "./checkin";
+import { summarizeInterests } from "./summary";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
 
 export { SIGNALS, type Affinity, type SignalType } from "./affinity";
@@ -382,6 +383,40 @@ export async function saveCheckin(studentId: number, answers: { slug: string; an
   const event = db.insert(schema.articleFeedEvents).values({ studentId, eventType: CHECKIN_EVENT, metadata: { answers: valid } });
   if (rows.length > 0) await db.batch([event, db.insert(schema.interestSignals).values(rows).onConflictDoNothing()]);
   else await event;
+  return true;
+}
+
+// ─── For guides, parents and admins ───────────────────────────────────────────
+
+/** What a student is into, in plain words: current interests, fading ones, and removed ones */
+export async function interestSummaryFor(studentId: number, now = new Date()) {
+  const signals = await getSignals(studentId);
+  const firstSeen = new Map<string, Date>();
+  for (const s of signals) {
+    const seen = firstSeen.get(s.topicSlug);
+    if (!seen || s.createdAt < seen) firstSeen.set(s.topicSlug, s.createdAt);
+  }
+  // Topics whose latest remove/restore was a restore
+  const toggles = new Map<string, string>();
+  for (const s of signals) if (s.signalType === "removed" || s.signalType === "restored") toggles.set(s.topicSlug, s.signalType);
+  const restored = new Set([...toggles].filter(([, t]) => t === "restored").map(([slug]) => slug));
+  const summary = summarizeInterests(computeAffinities(signals, now), firstSeen, now, restored);
+  const labels = await topicLabels([...summary.current, ...summary.fading, ...summary.removed].map(t => t.slug));
+  const label = <T extends { slug: string }>(list: T[]) => list.filter(t => labels.has(t.slug)).map(t => ({ ...t, label: labels.get(t.slug)! }));
+  return { current: label(summary.current), fading: label(summary.fading), removed: label(summary.removed) };
+}
+
+/**
+ * An adult takes a topic off a student's interests, or puts it back. Only a change counts:
+ * removing a topic the student has no history with, or restoring one that isn't removed, does nothing.
+ */
+export async function setTopicRemoved(studentId: number, topicSlug: string, removed: boolean, by: { role: string; userId: number }): Promise<boolean> {
+  const current = (await getAffinities(studentId)).find(a => a.topicSlug === topicSlug);
+  if (!current || (current.status === "rejected") === removed) return false;
+  await recordSignals([{
+    studentId, topicSlug, type: removed ? "removed" : "restored",
+    sourceRef: `adult:${by.role}:${by.userId}:${Date.now()}`,
+  }]);
   return true;
 }
 
