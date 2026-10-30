@@ -1,11 +1,13 @@
 import { db, schema } from "@/lib/db";
 
-export type AdminAction = "student.update" | "student.level_override" | "impersonate.start" | "impersonate.end";
+export type AdminAction =
+  | "student.update" | "student.level_override" | "impersonate.start" | "impersonate.end"
+  | "api_client.create" | "api_client.revoke";
 
 export interface AdminActionEntry {
   adminId: number;
   action: AdminAction;
-  targetType?: "student" | "guide";
+  targetType?: "student" | "guide" | "api_client";
   targetId?: number;
   details?: Record<string, unknown>;
 }
