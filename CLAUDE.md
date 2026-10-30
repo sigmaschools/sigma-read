@@ -8,11 +8,13 @@ AI-powered reading comprehension for K-8 students. Kids read nonfiction articles
 npm run dev          # Local dev server
 npm run build        # Production build (use to verify changes)
 npm run lint         # ESLint (pre-existing warnings, non-blocking in CI)
+npm test             # Plain-assert *.test.ts files under src/ and scripts/ (runs in CI)
+npm run eval         # Offline simulated-student conversation eval (needs ANTHROPIC_API_KEY, no DB)
 npx drizzle-kit push # Push schema changes to DB
 npx tsx scripts/<name>.ts  # Run utility scripts (requires DATABASE_URL)
 ```
 
-No test framework — verify changes with `npm run build`.
+No test framework: `*.test.ts` files are plain `node:assert` scripts. Verify changes with `npm test` and `npm run build`. Before and after any change to the conversation or report prompts, run `npm run eval` and compare the summaries.
 
 ## Environment Variables
 
