@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     ? new Set((await db.select({ slug: schema.topics.slug }).from(schema.topics).where(inArray(schema.topics.slug, slugs))).map(t => t.slug))
     : new Set<string>();
 
-  await saveCheckin(session.userId, answers.filter(a => known.has(a.slug)));
-  return NextResponse.json({ ok: true });
+  // Saves only a check-in that is due, for the topics it offers
+  const saved = await saveCheckin(session.userId, answers.filter(a => known.has(a.slug)));
+  return NextResponse.json({ ok: true, saved });
 }

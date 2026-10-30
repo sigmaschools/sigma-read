@@ -52,7 +52,9 @@ export function checkinTopics(
   const tiers: string[][] = [[], [], [], []];
   for (const [slug, list] of byTopic) {
     if (!askable(slug)) continue;
-    const ratings = list.filter(s => s.signalType === "liked" || s.signalType === "disliked");
+    // Only ratings since the last check-in answer: once asked about, old dislikes don't count again
+    const lastAnswer = list.filter(s => CHECKIN.includes(s.signalType)).pop()?.createdAt.getTime() ?? 0;
+    const ratings = list.filter(s => (s.signalType === "liked" || s.signalType === "disliked") && s.createdAt.getTime() > lastAnswer);
     const lastTwo = ratings.slice(-2);
     if (lastTwo.length === 2 && lastTwo.every(s => s.signalType === "disliked")) { tiers[0].push(slug); continue; }
     if (list.filter(s => s.signalType === "passed_over" && recent(s, WINDOW_DAYS)).length >= 3) { tiers[1].push(slug); continue; }

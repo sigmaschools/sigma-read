@@ -65,7 +65,10 @@ step) pick from the unseen articles at the student's level with `pickForFeed`
   round, with a little randomness so near-equal articles take turns.
 - Every third slot explores: a random article whose match is between −0.2 and 0.1, so the feed
   widens without serving something the student dislikes.
-- A student with no signals gets the same random mix as before.
+- A student with no signals gets the same random mix as before, and so does anyone whose
+  affinities or article tags can't be read (logged), so the feed never comes up empty.
+- Candidates are a random sample of up to 100 unseen articles per level (seen ones are
+  excluded in SQL); the batch ranks the 50 newest unseen.
 
 ## "Still into these?"
 
@@ -75,7 +78,9 @@ two weeks after the last check-in (or after the student's first signal), and ask
 three topics, most pressing first: two dislikes in a row, passed over 3+ times in 30 days, a
 declared interest with no positive signal for 30 days, then the most-served topics. Topics
 answered in the last 30 days and rejected topics are skipped. Each topic gets "Still love it",
-"Not as much" or "No more"; Skip saves what was answered and counts as asked.
+"Not as much" or "No more"; Skip saves what was answered and counts as asked. Only a due check-in is
+saved, for the topics it offered, so a double-click or replay changes nothing. Dislikes from
+before a topic's last check-in answer don't bring it back.
 
 ## Upkeep
 

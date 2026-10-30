@@ -66,9 +66,11 @@ export async function POST(req: NextRequest) {
         eq(schema.articleCache.readingLevel, l),
         eq(schema.articleCache.flagged, false),
         sql`(${schema.articleCache.category} != 'news' OR ${schema.articleCache.generatedDate} IS NULL OR ${schema.articleCache.generatedDate} >= ${sevenDaysAgo.toISOString().split('T')[0]})`,
+        // Unseen in SQL, so the sample doesn't shrink as the student reads more
+        sql`NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ${schema.articleCache.title})`,
       ))
       .orderBy(sql`RANDOM()`)
-      .limit(60);
+      .limit(100);
     return cached.filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
   };
   const pools = new Map<number, typeof schema.articleCache.$inferSelect[]>();
@@ -78,11 +80,12 @@ export async function POST(req: NextRequest) {
     pools.set(l, pool);
   }
 
-  // Rank by the student's interests, with every third slot exploring (see interest-graph/serving)
+  // Rank by the student's interests, with every third slot exploring (see interest-graph/serving).
+  // If the graph can't be read, serve unranked as before the graph rather than leave the feed empty.
   const allIds = [...pools.values()].flat().map(a => a.id);
   const [affinities, cacheTopics] = await Promise.all([
     getAffinities(student.id).catch(e => { console.error("Affinities unavailable, serving unranked:", e); return []; }),
-    topicsForCache(allIds).catch(() => new Map<number, string[]>()),
+    topicsForCache(allIds).catch(e => { console.error("Article topics unavailable, serving unranked:", e); return new Map<number, string[]>(); }),
   ]);
   const affinityMap = new Map(affinities.map(a => [a.topicSlug, a]));
   const avoid = new Set<string>();

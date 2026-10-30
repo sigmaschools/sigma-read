@@ -38,6 +38,18 @@ const sig = (topicSlug: string, signalType: SignalType, age: number, sourceRef?:
 }
 
 {
+  // Two old dislikes, then "Still love it": not asked again about those same dislikes
+  const signals = [
+    sig("bugs", "disliked", 50, "article:1:rating:bugs:0"), sig("bugs", "disliked", 45, "article:2:rating:bugs:0"),
+    sig("bugs", "checkin_keep", 40),
+  ];
+  assert.deepEqual(checkinTopics(signals, new Map(), new Set(), NOW), []);
+  const later = [...signals, sig("bugs", "disliked", 3, "article:3:rating:bugs:0"), sig("bugs", "disliked", 2, "article:4:rating:bugs:0")];
+  assert.deepEqual(checkinTopics(later, new Map(), new Set(), NOW), ["bugs"], "new dislikes after the answer do count");
+  console.log("✅ dislikes before a check-in answer aren't asked about again");
+}
+
+{
   // Tapping dislike twice on one article is one dislike, not two in a row
   const signals = [sig("bugs", "disliked", 2, "article:9:rating:bugs:1"), sig("bugs", "disliked", 1, "article:9:rating:bugs:2")];
   assert.deepEqual(checkinTopics(signals, new Map(), new Set(), NOW), []);

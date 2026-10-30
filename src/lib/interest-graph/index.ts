@@ -141,7 +141,13 @@ export interface SignalInput {
 
 /** Append signals. Duplicates (same student, type and source ref) are skipped. */
 export async function recordSignals(inputs: SignalInput[]): Promise<void> {
-  const rows = inputs
+  const rows = signalRows(inputs);
+  if (rows.length === 0) return;
+  await db.insert(schema.interestSignals).values(rows).onConflictDoNothing();
+}
+
+function signalRows(inputs: SignalInput[]) {
+  return inputs
     .filter(s => s.topicSlug || s.phrase)
     .map(s => ({
       studentId: s.studentId,
@@ -152,8 +158,6 @@ export async function recordSignals(inputs: SignalInput[]): Promise<void> {
       sourceRef: s.sourceRef ?? null,
       ...(s.at ? { createdAt: s.at } : {}),
     }));
-  if (rows.length === 0) return;
-  await db.insert(schema.interestSignals).values(rows).onConflictDoNothing();
 }
 
 /** A student's affinities, strongest first, including rejected topics (score 0, status "rejected") */
@@ -173,17 +177,6 @@ export async function getSignals(studentId: number): Promise<Signal[]> {
     .where(and(eq(schema.interestSignals.studentId, studentId), isNotNull(schema.interestSignals.topicSlug)))
     .orderBy(schema.interestSignals.createdAt);
   return rows.map(r => ({ ...r, topicSlug: r.topicSlug!, signalType: r.signalType as SignalType }));
-}
-
-/** Record a "Still into these?" answer for one topic */
-export async function recordCheckin(studentId: number, topicSlug: string, answer: "keep" | "less" | "reject", checkinRef: string) {
-  const type: SignalType = answer === "keep" ? "checkin_keep" : answer === "less" ? "checkin_less" : "checkin_reject";
-  let weight: number | undefined;
-  if (answer === "less") {
-    const current = (await getAffinities(studentId)).find(a => a.topicSlug === topicSlug);
-    weight = lessWeight(current?.score ?? 0);
-  }
-  await recordSignals([{ studentId, type, topicSlug, weight, sourceRef: `checkin:${checkinRef}:${topicSlug}` }]);
 }
 
 // ─── Topic map ────────────────────────────────────────────────────────────────
@@ -361,12 +354,35 @@ export async function checkinFor(studentId: number, now = new Date()): Promise<{
 
 export type CheckinAnswer = "keep" | "less" | "reject";
 
-/** Save a check-in (answered or skipped). It counts as asked either way, so the next is two weeks out. */
-export async function saveCheckin(studentId: number, answers: { slug: string; answer: CheckinAnswer }[]) {
-  const [event] = await db.insert(schema.articleFeedEvents)
-    .values({ studentId, eventType: CHECKIN_EVENT, metadata: { answers } })
-    .returning({ id: schema.articleFeedEvents.id });
-  for (const a of answers) await recordCheckin(studentId, a.slug, a.answer, String(event.id));
+const CHECKIN_TYPES: Record<CheckinAnswer, SignalType> = { keep: "checkin_keep", less: "checkin_less", reject: "checkin_reject" };
+
+/**
+ * Save a check-in (answered or skipped). It counts as asked either way, so the next is two weeks
+ * out. Only a check-in that is due is saved, and only for the topics it offers (first answer per
+ * topic wins), so a double-click or a replayed request changes nothing. Returns whether it saved.
+ */
+export async function saveCheckin(studentId: number, answers: { slug: string; answer: CheckinAnswer }[], now = new Date()): Promise<boolean> {
+  const offered = new Set((await checkinFor(studentId, now)).map(t => t.slug));
+  if (offered.size === 0) return false;
+  const answered = new Set<string>();
+  const valid = answers.filter(a => offered.has(a.slug) && !answered.has(a.slug) && answered.add(a.slug));
+
+  const scores = new Map((await getAffinities(studentId, now)).map(a => [a.topicSlug, a.score]));
+  const day = now.toISOString().slice(0, 10);
+  const rows = signalRows(valid.map(a => ({
+    studentId,
+    type: CHECKIN_TYPES[a.answer],
+    topicSlug: a.slug,
+    // "Not as much" halves the score as it stands now
+    weight: a.answer === "less" ? lessWeight(scores.get(a.slug) ?? 0) : undefined,
+    sourceRef: `checkin:${day}:${a.slug}`,
+  })));
+
+  // The event marks the check-in as asked; it and the answers are written together
+  const event = db.insert(schema.articleFeedEvents).values({ studentId, eventType: CHECKIN_EVENT, metadata: { answers: valid } });
+  if (rows.length > 0) await db.batch([event, db.insert(schema.interestSignals).values(rows).onConflictDoNothing()]);
+  else await event;
+  return true;
 }
 
 // ─── Backfill ─────────────────────────────────────────────────────────────────
