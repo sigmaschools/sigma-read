@@ -3,11 +3,11 @@
  *
  *   export const GET = apiRoute("students:read", async (req, client) => { ... });
  *
- * Every call (allowed or not, once the key is recognised) gets an api_request_log row.
+ * Every call with a recognised key (allowed or not, revoked included) gets an api_request_log row.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { and, count, eq, gte, isNull, ne } from "drizzle-orm";
+import { and, count, eq, gte, ne } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { bearerKey, hasScope, hashApiKey, type ApiScope } from "./keys";
 
@@ -34,7 +34,7 @@ export function apiRoute<P = Record<string, never>>(scope: ApiScope, handler: Ha
     let client: ApiClient | undefined;
     try {
       [client] = await db.select().from(schema.apiClients)
-        .where(and(eq(schema.apiClients.keyHash, hashApiKey(key)), isNull(schema.apiClients.revokedAt)))
+        .where(eq(schema.apiClients.keyHash, hashApiKey(key)))
         .limit(1);
     } catch (e) {
       console.error("api/v1 key lookup failed:", e);
@@ -44,7 +44,10 @@ export function apiRoute<P = Record<string, never>>(scope: ApiScope, handler: Ha
 
     let res: NextResponse;
     try {
-      if (!hasScope(client.scopes, scope)) {
+      // A revoked key still gets a log row, so attempts with a leaked key show up
+      if (client.revokedAt) {
+        res = apiError(401, "Invalid or revoked API key");
+      } else if (!hasScope(client.scopes, scope)) {
         res = apiError(403, `This key lacks the ${scope} scope`);
       } else {
         // Fails closed: if the count can't be read, the call is a 500, not unlimited
@@ -69,10 +72,11 @@ export function apiRoute<P = Record<string, never>>(scope: ApiScope, handler: Ha
     }
 
     // The audit trail must not break the response
-    await db.batch([
-      db.insert(schema.apiRequestLog).values({ clientId: client.id, method: req.method, path: req.nextUrl.pathname + req.nextUrl.search, status: res.status }),
-      db.update(schema.apiClients).set({ lastUsedAt: new Date() }).where(eq(schema.apiClients.id, client.id)),
-    ]).catch(e => console.error("api_request_log write failed:", e));
+    const logRow = db.insert(schema.apiRequestLog).values({ clientId: client.id, method: req.method, path: req.nextUrl.pathname + req.nextUrl.search, status: res.status });
+    await (client.revokedAt
+      ? logRow
+      : db.batch([logRow, db.update(schema.apiClients).set({ lastUsedAt: new Date() }).where(eq(schema.apiClients.id, client.id))])
+    ).catch(e => console.error("api_request_log write failed:", e));
     return res;
   };
 }

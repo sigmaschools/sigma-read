@@ -58,9 +58,9 @@ export async function studentDetail(s: StudentRow) {
     db.select({ fromLevel: schema.levelHistory.fromLevel, toLevel: schema.levelHistory.toLevel, changedAt: schema.levelHistory.changedAt })
       .from(schema.levelHistory).where(eq(schema.levelHistory.studentId, s.id)).orderBy(desc(schema.levelHistory.changedAt)),
     db.select({ score: schema.comprehensionReports.score, skills: schema.comprehensionReports.skills })
-      .from(schema.conversations)
-      .innerJoin(schema.readingSessions, eq(schema.conversations.readingSessionId, schema.readingSessions.id))
-      // Latest report per conversation
+      .from(schema.readingSessions)
+      // One conversation per session (the latest), as the session routes do, then its latest report
+      .innerJoin(schema.conversations, eq(schema.conversations.id, sql`(SELECT max(id) FROM conversations WHERE reading_session_id = ${schema.readingSessions.id})`))
       .innerJoin(schema.comprehensionReports, eq(schema.comprehensionReports.id, sql`(SELECT max(id) FROM comprehension_reports WHERE conversation_id = ${schema.conversations.id})`))
       .where(and(eq(schema.readingSessions.studentId, s.id), isNotNull(schema.readingSessions.completedAt), gte(schema.readingSessions.completedAt, thirtyDaysAgo)))
       .orderBy(desc(schema.comprehensionReports.id)),
