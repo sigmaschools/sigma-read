@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq, and, isNull, ne } from "drizzle-orm";
+import { eq, and, isNull, desc } from "drizzle-orm";
 import { quietly, recordArticleChoice } from "@/lib/interest-graph";
 
 // Create or resume a reading session when a student opens an article
@@ -41,11 +41,15 @@ export async function POST(req: NextRequest) {
     articleId,
   }).returning();
 
-  // Picking this article over the others in the feed says something about their topics
+  // Picking this article over the others on screen says something about their topics.
+  // The feed shows the newest 5 unread articles.
   if (article.category !== "tutorial") {
-    const others = await db.select({ id: schema.articles.id }).from(schema.articles)
-      .where(and(eq(schema.articles.studentId, session.userId), eq(schema.articles.read, false), ne(schema.articles.id, article.id)));
-    await quietly(recordArticleChoice(session.userId, article.id, others.map(o => o.id), readingSession.id), "article choice");
+    const visible = await db.select({ id: schema.articles.id }).from(schema.articles)
+      .where(and(eq(schema.articles.studentId, session.userId), eq(schema.articles.read, false)))
+      .orderBy(desc(schema.articles.createdAt))
+      .limit(5);
+    const others = visible.map(v => v.id).filter(id => id !== article.id);
+    await quietly(recordArticleChoice(session.userId, article.id, others, readingSession.id), "article choice");
   }
 
   return NextResponse.json({ readingSessionId: readingSession.id, resumed: false });
