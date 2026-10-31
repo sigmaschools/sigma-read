@@ -1,8 +1,8 @@
 # Interest graph
 
 What each student is into, as scores over a shared topic map, used to choose their articles.
-Phase 1 of the design in the "Student interest graph" doc. Horizon topics chosen per student,
-learned topic links and chat-mention extraction come later.
+Phase 1 of the design in the "Student interest graph" doc, plus chat-mention extraction. Horizon
+topics chosen per student and learned topic links come later.
 
 All code goes through `src/lib/interest-graph` (`recordSignals`, `getAffinities`, `getRelated`,
 `resolveTopics` and helpers), never the tables, so the graph can move to Compass later by
@@ -34,7 +34,8 @@ generated from it (`npx tsx scripts/gen-topic-seed.ts`), and a test fails if the
 | `strong_engagement` | +0.1 | A report scores 80+ over 4+ student messages, without a forced close |
 | `checkin_keep` / `checkin_less` / `checkin_reject` | +0.3 / −half / reject | "Still into these?" answers |
 | `removed` / `restored` | 0 | A guide, parent or admin takes a topic off, or puts it back (keeps its history) |
-| `show_different`, `chat_mention` | −0.1, +0.2 | Defined for later phases |
+| `chat_mention` | +0.2 | After an article discussion, for each interest the student brought up themselves (see below) |
+| `show_different` | −0.1 | Defined for a later phase |
 
 `source_ref` makes recording idempotent: the same (student, type, ref) is stored once. Every call
 site wraps recording in `quietly()`, so a graph failure never breaks the student's page.
@@ -43,6 +44,18 @@ Free text resolves by exact match on slug, label or alias (case, plurals, punctu
 like "facts about" are ignored, and short phrases match on their last words). What's left can go
 to Haiku in one call per request (onboarding, typed interests, batch tagging), constrained to the
 topic list or "none". Personal facts and unsafe text map to none. Matches are saved as aliases.
+
+### Chat mentions
+
+When a discussion ends, `recordChatMentions` (called from `saveComprehensionReport`, so the
+simulator records them too) sends the student's messages to Haiku once and asks for subjects the
+student showed a personal interest in: things they like, do, play or want to read about. Answers
+that only restate the article, the article's own subject, personal or family facts and unsafe text
+are left out, and "none" is the usual answer. Each mention must quote the student's own words
+(checked against their messages), at most 3 per conversation. The subjects go through
+`resolveTopics`; only those that land on a topic other than the article's own are recorded, with
+`source_ref` `chat:<conversation>:<topic>`. Tutorials record nothing. Usage shows as "Chat
+interests" in the admin metrics.
 
 ## Affinity
 

@@ -152,6 +152,7 @@ async function runSession(
     studentId,
     articleId,
     studentName,
+    articleTitle,
     articleText: articleBody,
     level,
     messages,
