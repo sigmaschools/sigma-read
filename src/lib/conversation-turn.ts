@@ -19,11 +19,12 @@ export const OPENER_INSTRUCTION = "[The student just finished reading. Start the
 /** Earned: the student reached the progress threshold. Forced: the backstop ran out of turns. */
 export type ClosingKind = "earned" | "forced";
 
-export function closingInstruction(kind: ClosingKind): string {
+export function closingInstruction(kind: ClosingKind, maxWords?: number): string {
   const body = kind === "earned"
     ? "The student has shown solid understanding. Wrap up in one warm sentence that names something specific they got right."
     : "We're out of time for this conversation. Wrap up in one warm sentence that names one specific thing the student said or noticed. Don't claim they got the key parts, nailed it or mastered the article. If their last answer missed the point, work the right answer into the goodbye in a few plain words, as the article states it, without saying they were wrong and without opening with Yeah (that tells them they were right). If nothing they said was on track, skip naming something they said: give that answer and thank them for sticking with it, without praise.";
-  return `[SYSTEM: This is your final message. ${body} Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]`;
+  const length = maxWords ? ` Keep it under ${maxWords} words.` : "";
+  return `[SYSTEM: This is your final message. ${body}${length} Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]`;
 }
 
 /** Used when the model asks a question in its closing anyway */
@@ -59,6 +60,8 @@ export async function runTutorTurn(args: {
   systemPrompt: string;
   messages: TurnMessage[];
   priorProgress: number;
+  /** The level's word cap, repeated in the closing instruction (it otherwise runs long at L1) */
+  maxWords?: number;
 }): Promise<TurnResult> {
   const exchangeNumber = args.messages.filter(m => m.role === "user").length;
   const forceComplete = exchangeNumber >= MAX_STUDENT_MESSAGES;
@@ -70,7 +73,7 @@ export async function runTutorTurn(args: {
   const finalMessages: { role: "user" | "assistant"; content: string }[] = args.messages.length > 0
     ? args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
     : [{ role: "user", content: OPENER_INSTRUCTION }];
-  if (closing) finalMessages.push({ role: "user", content: closingInstruction(closing) });
+  if (closing) finalMessages.push({ role: "user", content: closingInstruction(closing, args.maxWords) });
 
   const request = { model: args.model, max_tokens: 1024, system: args.systemPrompt, messages: finalMessages };
   const response = await args.client.messages.create({
