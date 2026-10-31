@@ -286,6 +286,7 @@ export async function recordChatMentions(args: {
   studentId: number;
   articleId: number;
   articleTitle: string;
+  articleText: string;
   conversationId: number;
   messages: { role: string; content: string }[];
 }): Promise<{ topicSlug: string; phrase: string }[]> {
@@ -294,7 +295,7 @@ export async function recordChatMentions(args: {
   const response = await tracked(args.client, "chat_mentions", args.studentId).messages.create({
     model: MODELS.light,
     max_tokens: 512,
-    messages: [{ role: "user", content: chatMentionsPrompt(args.articleTitle, args.messages) }],
+    messages: [{ role: "user", content: chatMentionsPrompt(args.articleTitle, args.articleText, args.messages) }],
     output_config: { format: { type: "json_schema", schema: CHAT_MENTIONS_SCHEMA } },
   });
   const mentions = verifiedMentions(parseJsonResponse<{ mentions: ChatMention[] }>(response)?.mentions ?? [], said);
@@ -304,7 +305,11 @@ export async function recordChatMentions(args: {
     resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId }),
     topicsForArticles([args.articleId]),
   ]);
-  const found = chatMentionTopics(mentions, resolved, articleTopics.get(args.articleId) ?? []);
+  // The article's topics and their parents and children ("moons" under a space article) are the
+  // article talking, not the student; siblings stay, since they are a real step outside it
+  const own = articleTopics.get(args.articleId) ?? [];
+  const near = (await Promise.all(own.map(getRelated))).flat().filter(r => r.via !== "sibling" && r.via !== "related").map(r => r.slug);
+  const found = chatMentionTopics(mentions, resolved, [...own, ...near]);
   await recordSignals(found.map(f => ({
     studentId: args.studentId, type: "chat_mention", topicSlug: f.topicSlug, phrase: f.phrase,
     sourceRef: `chat:${args.conversationId}:${f.topicSlug}`,
