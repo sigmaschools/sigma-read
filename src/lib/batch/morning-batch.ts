@@ -28,6 +28,7 @@ import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
 import { backfillSignals, getAffinities, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
+import { isIndexPage, isOlderThan } from "./search-filters";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -382,13 +383,17 @@ async function webSearch(query: string, recentOnly = false): Promise<{ title: st
       }],
       messages: [{
         role: "user",
-        content: `Run one web search for: ${terms}${recentOnly ? " (news from the past week)" : ""}. Reply with just "done".`,
+        content: `Run one web search for: ${terms}${recentOnly ? ` news ${new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}` : ""}. Reply with just "done".`,
       }],
     });
     const results: { title: string; url: string }[] = [];
     for (const block of response.content) {
       if (block.type !== "web_search_tool_result" || !Array.isArray(block.content)) continue;
-      for (const r of block.content) results.push({ title: r.title || "", url: r.url });
+      for (const r of block.content) {
+        if (isIndexPage(r.url)) continue;
+        if (recentOnly && isOlderThan(r.page_age, 7)) continue;
+        results.push({ title: r.title || "", url: r.url });
+      }
     }
     return results.slice(0, 5);
   } catch (err) {
