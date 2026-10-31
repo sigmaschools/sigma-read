@@ -19,11 +19,16 @@ export const OPENER_INSTRUCTION = "[The student just finished reading. Start the
 /** Earned: the student reached the progress threshold. Forced: the backstop ran out of turns. */
 export type ClosingKind = "earned" | "forced";
 
+export function closingTargetWords(maxWords: number): number {
+  return Math.max(8, maxWords - 5);
+}
+
 export function closingInstruction(kind: ClosingKind, maxWords?: number): string {
   const body = kind === "earned"
     ? "The student has shown solid understanding. Wrap up in one warm sentence that picks out one specific idea they explained and reacts to the idea itself, like \"Turtles breathing through their backsides is such a strange trick.\" No verdict on them: no \"You nailed it\", \"Great job\", \"Awesome\" or similar praise."
     : "We're out of time for this conversation. Wrap up in one warm sentence that names one specific thing the student said or noticed. Don't claim they got the key parts, nailed it or mastered the article. If their last answer missed the point, work the right answer into the goodbye in a few plain words, as the article states it, without saying they were wrong and without opening with Yeah (that tells them they were right). If nothing they said was on track, skip naming something they said: give that answer and thank them for sticking with it, without praise.";
-  const length = maxWords ? ` Keep it under ${maxWords} words.` : "";
+  // Closings overshoot the cap by a few words (L1: half ran 16-19 against 15), so aim below it
+  const length = maxWords ? ` Keep it under ${maxWords} words, so aim for about ${closingTargetWords(maxWords)}.` : "";
   return `[SYSTEM: This is your final message. ${body}${length} Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]`;
 }
 
