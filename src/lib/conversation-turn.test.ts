@@ -75,6 +75,7 @@ async function main() {
     assert.ok(closingInstruction("forced", 15).includes("under 15 words"));
     assert.ok(closingInstruction("earned", 20).includes("Keep it under 20 words."));
     assert.ok(closingInstruction("earned").includes("No verdict on them"));
+    assert.ok(closingInstruction("forced").includes("No stock sign-off"));
     assert.ok(!closingInstruction("forced").includes("Keep it under"));
     console.log("✅ closing carries the word cap");
   }
