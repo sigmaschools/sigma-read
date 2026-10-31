@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
-import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt } from "@/lib/prompts";
+import { comprehensionConversationPrompt, comprehensionReportPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt, maxWordsForLevel } from "@/lib/prompts";
 import { MODELS } from "@/lib/models";
 import { REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, ratingForScore, verifiedEvidence, type ComprehensionReport } from "@/lib/report-schema";
 import { parseJsonResponse } from "@/lib/claude-json";
@@ -115,6 +115,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     systemPrompt,
     messages,
     priorProgress: conversation.progressScore || 0,
+    maxWords: maxWordsForLevel(student.readingLevel || 2),
   });
   const cleanText = turn.message;
   const isComplete = turn.complete;

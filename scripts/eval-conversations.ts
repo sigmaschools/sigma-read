@@ -22,7 +22,7 @@ import { PERSONAS, EXCLUDED_USERNAMES, type StudentPersona } from "./test-person
 import { EVAL_ARTICLES, type EvalArticle } from "./eval/articles";
 import { buildStudentSystemPrompt } from "./eval/student-sim";
 import { checkTranscript, wordCount, type Msg, type Violation } from "./eval/checks";
-import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle } from "../src/lib/prompts";
+import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle, maxWordsForLevel } from "../src/lib/prompts";
 import { runTutorTurn, type ClosingKind } from "../src/lib/conversation-turn";
 import { REPORT_SCHEMA, type ComprehensionReport } from "../src/lib/report-schema";
 import { parseJsonResponse } from "../src/lib/claude-json";
@@ -106,7 +106,7 @@ async function runConversation(persona: StudentPersona, article: EvalArticle): P
   let fallbacks = 0;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const result = await runTutorTurn({ client: anthropic, model: MODELS.heavy, systemPrompt, messages: transcript, priorProgress: progress });
+    const result = await runTutorTurn({ client: anthropic, model: MODELS.heavy, systemPrompt, messages: transcript, priorProgress: progress, maxWords: maxWordsForLevel(article.level) });
     if (transcript.length > 0) deltas.push(result.progressDelta);
     progress = result.progressScore;
     if (result.usedFallback) fallbacks++;
