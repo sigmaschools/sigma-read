@@ -241,7 +241,7 @@ async function main() {
       } catch (e: any) {
         console.log(`    ❌ Error: ${e.message}`);
         totalErrors++;
-        break; // the article stays unread, so the next pick would retry it
+        break; // the article may still be unread, so the next pick could retry it
       }
     }
   }
