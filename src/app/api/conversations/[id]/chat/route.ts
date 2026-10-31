@@ -143,6 +143,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         studentId: session.userId,
         articleId: article.id,
         studentName: student.name,
+        articleTitle: article.title,
         articleText: article.bodyText,
         level: student.readingLevel || 2,
         messages,

@@ -21,6 +21,7 @@ import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type 
 import { checkinDue, checkinTopics } from "./checkin";
 import { summarizeInterests } from "./summary";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
+import { CHAT_MENTIONS_SCHEMA, chatMentionTopics, chatMentionsPrompt, verifiedMentions, type ChatMention } from "./chat-mentions";
 
 export { SIGNALS, type Affinity, type SignalType } from "./affinity";
 export { matchKey } from "./resolve";
@@ -61,10 +62,11 @@ export async function topicLabels(slugs: string[]): Promise<Map<string, string>>
  * Map phrases to topic slugs. Exact and alias matches are free; pass `ai` to send the rest to
  * Haiku in one call, which also saves each new match as an alias so it is free next time.
  * A phrase that matches nothing maps to null (personal facts and unsafe text always do).
+ * Pass `learn: false` for model-written phrases, so they never become shared aliases.
  */
 export async function resolveTopics(
   phrases: string[],
-  ai?: { client: Anthropic; studentId?: number },
+  ai?: { client: Anthropic; studentId?: number; learn?: boolean },
 ): Promise<Map<string, string | null>> {
   const { index, labels } = await topicIndex();
   const out = new Map<string, string | null>();
@@ -103,7 +105,7 @@ export async function resolveTopics(
       out.set(m.phrase, m.topic);
       learned.push({ alias: normalizePhrase(m.phrase), topicSlug: m.topic, origin: "ai" });
     }
-    if (learned.length > 0) {
+    if (learned.length > 0 && ai.learn !== false) {
       await db.insert(schema.topicAliases).values(learned).onConflictDoNothing();
       cached = null;
     }
@@ -272,6 +274,50 @@ export async function topicsForArticles(articleIds: number[]): Promise<Map<numbe
 export async function recordArticleSignal(studentId: number, articleId: number, type: SignalType, sourceRef: string, refSuffix = "") {
   const topics = (await topicsForArticles([articleId])).get(articleId) ?? [];
   await recordSignals(topics.map(topicSlug => ({ studentId, type, topicSlug, sourceRef: `${sourceRef}:${topicSlug}${refSuffix}` })));
+}
+
+/**
+ * Interests the student brought up in an article discussion: one Haiku call finds them, each
+ * must quote the student's own words, and only those that resolve to a topic other than the
+ * article's own are recorded (the article's topics already get chose_article). Returns what
+ * was recorded, for logs and the simulator.
+ */
+export async function recordChatMentions(args: {
+  client: Anthropic;
+  studentId: number;
+  articleId: number;
+  articleTitle: string;
+  articleText: string;
+  conversationId: number;
+  messages: { role: string; content: string }[];
+}): Promise<{ topicSlug: string; phrase: string }[]> {
+  const said = args.messages.filter(m => m.role === "user" && m.content.trim()).map(m => m.content);
+  if (said.length === 0) return [];
+  // Without the article's topics nothing would stop its subject being recorded as the student's,
+  // so check them before paying for any model call
+  const own = (await topicsForArticles([args.articleId])).get(args.articleId) ?? [];
+  if (own.length === 0) return [];
+  const response = await tracked(args.client, "chat_mentions", args.studentId).messages.create({
+    model: MODELS.light,
+    max_tokens: 512,
+    messages: [{ role: "user", content: chatMentionsPrompt(args.articleTitle, args.articleText, args.messages) }],
+    output_config: { format: { type: "json_schema", schema: CHAT_MENTIONS_SCHEMA } },
+  });
+  const mentions = verifiedMentions(parseJsonResponse<{ mentions: ChatMention[] }>(response)?.mentions ?? [], said);
+  if (mentions.length === 0) return [];
+
+  // The subjects are Haiku's words, not the student's: match them, but don't teach the shared map
+  const resolved = await resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId, learn: false });
+  // The article's topics and their parents ("space" on a space exploration article) are the article
+  // talking, not the student. Children and siblings stay: "I ride horses" on an article tagged
+  // "animals" is a real step outside it
+  const near = (await Promise.all(own.map(slug => getRelated(slug)))).flat().filter(r => r.via === "parent").map(r => r.slug);
+  const found = chatMentionTopics(mentions, resolved, [...own, ...near]);
+  await recordSignals(found.map(f => ({
+    studentId: args.studentId, type: "chat_mention", topicSlug: f.topicSlug, phrase: f.phrase,
+    sourceRef: `chat:${args.conversationId}:${f.topicSlug}`,
+  })));
+  return found;
 }
 
 /** A like or dislike. Changing your mind adds a new signal; only the latest per article counts. */

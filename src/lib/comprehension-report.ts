@@ -13,7 +13,7 @@ import { comprehensionReportPrompt } from "@/lib/prompts";
 import { MODELS } from "@/lib/models";
 import { REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, ratingForScore, verifiedEvidence, type ComprehensionReport } from "@/lib/report-schema";
 import { parseJsonResponse } from "@/lib/claude-json";
-import { quietly, recordArticleSignal } from "@/lib/interest-graph";
+import { quietly, recordArticleSignal, recordChatMentions } from "@/lib/interest-graph";
 
 /** A report this good, over this many student messages, counts as strong engagement with the topic */
 const STRONG_ENGAGEMENT = { score: 80, exchanges: 4 };
@@ -21,22 +21,44 @@ const STRONG_ENGAGEMENT = { score: 80, exchanges: 4 };
 /**
  * Generate the guide-facing comprehension report, store it, and run level progression.
  * Retries once if the model returns no usable report; on a second failure it logs and
- * skips, as before, so the student's session still completes.
+ * skips, as before, so the student's session still completes. Alongside it, records any
+ * interests the student brought up in the chat (independent of the report succeeding).
  */
-export async function saveComprehensionReport(args: {
+export async function saveComprehensionReport(args: ReportArgs) {
+  await Promise.all([
+    saveReport(args),
+    quietly(recordChatMentions({
+      client: args.anthropic,
+      studentId: args.studentId,
+      articleId: args.articleId,
+      articleTitle: args.articleTitle,
+      articleText: args.articleText,
+      conversationId: args.conversationId,
+      messages: args.messages,
+    }).then(found => {
+      // Slugs only: the student's own words can hold personal details
+      if (found.length > 0) console.log(`Chat interests [conversation ${args.conversationId}]: ${found.map(f => f.topicSlug).join(", ")}`);
+    }), "chat mentions"),
+  ]);
+}
+
+interface ReportArgs {
   /** Untracked client; usage is logged here under the "report" feature */
   anthropic: Anthropic;
   conversationId: number;
   studentId: number;
   articleId: number;
   studentName: string;
+  articleTitle: string;
   articleText: string;
   level: number;
   messages: { role: string; content: string }[];
   transcript: string;
   forcedClose: boolean;
   inChatScore: number;
-}) {
+}
+
+async function saveReport(args: ReportArgs) {
   let report: ComprehensionReport | null = null;
   for (let attempt = 1; attempt <= 2 && !report; attempt++) {
     try {
