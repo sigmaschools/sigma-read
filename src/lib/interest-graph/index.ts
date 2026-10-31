@@ -21,7 +21,7 @@ import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type 
 import { checkinDue, checkinTopics } from "./checkin";
 import { summarizeInterests } from "./summary";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
-import { CHAT_MENTIONS_SCHEMA, chatMentionsPrompt, verifiedMentions, type ChatMention } from "./chat-mentions";
+import { CHAT_MENTIONS_SCHEMA, chatMentionTopics, chatMentionsPrompt, verifiedMentions, type ChatMention } from "./chat-mentions";
 
 export { SIGNALS, type Affinity, type SignalType } from "./affinity";
 export { matchKey } from "./resolve";
@@ -288,7 +288,7 @@ export async function recordChatMentions(args: {
   articleTitle: string;
   conversationId: number;
   studentMessages: string[];
-}): Promise<{ topicSlug: string; phrase: string; quote: string }[]> {
+}): Promise<{ topicSlug: string; phrase: string }[]> {
   const said = args.studentMessages.filter(m => m.trim());
   if (said.length === 0) return [];
   const response = await tracked(args.client, "chat_mentions", args.studentId).messages.create({
@@ -304,17 +304,12 @@ export async function recordChatMentions(args: {
     resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId }),
     topicsForArticles([args.articleId]),
   ]);
-  const own = new Set(articleTopics.get(args.articleId) ?? []);
-  const found = new Map<string, { topicSlug: string; phrase: string; quote: string }>();
-  for (const m of mentions) {
-    const slug = resolved.get(m.topic);
-    if (slug && !own.has(slug) && !found.has(slug)) found.set(slug, { topicSlug: slug, phrase: m.topic, quote: m.quote });
-  }
-  await recordSignals([...found.values()].map(f => ({
+  const found = chatMentionTopics(mentions, resolved, articleTopics.get(args.articleId) ?? []);
+  await recordSignals(found.map(f => ({
     studentId: args.studentId, type: "chat_mention", topicSlug: f.topicSlug, phrase: f.phrase,
     sourceRef: `chat:${args.conversationId}:${f.topicSlug}`,
   })));
-  return [...found.values()];
+  return found;
 }
 
 /** A like or dislike. Changing your mind adds a new signal; only the latest per article counts. */
