@@ -23,6 +23,7 @@ import { getPersona, EXCLUDED_USERNAMES, type StudentPersona } from "./test-pers
 import { buildStudentSystemPrompt } from "./eval/student-sim";
 import { REPORT_SCHEMA, type ComprehensionReport } from "../src/lib/report-schema";
 import { parseJsonResponse } from "../src/lib/claude-json";
+import { assertNotProduction } from "./sim-guard";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const sql = neon(DATABASE_URL);
@@ -213,6 +214,8 @@ async function main() {
   if (targetLevel) console.log(`Target level: ${targetLevel}`);
   if (dryRun) console.log(`Mode: DRY RUN`);
   console.log();
+
+  await assertNotProduction(sql);
 
   // Get eligible students
   let students;
