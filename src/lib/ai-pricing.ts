@@ -18,7 +18,11 @@ export interface TokenUsage {
   output_tokens: number;
   cache_read_input_tokens?: number | null;
   cache_creation_input_tokens?: number | null;
+  server_tool_use?: { web_search_requests?: number | null } | null;
 }
+
+/** Web search is billed per search on top of tokens: $10 per 1,000 */
+export const WEB_SEARCH_USD = 0.01;
 
 /** Strip a date suffix so "claude-haiku-4-5-20251001" prices as "claude-haiku-4-5" */
 function priceKey(model: string): string {
@@ -31,5 +35,7 @@ export function costUsd(model: string, usage: TokenUsage): number | null {
   if (!p) return null;
   const cacheRead = usage.cache_read_input_tokens ?? 0;
   const cacheWrite = usage.cache_creation_input_tokens ?? 0;
-  return (usage.input_tokens * p.input + cacheWrite * p.input * 1.25 + cacheRead * p.cacheRead + usage.output_tokens * p.output) / 1_000_000;
+  const searches = usage.server_tool_use?.web_search_requests ?? 0;
+  return (usage.input_tokens * p.input + cacheWrite * p.input * 1.25 + cacheRead * p.cacheRead + usage.output_tokens * p.output) / 1_000_000
+    + searches * WEB_SEARCH_USD;
 }

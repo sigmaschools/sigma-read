@@ -22,3 +22,6 @@ for (const [model, [input, output, cacheRead]] of Object.entries(PUBLISHED)) {
   near(costUsd(model, { input_tokens: 1_000_000, output_tokens: 1_000_000, cache_read_input_tokens: 1_000_000 }), input + output + cacheRead);
 }
 console.log("✅ costUsd prices tokens by model");
+
+near(costUsd("claude-haiku-4-5", { input_tokens: 0, output_tokens: 0, server_tool_use: { web_search_requests: 3 } }), 0.03);
+console.log("✅ web searches are billed per search");

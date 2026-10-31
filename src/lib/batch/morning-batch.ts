@@ -387,20 +387,32 @@ async function webSearch(query: string, recentOnly = false): Promise<{ title: st
       }],
     });
     const results: { title: string; url: string }[] = [];
+    let searched = false;
     for (const block of response.content) {
-      if (block.type !== "web_search_tool_result" || !Array.isArray(block.content)) continue;
+      if (block.type !== "web_search_tool_result") continue;
+      if (!Array.isArray(block.content)) {
+        console.log(`     ⚠️ Web search error: ${block.content.error_code}`);
+        continue;
+      }
+      searched = true;
       for (const r of block.content) {
         if (isIndexPage(r.url)) continue;
         if (recentOnly && isOlderThan(r.page_age, 7)) continue;
         results.push({ title: r.title || "", url: r.url });
       }
     }
+    if (searched) searchHealth.ok++;
+    else searchHealth.failed++;
     return results.slice(0, 5);
   } catch (err) {
     console.log(`     ⚠️ Web search failed: ${(err as Error).message}`);
+    searchHealth.failed++;
     return [];
   }
 }
+
+/** Counts searches that returned results vs. errored, so a run where every search fails is loud. */
+const searchHealth = { ok: 0, failed: 0 };
 
 function extractArticleText(html: string): string {
   // Remove script, style, nav, header, footer tags and their content
@@ -508,6 +520,8 @@ Return ONLY a JSON array of indices to KEEP:
 }
 
 async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): Promise<SourcedTopic[]> {
+  searchHealth.ok = 0;
+  searchHealth.failed = 0;
   console.log("\n🔍 Sourcing content...\n");
   const sourced: SourcedTopic[] = [];
   const newsCandidates: { url: string; text: string; query: string; type: "news"; originalQuery: string }[] = [];
@@ -623,6 +637,9 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     }
   }
 
+  if (searchHealth.failed > 0 && searchHealth.ok === 0) {
+    console.error(`  ❌ All ${searchHealth.failed} web searches failed: no news today. Check that web search is enabled for the Anthropic org.`);
+  }
   console.log(`\n  ✅ ${sourced.length} sources ready for rewriting (${sourced.filter(s => s.type === "interest" || s.type === "horizon").length} grokipedia, ${sourced.filter(s => s.type === "news").length} news)`);
   return sourced;
 }
