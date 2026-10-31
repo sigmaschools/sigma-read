@@ -67,6 +67,16 @@ async function main() {
     console.log("✅ forced close at the backstop");
   }
 
+  // ─── The level's word cap reaches the closing instruction ──────────────────
+  {
+    const { client, calls } = fakeClient({ message: "You noticed the ink cloud trick.", progressDelta: 0 });
+    await runTutorTurn({ client, model: "test", systemPrompt: "", messages: convo(6), priorProgress: 60, maxWords: 15 });
+    assert.equal(calls[0].at(-1)!.content, closingInstruction("forced", 15));
+    assert.ok(closingInstruction("forced", 15).includes("under 15 words"));
+    assert.ok(!closingInstruction("forced").includes("words."));
+    console.log("✅ closing carries the word cap");
+  }
+
   // ─── A closing that asks a question is replaced ────────────────────────────
   {
     const { client } = fakeClient({ message: "Want to read another one?", progressDelta: 0 });

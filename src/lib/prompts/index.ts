@@ -154,6 +154,7 @@ export function comprehensionConversationPrompt(
     ? questionTypeMid.trimEnd()
     : questionTypeHigh.trimEnd();
 
+  const maxWords = maxWordsForLevel(level);
   return interpolate(conversationBaseMd.trimEnd(), {
     levelContext: levelContextMap[level] || levelContextMap[3],
     likedSection,
@@ -162,9 +163,14 @@ export function comprehensionConversationPrompt(
     interestProfile,
     previousArticlesSection,
     questionTypeInstructions,
-    messageLengthRule: level <= 1 ? "One sentence, under 15 words." : level <= 2 ? "One sentence, under 20 words." : level <= 4 ? "1-2 sentences, under 40 words." : "2 sentences max, under 50 words.",
-    messageLengthThreshold: level <= 1 ? "15 words" : level <= 2 ? "20 words" : level <= 4 ? "40 words" : "50 words",
+    messageLengthRule: level <= 2 ? `One sentence, under ${maxWords} words.` : level <= 4 ? `1-2 sentences, under ${maxWords} words.` : `2 sentences max, under ${maxWords} words.`,
+    messageLengthThreshold: `${maxWords} words`,
   });
+}
+
+/** Word cap for a tutor message at this reading level (the closing message included) */
+export function maxWordsForLevel(level: number): number {
+  return level <= 1 ? 15 : level <= 2 ? 20 : level <= 4 ? 40 : 50;
 }
 
 export function comprehensionReportPrompt(articleText: string, transcript: string, level: number) {
