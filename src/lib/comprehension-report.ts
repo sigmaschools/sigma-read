@@ -32,6 +32,7 @@ export async function saveComprehensionReport(args: ReportArgs) {
       studentId: args.studentId,
       articleId: args.articleId,
       articleTitle: args.articleTitle,
+      articleText: args.articleText,
       conversationId: args.conversationId,
       messages: args.messages,
     }).then(found => {

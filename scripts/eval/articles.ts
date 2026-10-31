@@ -16,7 +16,7 @@ export const EVAL_ARTICLES: EvalArticle[] = [
     id: "octopus",
     level: 1,
     title: "The Amazing Octopus",
-    topic: "animals",
+    topic: "octopuses",
     bodyText: `An octopus is a sea animal with eight arms. Each arm is covered in suction cups. The suction cups help the octopus grab food and hold on to rocks.
 
 An octopus has no bones. That means it can squeeze through very small holes. If its beak can fit through a gap, the rest of its body can too.
@@ -31,7 +31,7 @@ Here is one more surprising fact. An octopus has three hearts, and its blood is 
     id: "bee-dance",
     level: 3,
     title: "How Honeybees Give Directions",
-    topic: "science",
+    topic: "bees",
     bodyText: `When a honeybee finds a patch of flowers full of nectar, she flies back to the hive with important news. But bees can't talk. So how does she tell the other bees where the food is? She dances.
 
 The dance is called the waggle dance. The bee walks in a straight line while shaking her body from side to side. Then she circles back and does it again, over and over. Other bees crowd around her to feel the movements in the dark hive.
@@ -48,7 +48,7 @@ Today, scientists still study the waggle dance. It helps them understand how bee
     id: "voyager",
     level: 5,
     title: "Voyager: The Spacecraft That Left the Solar System",
-    topic: "space",
+    topic: "space exploration",
     bodyText: `In 1977, NASA launched two spacecraft, Voyager 1 and Voyager 2, on a mission that was supposed to last about five years. Nearly fifty years later, both are still sending messages back to Earth from farther away than any human-made object has ever traveled.
 
 The timing of the launch was no accident. In the late 1970s, the outer planets lined up in a way that happens only about once every 175 years. That alignment let the spacecraft use each planet's gravity like a slingshot, gaining speed to reach the next one. Voyager 2 took advantage of it to fly past Jupiter, Saturn, Uranus, and Neptune. It is still the only spacecraft ever to visit Uranus and Neptune.
