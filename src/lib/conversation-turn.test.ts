@@ -76,6 +76,7 @@ async function main() {
     assert.ok(closingInstruction("earned", 20).includes("Keep it under 20 words, so aim for about 15."));
     assert.ok(closingInstruction("earned").includes("No verdict on them"));
     assert.ok(closingInstruction("forced", 15).includes("aim for about 10"));
+    assert.ok(closingInstruction("earned", 40).includes("Keep it under 40 words."), "no target at L3+");
     assert.deepEqual([15, 20, 40, 50, 10, 8].map(closingTargetWords), [10, 15, 35, 45, 8, 7]);
     assert.ok(closingInstruction("forced").includes("No stock sign-off"));
     assert.ok(!closingInstruction("forced").includes("Keep it under"));
