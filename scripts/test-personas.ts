@@ -160,6 +160,16 @@ export const PERSONAS: StudentPersona[] = [
     engagementLevel: "medium",
     selfAssessmentBias: "underconfident",
   },
+  {
+    username: "dante",
+    personality: "Confident and stubborn about his first idea. Reads quickly and fills gaps with what he already believes. Not upset by mistakes, just sure of himself.",
+    discussionStyle: "Short, matter-of-fact answers. When pointed back to the text after a wrong answer, he usually rewords the same wrong idea once ('yeah but it's still because...') before he gets it, or doesn't get it at all.",
+    quirks: ["Repeats his first wrong answer in different words when asked again", "Says 'I'm pretty sure' a lot", "Brings up something his uncle told him"],
+    interests: ["cars", "football", "sharks"],
+    comprehensionTendency: "weak",
+    engagementLevel: "medium",
+    selfAssessmentBias: "overconfident",
+  },
 ];
 
 export function getPersona(username: string): StudentPersona | undefined {

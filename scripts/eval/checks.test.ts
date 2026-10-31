@@ -20,6 +20,7 @@ const rules = (msgs: Msg[], level = 3, closing: number | null = null) =>
 // ─── Each rule fires ───────────────────────────────────────────────────────
 {
   assert.ok(rules([{ role: "assistant", content: "Great job! Tell me more." }]).includes("empty_praise"));
+  assert.ok(rules([{ role: "assistant", content: "Yes! You nailed it! Tell me how the chicks get fed." }]).includes("empty_praise"), "'You nailed it' opener");
   assert.ok(rules([{ role: "assistant", content: "What happened? Why did it matter?" }]).includes("stacked_questions"));
   assert.ok(rules([{ role: "assistant", content: "Actually, the article says ten. Tell me why." }]).includes("actually_correction"));
   assert.ok(rules([{ role: "assistant", content: "The sooner we finish, the sooner you're done. Tell me one fact." }]).includes("chore_framing"));

@@ -11,7 +11,7 @@ export interface Msg { role: "user" | "assistant"; content: string }
 export const MAX_TUTOR_WORDS: Record<number, number> = { 1: 15, 2: 20, 3: 40, 4: 40, 5: 50, 6: 50 };
 
 // Praise as a reaction at the start of a sentence ("Nice!", "Great job."), not "perfect camouflage"
-const BANNED_PRAISE = /(^|[.!?]\s+)(nice|exactly right|great job|awesome|cool|great work|amazing|perfect)\b/i;
+const BANNED_PRAISE = /(^|[.!?]\s+)(nice|exactly right|great job|awesome|cool|great work|amazing|perfect|you nailed it)\b/i;
 const CORRECTION_ACTUALLY = /(^|[.!?]\s+)actually\b/i;
 const MARKDOWN = /(\*\*|__|^#+\s|^\s*[-*]\s|`)/m;
 const CHORE_FRAMING = /\b(sooner (we|you)('re| are)? (finish|done)|get through this)\b/i;
