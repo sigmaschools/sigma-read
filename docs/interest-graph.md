@@ -52,10 +52,10 @@ simulator records them too) sends the student's messages to Haiku once and asks 
 student showed a personal interest in: things they like, do, play or want to read about. Answers
 that only restate the article, the article's own subject, personal or family facts and unsafe text
 are left out, and "none" is the usual answer. Each mention must quote the student's own words
-(checked against their messages), at most 3 per conversation. The subjects go through
-`resolveTopics`; only those that land on a topic other than the article's own are recorded, with
+(checked against their messages as whole words), and student text is escaped inside the prompt. The subjects go through
+`resolveTopics`; only those that land on a topic other than the article's own are recorded, at most 3 per conversation, with
 `source_ref` `chat:<conversation>:<topic>`. Tutorials record nothing. Usage shows as "Chat
-interests" in the admin metrics.
+interests" in the admin metrics. Logs show topic slugs only, never the student's words.
 
 ## Affinity
 

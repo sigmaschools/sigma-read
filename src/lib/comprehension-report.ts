@@ -35,7 +35,8 @@ export async function saveComprehensionReport(args: ReportArgs) {
       conversationId: args.conversationId,
       studentMessages: args.messages.filter(m => m.role === "user").map(m => m.content),
     }).then(found => {
-      if (found.length > 0) console.log(`Chat interests [${args.studentName}]: ${found.map(f => `${f.topicSlug} ("${f.quote}")`).join(", ")}`);
+      // Slugs only: the student's own words can hold personal details
+      if (found.length > 0) console.log(`Chat interests [conversation ${args.conversationId}]: ${found.map(f => f.topicSlug).join(", ")}`);
     }), "chat mentions"),
   ]);
 }
