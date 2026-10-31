@@ -33,7 +33,7 @@ export async function saveComprehensionReport(args: ReportArgs) {
       articleId: args.articleId,
       articleTitle: args.articleTitle,
       conversationId: args.conversationId,
-      studentMessages: args.messages.filter(m => m.role === "user").map(m => m.content),
+      messages: args.messages,
     }).then(found => {
       // Slugs only: the student's own words can hold personal details
       if (found.length > 0) console.log(`Chat interests [conversation ${args.conversationId}]: ${found.map(f => f.topicSlug).join(", ")}`);

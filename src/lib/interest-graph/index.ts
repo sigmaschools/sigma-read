@@ -287,14 +287,14 @@ export async function recordChatMentions(args: {
   articleId: number;
   articleTitle: string;
   conversationId: number;
-  studentMessages: string[];
+  messages: { role: string; content: string }[];
 }): Promise<{ topicSlug: string; phrase: string }[]> {
-  const said = args.studentMessages.filter(m => m.trim());
+  const said = args.messages.filter(m => m.role === "user" && m.content.trim()).map(m => m.content);
   if (said.length === 0) return [];
   const response = await tracked(args.client, "chat_mentions", args.studentId).messages.create({
     model: MODELS.light,
     max_tokens: 512,
-    messages: [{ role: "user", content: chatMentionsPrompt(args.articleTitle, said) }],
+    messages: [{ role: "user", content: chatMentionsPrompt(args.articleTitle, args.messages) }],
     output_config: { format: { type: "json_schema", schema: CHAT_MENTIONS_SCHEMA } },
   });
   const mentions = verifiedMentions(parseJsonResponse<{ mentions: ChatMention[] }>(response)?.mentions ?? [], said);
