@@ -308,9 +308,10 @@ export async function recordChatMentions(args: {
 
   // The subjects are Haiku's words, not the student's: match them, but don't teach the shared map
   const resolved = await resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId, learn: false });
-  // The article's topics and their parents and children ("moons" under a space article) are the
-  // article talking, not the student; siblings stay, since they are a real step outside it
-  const near = (await Promise.all(own.map(slug => getRelated(slug)))).flat().filter(r => r.via !== "sibling" && r.via !== "related").map(r => r.slug);
+  // The article's topics and their parents ("space" on a space exploration article) are the article
+  // talking, not the student. Children and siblings stay: "I ride horses" on an article tagged
+  // "animals" is a real step outside it
+  const near = (await Promise.all(own.map(slug => getRelated(slug)))).flat().filter(r => r.via === "parent").map(r => r.slug);
   const found = chatMentionTopics(mentions, resolved, [...own, ...near]);
   await recordSignals(found.map(f => ({
     studentId: args.studentId, type: "chat_mention", topicSlug: f.topicSlug, phrase: f.phrase,

@@ -68,5 +68,10 @@ console.log("✅ chatMentionsPrompt fences the conversation");
 
 // Curly apostrophes match straight ones
 assert.equal(verifiedMentions([{ topic: "comics", quote: "I don't stop drawing comics" }], ["I don’t stop drawing comics"]).length, 1);
-assert.ok(chatMentionsPrompt("t", "a", []).includes("dislikes"));
 console.log("✅ verifiedMentions treats curly and straight apostrophes alike");
+
+assert.equal(verifiedMentions([{ topic: "soccer", quote: "juego fútbol" }], ["Yo juego fútbol los sábados"]).length, 1);
+console.log("✅ verifiedMentions keeps accented and non-Latin words");
+
+assert.ok(chatMentionsPrompt("t", "a", []).includes("dislikes"));
+console.log("✅ chatMentionsPrompt excludes dislikes");

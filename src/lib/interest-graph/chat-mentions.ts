@@ -64,7 +64,8 @@ ${messages.map(m => `<${m.role === "user" ? "student" : "tutor"}>${escapeTags(m.
 /** Keep student text from closing the fence it sits in */
 const escapeTags = (s: string) => s.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const normalize = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9']+/g, " ").trim();
+// Letters and digits in any script, so "fútbol" and non-Latin messages still verify
+const normalize = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']+/gu, " ").trim();
 
 /**
  * Keep mentions whose quote the student really wrote (whole words, so "ink" doesn't match
@@ -91,7 +92,7 @@ export function verifiedMentions(mentions: ChatMention[], studentMessages: strin
 
 /**
  * Which resolved mentions to record: those that landed on a topic outside the article's own
- * (pass its topics plus their parents and children), one per topic, at most MAX_CHAT_MENTIONS.
+ * (pass its topics plus their parents), one per topic, at most MAX_CHAT_MENTIONS.
  */
 export function chatMentionTopics(
   mentions: ChatMention[],
