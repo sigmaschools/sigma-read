@@ -292,6 +292,10 @@ export async function recordChatMentions(args: {
 }): Promise<{ topicSlug: string; phrase: string }[]> {
   const said = args.messages.filter(m => m.role === "user" && m.content.trim()).map(m => m.content);
   if (said.length === 0) return [];
+  // Without the article's topics nothing would stop its subject being recorded as the student's,
+  // so check them before paying for any model call
+  const own = (await topicsForArticles([args.articleId])).get(args.articleId) ?? [];
+  if (own.length === 0) return [];
   const response = await tracked(args.client, "chat_mentions", args.studentId).messages.create({
     model: MODELS.light,
     max_tokens: 512,
@@ -301,15 +305,9 @@ export async function recordChatMentions(args: {
   const mentions = verifiedMentions(parseJsonResponse<{ mentions: ChatMention[] }>(response)?.mentions ?? [], said);
   if (mentions.length === 0) return [];
 
-  const [resolved, articleTopics] = await Promise.all([
-    resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId }),
-    topicsForArticles([args.articleId]),
-  ]);
+  const resolved = await resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId });
   // The article's topics and their parents and children ("moons" under a space article) are the
   // article talking, not the student; siblings stay, since they are a real step outside it
-  const own = articleTopics.get(args.articleId) ?? [];
-  // Without the article's topics nothing would stop its subject being recorded as the student's
-  if (own.length === 0) return [];
   const near = (await Promise.all(own.map(slug => getRelated(slug)))).flat().filter(r => r.via !== "sibling" && r.via !== "related").map(r => r.slug);
   const found = chatMentionTopics(mentions, resolved, [...own, ...near]);
   await recordSignals(found.map(f => ({
