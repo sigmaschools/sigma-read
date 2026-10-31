@@ -14,7 +14,7 @@ const FEATURE_LABELS: Record<string, string> = {
   onboarding: "Onboarding", definition: "Word definitions", pre_reading: "Pre-reading prompt",
   feed_event: "Interest tags", interest_resolve: "Interest matching", article_generate: "On-demand articles", parent_chat: "Parent chat",
   batch_adjacent: "Batch: adjacent interests", batch_filter: "Batch: source filter",
-  batch_rewrite: "Batch: base articles", batch_adapt: "Batch: level adaptations",
+  batch_search: "Batch: web search", batch_rewrite: "Batch: base articles", batch_adapt: "Batch: level adaptations",
 };
 
 const usd = (n: number) => n < 10 ? `$${n.toFixed(2)}` : `$${Math.round(n).toLocaleString()}`;

@@ -11,7 +11,7 @@
  * Process:
  * 1. Analyze active students: interests, reading levels, aggregate interest pool
  * 2. Plan daily mix: 60% interest / 20% news / 20% horizon per student
- * 3. Source content: Brave Search → fetch → content filter → pick best source
+ * 3. Source content: web search → fetch → content filter → pick best source
  * 4. Rewrite: Claude Sonnet rewrites source content at L4
  * 5. Adapt each article to all needed reading levels using Sonnet
  * 6. Fill each student's buffer to 5 unread articles
@@ -28,10 +28,10 @@ import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
 import { backfillSignals, getAffinities, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
+import { isIndexPage, isOlderThan } from "./search-filters";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
-const BRAVE_API_KEY = process.env.BRAVE_API_KEY!;
 const SONNET_MODEL = "claude-sonnet-4-5";
 const HAIKU_MODEL = "claude-haiku-4-5";
 const BUFFER_TARGET = 10; // 2-day buffer in case batch fails
@@ -361,33 +361,61 @@ async function fetchGrokipediaArticle(url: string): Promise<string | null> {
   }
 }
 
-// ─── Brave Search (for news articles only) ──────────────────────────────────
+// ─── Web search (news, and fallback for interest/horizon) ────────────────────
 
-async function braveSearch(query: string, freshness?: string): Promise<{ title: string; url: string; description: string }[]> {
-  const params = new URLSearchParams({ q: query, count: "5" });
-  if (freshness) params.set("freshness", freshness);
-
-  // Retry with backoff on rate limits (429)
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
-      headers: { "X-Subscription-Token": BRAVE_API_KEY, Accept: "application/json" },
+/**
+ * Finds pages with Anthropic's server-side web search tool, so the batch needs no
+ * separate search API key. Only the result URLs and titles are used; the page text
+ * is fetched and filtered by the same code as before.
+ */
+async function webSearch(query: string, recentOnly = false): Promise<{ title: string; url: string }[]> {
+  const site = query.match(/^site:(\S+)\s*(.*)$/);
+  const terms = (site ? site[2] : query) || "latest articles";
+  try {
+    const response = await tracked(anthropic, "batch_search").messages.create({
+      model: HAIKU_MODEL,
+      max_tokens: 1024,
+      tools: [{
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 1,
+        ...(site ? { allowed_domains: [site[1]] } : {}),
+      }],
+      messages: [{
+        role: "user",
+        content: `Run one web search for: ${terms}${recentOnly ? ` news this week, ${new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}` : ""}. Reply with just "done".`,
+      }],
     });
-    if (res.status === 429) {
-      const wait = (attempt + 1) * 3000;
-      console.log(`     ⏳ Rate limited, waiting ${wait / 1000}s...`);
-      await new Promise(r => setTimeout(r, wait));
-      continue;
+    const results: { title: string; url: string }[] = [];
+    let searched = false;
+    for (const block of response.content) {
+      if (block.type !== "web_search_tool_result") continue;
+      if (!Array.isArray(block.content)) {
+        console.log(`     ⚠️ Web search error: ${block.content.error_code}`);
+        continue;
+      }
+      searched = true;
+      for (const r of block.content) {
+        if (isIndexPage(r.url)) continue;
+        if (recentOnly && isOlderThan(r.page_age, 7)) continue;
+        results.push({ title: r.title || "", url: r.url });
+      }
     }
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.web?.results || []).map((r: any) => ({
-      title: r.title || "",
-      url: r.url || "",
-      description: r.description || "",
-    }));
+    if (searched) searchHealth.ok++;
+    else {
+      console.log(`     ⚠️ Web search returned no results block (stop: ${response.stop_reason})`);
+      searchHealth.failed++;
+    }
+    return results.slice(0, 5);
+  } catch (err) {
+    console.log(`     ⚠️ Web search failed: ${(err as Error).message}`);
+    searchHealth.failed++;
+    return [];
   }
-  return [];
 }
+
+/** Counts searches that returned results vs. errored, so a run where every search fails is loud. */
+const searchHealth = { ok: 0, failed: 0 };
 
 function extractArticleText(html: string): string {
   // Remove script, style, nav, header, footer tags and their content
@@ -495,6 +523,8 @@ Return ONLY a JSON array of indices to KEEP:
 }
 
 async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): Promise<SourcedTopic[]> {
+  searchHealth.ok = 0;
+  searchHealth.failed = 0;
   console.log("\n🔍 Sourcing content...\n");
   const sourced: SourcedTopic[] = [];
   const newsCandidates: { url: string; text: string; query: string; type: "news"; originalQuery: string }[] = [];
@@ -518,14 +548,14 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
 
     const results = await grokipediaSearch(plan.query);
     if (results.length === 0) {
-      // Fallback to Brave Search
-      console.log(`     ⚠️ No Grokipedia results, trying Brave...`);
-      const braveResults = await braveSearch(`${plan.query} article`);
-      for (const r of braveResults.slice(0, 3)) {
+      // Fallback to web search
+      console.log(`     ⚠️ No Grokipedia results, trying web search...`);
+      const webResults = await webSearch(`${plan.query} article`);
+      for (const r of webResults.slice(0, 3)) {
         const text = await fetchSourceText(r.url);
         if (text) {
           sourced.push({ query: plan.query, type: plan.type, sourceUrl: r.url, sourceText: text });
-          console.log(`     ✅ Brave fallback: ${r.url.substring(0, 60)}...`);
+          console.log(`     ✅ Web search fallback: ${r.url.substring(0, 60)}...`);
           break;
         }
       }
@@ -566,7 +596,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     }
   }
 
-  // ─── News: Brave Search (kid publishers + topic fallback) ─────────────────
+  // ─── News: web search (kid publishers + topic fallback) ───────────────────
 
   const newsPlans = plans.filter(p => p.type === "news");
   const NEWS_TARGET = 1;
@@ -576,14 +606,11 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     if (newsSourcedCount >= NEWS_TARGET) break;
 
     const plan = newsPlans[i];
-    // Rate limit: Brave free tier allows ~1 req/sec
-    if (i > 0) await new Promise(r => setTimeout(r, 1500));
+    console.log(`  🔎 Web search: "${plan.searchQuery}" (news)`);
 
-    console.log(`  🔎 Brave: "${plan.searchQuery}" (news)`);
-
+    // Kid publishers ("site:...") are searched without a recency limit
     const isKidPublisher = plan.searchQuery.startsWith("site:");
-    const freshness = isKidPublisher ? undefined : "pw";
-    const results = await braveSearch(plan.searchQuery, freshness);
+    const results = await webSearch(plan.searchQuery, !isKidPublisher);
 
     if (results.length === 0) {
       console.log(`     ⚠️ No results`);
@@ -613,6 +640,9 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     }
   }
 
+  if (searchHealth.failed > 0 && searchHealth.ok === 0) {
+    console.error(`  ❌ All ${searchHealth.failed} web searches failed: no news today. Check that web search is enabled for the Anthropic org.`);
+  }
   console.log(`\n  ✅ ${sourced.length} sources ready for rewriting (${sourced.filter(s => s.type === "interest" || s.type === "horizon").length} grokipedia, ${sourced.filter(s => s.type === "news").length} news)`);
   return sourced;
 }
