@@ -48,7 +48,7 @@ topic list or "none". Personal facts and unsafe text map to none. Matches are sa
 ### Chat mentions
 
 When a discussion ends, `recordChatMentions` (called from `saveComprehensionReport`, so the
-simulator records them too) sends the student's messages to Haiku once and asks for subjects the
+simulator records them too) sends the conversation to Haiku once (tutor turns for context) and asks for subjects the
 student showed a personal interest in: things they like, do, play or want to read about. Answers
 that only restate the article, the article's own subject, personal or family facts and unsafe text
 are left out, and "none" is the usual answer. Each mention must quote the student's own words
