@@ -10,7 +10,7 @@ This document describes how the AI-guided comprehension conversations work in Si
 
 After a student reads an article, they have a brief conversation with the AI about what they read. The article stays visible the entire time (side panel on desktop, bottom drawer on mobile). The AI assesses comprehension through conversation — no quizzes, no fill-in-the-blank.
 
-Each student reply earns a `progressDelta` (0–40). When the running total reaches 100 (and at least 3 exchanges have happened), the student answers the tutor's last directive and the next tutor message is an **earned** closing. Strong readers finish in 3-4 exchanges. There's a hard backstop at **6 student messages**, which produces a **forced** closing. Forced closings name something the student said without claiming mastery, and the report records `forced_close` so guides can tell the two apart. The turn logic lives in `src/lib/conversation-turn.ts`.
+Each student reply earns a `progressDelta` (0–40). When the running total reaches 100 (and at least 3 exchanges have happened), the student answers the tutor's last directive and the next tutor message is an **earned** closing. Strong readers finish in 3-4 exchanges. There's a hard backstop at **6 student messages**, which produces a **forced** closing. Forced closings name something the student said without claiming mastery, and if the student's last answer missed the point they work the right answer into the goodbye (without saying the student was wrong); and the report records `forced_close` so guides can tell the two apart. The turn logic lives in `src/lib/conversation-turn.ts`.
 
 ---
 
@@ -56,7 +56,7 @@ A message is a short reaction (or none) plus one directive. The tutor doesn't re
 
 - ONE directive or question per message. Never stack two questions.
 - Use **directives** ("Tell me about...") more than **questions** ("What did...?"). Directives feel like conversation. Questions feel like quizzes.
-- **No empty praise.** Banned phrases: "Nice!", "Exactly right!", "Great job!", "Awesome!", "Cool." Substance only: "Yeah, that's the key part" or just move to the next prompt.
+- **No empty praise.** Banned phrases: "Nice!", "Exactly right!", "Great job!", "Awesome!", "Cool.", "You nailed it!" Open with a reaction to what the student said, not a verdict on them. Substance only: "Yeah, that's the key part" or just move to the next prompt.
 - **No markdown formatting.** Plain text only. These are chat messages.
 - Friendly and straightforward. Approachable adult, not fellow kid.
 
