@@ -370,7 +370,7 @@ async function fetchGrokipediaArticle(url: string): Promise<string | null> {
  */
 async function webSearch(query: string, recentOnly = false): Promise<{ title: string; url: string }[]> {
   const site = query.match(/^site:(\S+)\s*(.*)$/);
-  const terms = site ? site[2] : query;
+  const terms = (site ? site[2] : query) || "latest articles";
   try {
     const response = await tracked(anthropic, "batch_search").messages.create({
       model: HAIKU_MODEL,
@@ -383,7 +383,7 @@ async function webSearch(query: string, recentOnly = false): Promise<{ title: st
       }],
       messages: [{
         role: "user",
-        content: `Run one web search for: ${terms}${recentOnly ? ` news ${new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}` : ""}. Reply with just "done".`,
+        content: `Run one web search for: ${terms}${recentOnly ? ` news this week, ${new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}` : ""}. Reply with just "done".`,
       }],
     });
     const results: { title: string; url: string }[] = [];
@@ -402,7 +402,10 @@ async function webSearch(query: string, recentOnly = false): Promise<{ title: st
       }
     }
     if (searched) searchHealth.ok++;
-    else searchHealth.failed++;
+    else {
+      console.log(`     ⚠️ Web search returned no results block (stop: ${response.stop_reason})`);
+      searchHealth.failed++;
+    }
     return results.slice(0, 5);
   } catch (err) {
     console.log(`     ⚠️ Web search failed: ${(err as Error).message}`);
