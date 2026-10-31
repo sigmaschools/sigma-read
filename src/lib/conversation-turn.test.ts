@@ -73,8 +73,9 @@ async function main() {
     await runTutorTurn({ client, model: "test", systemPrompt: "", messages: convo(6), priorProgress: 60, maxWords: 15 });
     assert.equal(calls[0].at(-1)!.content, closingInstruction("forced", 15));
     assert.ok(closingInstruction("forced", 15).includes("under 15 words"));
-    assert.ok(closingInstruction("earned", 20).includes("Keep it under 20 words."));
+    assert.ok(closingInstruction("earned", 20).includes("Keep it under 20 words, so aim for about 15."));
     assert.ok(closingInstruction("earned").includes("No verdict on them"));
+    assert.ok(closingInstruction("forced", 15).includes("aim for about 10"));
     assert.ok(!closingInstruction("forced").includes("Keep it under"));
     console.log("✅ closing carries the word cap");
   }
