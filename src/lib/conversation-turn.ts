@@ -20,7 +20,8 @@ export const OPENER_INSTRUCTION = "[The student just finished reading. Start the
 export type ClosingKind = "earned" | "forced";
 
 export function closingTargetWords(maxWords: number): number {
-  return Math.max(8, maxWords - 5);
+  // Never at or above the cap itself, even for a small cap
+  return Math.min(maxWords - 1, Math.max(8, maxWords - 5));
 }
 
 export function closingInstruction(kind: ClosingKind, maxWords?: number): string {
