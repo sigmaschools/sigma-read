@@ -61,7 +61,7 @@ export async function runTutorTurn(args: {
   messages: TurnMessage[];
   priorProgress: number;
   /** The level's word cap, repeated in the closing instruction (it otherwise runs long at L1) */
-  maxWords?: number;
+  maxWords: number;
 }): Promise<TurnResult> {
   const exchangeNumber = args.messages.filter(m => m.role === "user").length;
   const forceComplete = exchangeNumber >= MAX_STUDENT_MESSAGES;
