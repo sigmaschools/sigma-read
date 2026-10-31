@@ -156,7 +156,8 @@ async function runSession(
     level,
     messages,
     transcript,
-    forcedClose: closing === "forced",
+    // Hitting MAX_TUTOR_TURNS without a closing counts as forced too
+    forcedClose: closing !== "earned",
     inChatScore: progress,
   });
 
@@ -216,23 +217,24 @@ async function main() {
     console.log(`   Personality: ${persona.personality.slice(0, 80)}...`);
 
     // Get unread articles
-    // Closest to the student's level first, as the real feed serves them
-    const articles = await sql`SELECT id, title, body_text FROM articles
-      WHERE student_id = ${student.id} AND read = false
-      ORDER BY abs(reading_level - ${student.reading_level}), RANDOM() LIMIT ${sessionsPerStudent}`;
-
-    if (articles.length === 0) {
+    const [{ n: unread }] = await sql`SELECT count(*)::int AS n FROM articles WHERE student_id = ${student.id} AND read = false`;
+    if (!unread) {
       console.log(`    ⚠️ No unread articles — skipping`);
       continue;
     }
 
     if (dryRun) {
-      console.log(`    Would run ${articles.length} sessions:`);
-      for (const a of articles) console.log(`      - ${a.title}`);
+      console.log(`    Would run ${Math.min(unread, sessionsPerStudent)} sessions (${unread} unread)`);
       continue;
     }
 
-    for (const article of articles) {
+    for (let i = 0; i < sessionsPerStudent; i++) {
+      // Pick each article after the previous session, since progression may have moved the level;
+      // closest to the student's current level first, as the real feed serves them
+      const [article] = await sql`SELECT a.id, a.title, a.body_text FROM articles a, students s
+        WHERE a.student_id = ${student.id} AND s.id = a.student_id AND a.read = false
+        ORDER BY abs(a.reading_level - s.reading_level), RANDOM() LIMIT 1`;
+      if (!article) break;
       try {
         await runSession(student.id, student.name, article.id, article.title, article.body_text, persona);
         totalSessions++;
