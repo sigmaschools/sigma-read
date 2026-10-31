@@ -23,7 +23,7 @@ const convo = (studentTurns: number): TurnMessage[] =>
   ]).flat();
 
 const run = (client: Anthropic, messages: TurnMessage[], priorProgress: number) =>
-  runTutorTurn({ client, model: "test", systemPrompt: "", messages, priorProgress });
+  runTutorTurn({ client, model: "test", systemPrompt: "", messages, priorProgress, maxWords: 40 });
 
 async function main() {
   // ─── Opener uses the opener instruction and never completes ────────────────
@@ -52,7 +52,7 @@ async function main() {
     const r = await run(client, convo(4), 110);
     assert.equal(r.complete, true);
     assert.equal(r.closing, "earned");
-    assert.equal(calls[0].at(-1)!.content, closingInstruction("earned"));
+    assert.equal(calls[0].at(-1)!.content, closingInstruction("earned", 40));
     console.log("✅ earned close after the threshold");
   }
 
@@ -62,9 +62,20 @@ async function main() {
     const r = await run(client, convo(6), 60);
     assert.equal(r.complete, true);
     assert.equal(r.closing, "forced");
-    assert.equal(calls[0].at(-1)!.content, closingInstruction("forced"));
+    assert.equal(calls[0].at(-1)!.content, closingInstruction("forced", 40));
     assert.ok(!closingInstruction("forced").includes("demonstrated sufficient understanding"));
     console.log("✅ forced close at the backstop");
+  }
+
+  // ─── The level's word cap reaches the closing instruction ──────────────────
+  {
+    const { client, calls } = fakeClient({ message: "You noticed the ink cloud trick.", progressDelta: 0 });
+    await runTutorTurn({ client, model: "test", systemPrompt: "", messages: convo(6), priorProgress: 60, maxWords: 15 });
+    assert.equal(calls[0].at(-1)!.content, closingInstruction("forced", 15));
+    assert.ok(closingInstruction("forced", 15).includes("under 15 words"));
+    assert.ok(closingInstruction("earned", 20).includes("Keep it under 20 words."));
+    assert.ok(!closingInstruction("forced").includes("Keep it under"));
+    console.log("✅ closing carries the word cap");
   }
 
   // ─── A closing that asks a question is replaced ────────────────────────────
