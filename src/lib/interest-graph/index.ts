@@ -21,6 +21,7 @@ import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type 
 import { checkinDue, checkinTopics } from "./checkin";
 import { summarizeInterests } from "./summary";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
+import { CHAT_MENTIONS_SCHEMA, chatMentionsPrompt, verifiedMentions, type ChatMention } from "./chat-mentions";
 
 export { SIGNALS, type Affinity, type SignalType } from "./affinity";
 export { matchKey } from "./resolve";
@@ -272,6 +273,48 @@ export async function topicsForArticles(articleIds: number[]): Promise<Map<numbe
 export async function recordArticleSignal(studentId: number, articleId: number, type: SignalType, sourceRef: string, refSuffix = "") {
   const topics = (await topicsForArticles([articleId])).get(articleId) ?? [];
   await recordSignals(topics.map(topicSlug => ({ studentId, type, topicSlug, sourceRef: `${sourceRef}:${topicSlug}${refSuffix}` })));
+}
+
+/**
+ * Interests the student brought up in an article discussion: one Haiku call finds them, each
+ * must quote the student's own words, and only those that resolve to a topic other than the
+ * article's own are recorded (the article's topics already get chose_article). Returns what
+ * was recorded, for logs and the simulator.
+ */
+export async function recordChatMentions(args: {
+  client: Anthropic;
+  studentId: number;
+  articleId: number;
+  articleTitle: string;
+  conversationId: number;
+  studentMessages: string[];
+}): Promise<{ topicSlug: string; phrase: string; quote: string }[]> {
+  const said = args.studentMessages.filter(m => m.trim());
+  if (said.length === 0) return [];
+  const response = await tracked(args.client, "chat_mentions", args.studentId).messages.create({
+    model: MODELS.light,
+    max_tokens: 512,
+    messages: [{ role: "user", content: chatMentionsPrompt(args.articleTitle, said) }],
+    output_config: { format: { type: "json_schema", schema: CHAT_MENTIONS_SCHEMA } },
+  });
+  const mentions = verifiedMentions(parseJsonResponse<{ mentions: ChatMention[] }>(response)?.mentions ?? [], said);
+  if (mentions.length === 0) return [];
+
+  const [resolved, articleTopics] = await Promise.all([
+    resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId }),
+    topicsForArticles([args.articleId]),
+  ]);
+  const own = new Set(articleTopics.get(args.articleId) ?? []);
+  const found = new Map<string, { topicSlug: string; phrase: string; quote: string }>();
+  for (const m of mentions) {
+    const slug = resolved.get(m.topic);
+    if (slug && !own.has(slug) && !found.has(slug)) found.set(slug, { topicSlug: slug, phrase: m.topic, quote: m.quote });
+  }
+  await recordSignals([...found.values()].map(f => ({
+    studentId: args.studentId, type: "chat_mention", topicSlug: f.topicSlug, phrase: f.phrase,
+    sourceRef: `chat:${args.conversationId}:${f.topicSlug}`,
+  })));
+  return [...found.values()];
 }
 
 /** A like or dislike. Changing your mind adds a new signal; only the latest per article counts. */
