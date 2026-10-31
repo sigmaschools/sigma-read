@@ -3,7 +3,9 @@
  *
  * Writes simulated sessions to the database it's pointed at; never point it at production.
  * For testing prompt changes, use scripts/eval-conversations.ts (npm run eval), which runs
- * the real tutor-turn logic in memory. This script still uses its own older turn loop.
+ * the same tutor-turn logic in memory. This script uses that logic too (runTutorTurn,
+ * saveComprehensionReport), so stored transcripts, closings, reports, interest signals and
+ * level changes match what real sessions produce.
  * 
  * Runs automated student sessions with persona-driven, organic conversations.
  * Each student has a unique personality that affects how they discuss articles.
@@ -21,8 +23,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { getPersona, EXCLUDED_USERNAMES, type StudentPersona } from "./test-personas";
 import { buildStudentSystemPrompt } from "./eval/student-sim";
-import { REPORT_SCHEMA, type ComprehensionReport } from "../src/lib/report-schema";
-import { parseJsonResponse } from "../src/lib/claude-json";
+import { runTutorTurn, type ClosingKind } from "../src/lib/conversation-turn";
+import { saveComprehensionReport } from "../src/lib/comprehension-report";
+import { comprehensionConversationPrompt, pickConversationStyle, maxWordsForLevel } from "../src/lib/prompts";
+import { MODELS } from "../src/lib/models";
+import { tracked } from "../src/lib/ai-usage";
 import { assertNotProduction } from "./sim-guard";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
@@ -63,12 +68,12 @@ function pickSelfAssessment(persona: StudentPersona, actualScore: number): strin
 async function simulateStudentResponse(
   articleText: string,
   level: number,
-  aiMessage: string,
   conversationSoFar: { role: string; content: string }[],
   persona: StudentPersona,
 ): Promise<string> {
+  const aiMessage = conversationSoFar[conversationSoFar.length - 1].content;
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
+    model: MODELS.standard,
     max_tokens: 200,
     system: buildStudentSystemPrompt(persona, level),
     messages: [
@@ -79,131 +84,93 @@ async function simulateStudentResponse(
     ],
   });
 
-  return response.content[0].type === "text" ? response.content[0].text : "I'm not sure";
+  const text = response.content.filter(b => b.type === "text").map(b => b.text).join("").trim();
+  return text || "I'm not sure";
 }
+
+/** Safety net on top of the tutor's own 6-message backstop */
+const MAX_TUTOR_TURNS = 10;
 
 async function runSession(
   studentId: number,
   studentName: string,
-  level: number,
   articleId: number,
   articleTitle: string,
   articleBody: string,
   persona: StudentPersona,
 ) {
-  console.log(`    📖 "${articleTitle}"`);
+  // Re-read the level each session: progression from the previous session may have changed it
+  const [student] = await sql`SELECT reading_level, interest_profile FROM students WHERE id = ${studentId}`;
+  const level: number = student.reading_level || 2;
+  console.log(`    📖 "${articleTitle}" (student at L${level})`);
 
-  // Create reading session
   const [session] = await sql`
     INSERT INTO reading_sessions (student_id, article_id, reading_completed_at)
     VALUES (${studentId}, ${articleId}, NOW())
     RETURNING id, started_at
   `;
-
-  // Create conversation
   const [conv] = await sql`
     INSERT INTO conversations (reading_session_id, messages, complete)
     VALUES (${session.id}, '[]'::jsonb, false)
     RETURNING id
   `;
 
-  // Load prompts
-  const { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle } = await import("../src/lib/prompts");
-  
-  const student = await sql`SELECT * FROM students WHERE id = ${studentId}`;
+  // Same prompt, turn logic, closing and report the chat route uses
   const style = pickConversationStyle();
-  
   const systemPrompt = comprehensionConversationPrompt(
-    articleBody, level,
-    JSON.stringify(student[0].interest_profile || {}),
-    undefined, null, style
+    articleBody, level, JSON.stringify(student.interest_profile || {}), undefined, null, style,
   );
 
   const messages: { role: string; content: string; timestamp: string }[] = [];
-  
-  messages.push({ role: "user", content: "I just finished reading the article.", timestamp: new Date().toISOString() });
-  
-  let complete = false;
-  let turns = 0;
-
-  while (!complete && turns < 8) {
-    // AI guide response
-    const aiRes = await anthropic.messages.create({
-      model: "claude-opus-4-6",
-      max_tokens: 256,
-      system: systemPrompt,
-      messages: messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+  let progress = 0;
+  let closing: ClosingKind | null = null;
+  for (let turn = 0; turn < MAX_TUTOR_TURNS; turn++) {
+    const result = await runTutorTurn({
+      client: tracked(anthropic, "tutor_turn", studentId),
+      model: MODELS.heavy,
+      systemPrompt,
+      messages,
+      priorProgress: progress,
+      maxWords: maxWordsForLevel(level),
     });
-
-    const aiText = aiRes.content[0].type === "text" ? aiRes.content[0].text : "";
-    complete = aiText.includes("[CONVERSATION_COMPLETE]");
-    const cleanAI = aiText.replace("[CONVERSATION_COMPLETE]", "").trim();
-    
-    messages.push({ role: "assistant", content: cleanAI, timestamp: new Date().toISOString() });
-    turns++;
-
-    if (complete) break;
-
-    // Simulated student response using persona
-    const studentResponse = await simulateStudentResponse(articleBody, level, cleanAI, messages, persona);
-    messages.push({ role: "user", content: studentResponse, timestamp: new Date().toISOString() });
-    turns++;
+    progress = result.progressScore;
+    messages.push({ role: "assistant", content: result.message, timestamp: new Date().toISOString() });
+    if (result.complete) { closing = result.closing; break; }
+    const reply = await simulateStudentResponse(articleBody, level, messages, persona);
+    messages.push({ role: "user", content: reply, timestamp: new Date().toISOString() });
   }
 
-  // Save conversation
-  await sql`UPDATE conversations SET messages = ${JSON.stringify(messages)}::jsonb, complete = true, conversation_style = ${style} WHERE id = ${conv.id}`;
-
-  // Generate report
-  const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
-  const reportRes = await anthropic.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 2048,
-    messages: [{ role: "user", content: comprehensionReportPrompt(articleBody, transcript, level) }],
-    output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
-  });
-  const report = parseJsonResponse<ComprehensionReport>(reportRes);
-
-  let score = 65;
-  if (report) {
-    try {
-      score = report.score;
-
-      const selfAssessment = pickSelfAssessment(persona, score);
-
-      // Compute analytics
-      const aiMsgs = messages.filter(m => m.role === "assistant");
-      const studentMsgs = messages.filter(m => m.role === "user");
-      const wc = (t: string) => t.split(/\s+/).filter(w => w.length > 0).length;
-      const aiAvg = aiMsgs.length > 0 ? Math.round(aiMsgs.reduce((s, m) => s + wc(m.content), 0) / aiMsgs.length) : 0;
-      const studentAvg = studentMsgs.length > 0 ? Math.round(studentMsgs.reduce((s, m) => s + wc(m.content), 0) / studentMsgs.length) : 0;
-      const redirectPatterns = /\b(actually|take a look|take another look|close,? but|not quite|if you look at the article)\b/gi;
-      const redirectCount = aiMsgs.reduce((c, m) => c + (m.content.match(redirectPatterns) || []).length, 0);
-
-      await sql`INSERT INTO comprehension_reports (conversation_id, score, rating, understood, missed, engagement_note, self_assessment, ai_avg_words, student_avg_words, redirect_count, exchange_count)
-        VALUES (${conv.id}, ${report.score}, ${report.rating}, ${report.comprehension}, ${report.depth}, ${report.engagement}, ${selfAssessment}, ${aiAvg}, ${studentAvg}, ${redirectCount}, ${studentMsgs.length})`;
-
-      // Level adjustment
-      let newLevel = level;
-      if (report.score >= 85 && level < 6) newLevel = level + 1;
-      else if (report.score < 40 && level > 1) newLevel = level - 1;
-
-      if (newLevel !== level) {
-        await sql`UPDATE students SET reading_level = ${newLevel} WHERE id = ${studentId}`;
-        await sql`INSERT INTO level_history (student_id, from_level, to_level, triggered_by_session_id) VALUES (${studentId}, ${level}, ${newLevel}, ${session.id})`;
-        console.log(`    📊 Level: L${level} → L${newLevel}`);
-      }
-
-      console.log(`    ✅ Score: ${score} | SA: ${selfAssessment} | ${messages.length} msgs | Style: ${style} | AI: ${aiAvg}w Student: ${studentAvg}w`);
-    } catch (e) {
-      console.log(`    ⚠️ Report parse error, using default score`);
-    }
-  } else {
-    console.log(`    ⚠️ No report match, using default score`);
-  }
-
-  // Mark complete
+  await sql`UPDATE conversations SET messages = ${JSON.stringify(messages)}::jsonb, complete = true,
+    conversation_style = ${style}, progress_score = ${progress} WHERE id = ${conv.id}`;
   await sql`UPDATE articles SET read = true WHERE id = ${articleId}`;
   await sql`UPDATE reading_sessions SET completed_at = NOW() WHERE id = ${session.id}`;
+
+  const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
+  await saveComprehensionReport({
+    anthropic,
+    conversationId: conv.id,
+    studentId,
+    articleId,
+    studentName,
+    articleText: articleBody,
+    level,
+    messages,
+    transcript,
+    forcedClose: closing === "forced",
+    inChatScore: progress,
+  });
+
+  const [report] = await sql`SELECT score FROM comprehension_reports WHERE conversation_id = ${conv.id}`;
+  if (report) {
+    const selfAssessment = pickSelfAssessment(persona, report.score);
+    await sql`UPDATE comprehension_reports SET self_assessment = ${selfAssessment} WHERE conversation_id = ${conv.id}`;
+    const [after] = await sql`SELECT reading_level FROM students WHERE id = ${studentId}`;
+    const levelNote = after.reading_level !== level ? ` | Level: L${level} → L${after.reading_level}` : "";
+    console.log(`    ✅ Score: ${report.score} | SA: ${selfAssessment} | ${messages.length} msgs | ${closing ?? "no"} close | Style: ${style}${levelNote}`);
+  } else {
+    console.log(`    ⚠️ No report saved`);
+  }
+
   await sql`UPDATE students SET total_sessions_completed = total_sessions_completed + 1 WHERE id = ${studentId}`;
 }
 
@@ -249,9 +216,10 @@ async function main() {
     console.log(`   Personality: ${persona.personality.slice(0, 80)}...`);
 
     // Get unread articles
-    const articles = await sql`SELECT id, title, body_text FROM articles 
+    // Closest to the student's level first, as the real feed serves them
+    const articles = await sql`SELECT id, title, body_text FROM articles
       WHERE student_id = ${student.id} AND read = false
-      ORDER BY RANDOM() LIMIT ${sessionsPerStudent}`;
+      ORDER BY abs(reading_level - ${student.reading_level}), RANDOM() LIMIT ${sessionsPerStudent}`;
 
     if (articles.length === 0) {
       console.log(`    ⚠️ No unread articles — skipping`);
@@ -266,7 +234,7 @@ async function main() {
 
     for (const article of articles) {
       try {
-        await runSession(student.id, student.name, student.reading_level, article.id, article.title, article.body_text, persona);
+        await runSession(student.id, student.name, article.id, article.title, article.body_text, persona);
         totalSessions++;
       } catch (e: any) {
         console.log(`    ❌ Error: ${e.message}`);

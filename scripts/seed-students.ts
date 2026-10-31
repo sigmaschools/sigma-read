@@ -2,6 +2,7 @@ import { neon } from "@neondatabase/serverless";
 import * as bcrypt from "bcryptjs";
 import { assertNotProduction } from "./sim-guard";
 import { EVAL_ARTICLES } from "./eval/articles";
+import { getPersona } from "./test-personas";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -111,12 +112,16 @@ async function main() {
       continue;
     }
 
+    // The simulator's persona is who actually answers, so its interests win over the seed list
+    const persona = getPersona(s.username);
+    const interestProfile = persona ? { interests: persona.interests } : s.interests;
+
     // Create student
     const hash = await bcrypt.hash(s.username + "2026", 10);
     const [student] = await sql.query(
       `INSERT INTO students (name, username, password_hash, guide_id, reading_level, interest_profile, onboarding_complete)
        VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id`,
-      [s.name, s.username, hash, guideId, s.level, JSON.stringify(s.interests)]
+      [s.name, s.username, hash, guideId, s.level, JSON.stringify(interestProfile)]
     ) as any[];
 
     const studentId = student.id;
