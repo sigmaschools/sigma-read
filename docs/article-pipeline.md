@@ -41,7 +41,7 @@ This document specifies the technical implementation of article generation, sele
 
 Pull current headlines from kid-friendly news sources:
 - NewsForKids.net, DOGOnews, TimeForKids (web scraping)
-- Brave Search API (supplementary queries for science, sports, animals, space)
+- Web search via the Anthropic API's server-side search tool (supplementary queries for science, sports, animals, space; no separate key)
 - Claude curates the best 8-10 topics from the raw headlines
 
 The curation prompt enforces the Three Bucket framework (see Content Policy):
@@ -357,7 +357,7 @@ This ensures no student's first experience is "come back tomorrow."
 ## Dependencies
 
 - **Anthropic API** — Claude Opus 4.6 (generation), Claude Sonnet 4.5 (adaptation)
-- **Brave Search API** — Supplementary headline sourcing
+- **Anthropic web search tool** — Supplementary headline sourcing (uses `ANTHROPIC_API_KEY`)
 - **Neon Postgres** — Article cache and student data
 - **Vercel Cron** — Batch job scheduling (see "How the batch is scheduled" below)
 
