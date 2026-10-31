@@ -21,13 +21,15 @@ assert.deepEqual(verifiedMentions([
   { topic: "", quote: "volcanoes" },
   { topic: "volcanoes", quote: "" },
 ], said).map(m => m.topic), ["Soccer"]);
-const many = ["a", "b", "c", "d", "e"].map(t => ({ topic: t, quote: "soccer" }));
+const many = ["a", "b", "c", "d", "e"].map(t => ({ topic: t, quote: "soccer team" }));
 assert.equal(verifiedMentions(many, said, 2).length, 2);
 console.log("✅ verifiedMentions dedupes and caps");
 
 // Whole words only: "ink" is not in "think"
-assert.deepEqual(verifiedMentions([{ topic: "ink", quote: "ink" }], ["I think so"]), []);
-assert.equal(verifiedMentions([{ topic: "ink", quote: "ink" }], ["the ink cloud"]).length, 1);
+assert.deepEqual(verifiedMentions([{ topic: "ink", quote: "ink cloud" }], ["I think cloud"]), []);
+assert.equal(verifiedMentions([{ topic: "ink", quote: "ink cloud" }], ["the ink cloud"]).length, 1);
+// One-word quotes don't count
+assert.deepEqual(verifiedMentions([{ topic: "soccer", quote: "soccer" }], said), []);
 console.log("✅ verifiedMentions matches whole words");
 
 // Long descriptions aren't topics ("creative storytelling with fantasy elements" resolved to chemistry)
@@ -35,7 +37,7 @@ assert.deepEqual(verifiedMentions([{ topic: "creative storytelling with fantasy 
 console.log("✅ verifiedMentions drops subjects over three words");
 
 // Only topics other than the article's own, one per topic, capped after resolving
-const mentions = ["octopus facts", "soccer", "goalie", "nothing", "volcanoes", "comics", "space"].map(t => ({ topic: t, quote: t }));
+const mentions = ["octopus facts", "soccer", "goalie", "nothing", "volcanoes", "comics", "space"].map(t => ({ topic: t, quote: `I love ${t}` }));
 const resolved = new Map<string, string | null>([
   ["octopus facts", "octopuses"], ["soccer", "soccer"], ["goalie", "soccer"], ["nothing", null],
   ["volcanoes", "volcanoes"], ["comics", "comics"], ["space", "space"],
@@ -66,4 +68,5 @@ console.log("✅ chatMentionsPrompt fences the conversation");
 
 // Curly apostrophes match straight ones
 assert.equal(verifiedMentions([{ topic: "comics", quote: "I don't stop drawing comics" }], ["I don’t stop drawing comics"]).length, 1);
+assert.ok(chatMentionsPrompt("t", "a", []).includes("dislikes"));
 console.log("✅ verifiedMentions treats curly and straight apostrophes alike");

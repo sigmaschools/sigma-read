@@ -46,6 +46,7 @@ List subjects the student showed a personal interest in, in their own words: som
 Leave out:
 - answers to the tutor's questions, and anything that only repeats what the article or the tutor said
 - the article's subject and anything the article covers, even if the student found it exciting (reading it is already counted)
+- dislikes ("I hate spiders", "math is boring")
 - personal or family facts (health, religion, home life, feelings, money), and names of people they know
 - anything unsafe for children
 
@@ -76,7 +77,8 @@ export function verifiedMentions(mentions: ChatMention[], studentMessages: strin
   for (const m of mentions) {
     const topic = m.topic?.trim();
     const quote = normalize(m.quote ?? "");
-    if (!topic || !quote || topic.split(/\s+/).length > MAX_SUBJECT_WORDS) continue;
+    // A one-word quote ("it", "soccer") shows nothing about interest
+    if (!topic || quote.split(" ").length < 2 || topic.split(/\s+/).length > MAX_SUBJECT_WORDS) continue;
     if (!said.some(s => s.includes(` ${quote} `))) continue;
     const key = normalize(topic);
     if (seen.has(key)) continue;

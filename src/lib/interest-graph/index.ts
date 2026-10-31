@@ -308,7 +308,9 @@ export async function recordChatMentions(args: {
   // The article's topics and their parents and children ("moons" under a space article) are the
   // article talking, not the student; siblings stay, since they are a real step outside it
   const own = articleTopics.get(args.articleId) ?? [];
-  const near = (await Promise.all(own.map(getRelated))).flat().filter(r => r.via !== "sibling" && r.via !== "related").map(r => r.slug);
+  // Without the article's topics nothing would stop its subject being recorded as the student's
+  if (own.length === 0) return [];
+  const near = (await Promise.all(own.map(slug => getRelated(slug)))).flat().filter(r => r.via !== "sibling" && r.via !== "related").map(r => r.slug);
   const found = chatMentionTopics(mentions, resolved, [...own, ...near]);
   await recordSignals(found.map(f => ({
     studentId: args.studentId, type: "chat_mention", topicSlug: f.topicSlug, phrase: f.phrase,
