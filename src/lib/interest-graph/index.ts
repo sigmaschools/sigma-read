@@ -62,10 +62,11 @@ export async function topicLabels(slugs: string[]): Promise<Map<string, string>>
  * Map phrases to topic slugs. Exact and alias matches are free; pass `ai` to send the rest to
  * Haiku in one call, which also saves each new match as an alias so it is free next time.
  * A phrase that matches nothing maps to null (personal facts and unsafe text always do).
+ * Pass `learn: false` for model-written phrases, so they never become shared aliases.
  */
 export async function resolveTopics(
   phrases: string[],
-  ai?: { client: Anthropic; studentId?: number },
+  ai?: { client: Anthropic; studentId?: number; learn?: boolean },
 ): Promise<Map<string, string | null>> {
   const { index, labels } = await topicIndex();
   const out = new Map<string, string | null>();
@@ -104,7 +105,7 @@ export async function resolveTopics(
       out.set(m.phrase, m.topic);
       learned.push({ alias: normalizePhrase(m.phrase), topicSlug: m.topic, origin: "ai" });
     }
-    if (learned.length > 0) {
+    if (learned.length > 0 && ai.learn !== false) {
       await db.insert(schema.topicAliases).values(learned).onConflictDoNothing();
       cached = null;
     }
@@ -305,7 +306,8 @@ export async function recordChatMentions(args: {
   const mentions = verifiedMentions(parseJsonResponse<{ mentions: ChatMention[] }>(response)?.mentions ?? [], said);
   if (mentions.length === 0) return [];
 
-  const resolved = await resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId });
+  // The subjects are Haiku's words, not the student's: match them, but don't teach the shared map
+  const resolved = await resolveTopics(mentions.map(m => m.topic), { client: args.client, studentId: args.studentId, learn: false });
   // The article's topics and their parents and children ("moons" under a space article) are the
   // article talking, not the student; siblings stay, since they are a real step outside it
   const near = (await Promise.all(own.map(slug => getRelated(slug)))).flat().filter(r => r.via !== "sibling" && r.via !== "related").map(r => r.slug);
