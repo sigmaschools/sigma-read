@@ -1,5 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import * as bcrypt from "bcryptjs";
+import { assertNotProduction } from "./sim-guard";
+import { EVAL_ARTICLES } from "./eval/articles";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -82,8 +84,22 @@ const STUDENTS = [
   },
 ];
 
+/** Use the first guide, or create a test guide on an empty database (e.g. the sim-test branch) */
+async function getGuideId(): Promise<number> {
+  const [guide] = await sql`SELECT id FROM guides ORDER BY id LIMIT 1`;
+  if (guide) return guide.id as number;
+  const hash = await bcrypt.hash("testguide2026", 10);
+  const [created] = await sql`INSERT INTO guides (name, email, password_hash)
+    VALUES ('Test Guide', 'test-guide@sigmaread.test', ${hash}) RETURNING id`;
+  console.log(`Created Test Guide (id ${created.id})`);
+  return created.id as number;
+}
+
 async function main() {
-  const guideId = 1; // Calie
+  await assertNotProduction(sql);
+  const guideId = await getGuideId();
+  const [{ n: cached }] = await sql`SELECT count(*)::int AS n FROM article_cache`;
+  if (!cached) console.log("article_cache is empty: students get the eval articles, unread, with no seeded history.\n");
 
   for (const s of STUDENTS) {
     console.log(`Creating ${s.name}...`);
@@ -104,6 +120,19 @@ async function main() {
     ) as any[];
 
     const studentId = student.id;
+
+    if (!cached) {
+      // No real articles to build history from: give every eval article, unread, so simulate-students has work
+      for (const art of EVAL_ARTICLES) {
+        await sql.query(
+          `INSERT INTO articles (student_id, title, topic, body_text, reading_level, sources, estimated_read_time, read, category)
+           VALUES ($1, $2, $3, $4, $5, '[]', 3, false, 'news')`,
+          [studentId, art.title, art.topic, art.bodyText, art.level]
+        );
+      }
+      console.log(`  ✓ ${s.name}: ${EVAL_ARTICLES.length} unread eval articles, level ${s.level}`);
+      continue;
+    }
 
     // Get cached articles for this student's level
     const articles = await sql.query(
@@ -175,7 +204,7 @@ async function main() {
     console.log(`  ✓ ${s.name}: ${s.sessions.length} sessions, level ${s.level}`);
   }
 
-  console.log("\nDone! 8 students seeded.");
+  console.log(`\nDone! ${STUDENTS.length} students seeded.`);
 }
 
 main();
