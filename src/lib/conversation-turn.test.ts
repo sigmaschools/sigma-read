@@ -77,6 +77,7 @@ async function main() {
     assert.ok(closingInstruction("earned").includes("No verdict on them"));
     assert.ok(closingInstruction("forced", 15).includes("aim for about 10"));
     assert.deepEqual([15, 20, 40, 50, 10, 8].map(closingTargetWords), [10, 15, 35, 45, 8, 7]);
+    assert.ok(closingInstruction("forced").includes("No stock sign-off"));
     assert.ok(!closingInstruction("forced").includes("Keep it under"));
     console.log("✅ closing carries the word cap");
   }
