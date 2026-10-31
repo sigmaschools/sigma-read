@@ -6,6 +6,9 @@ assert.ok(isIndexPage("https://example.com/category/science"));
 assert.ok(isIndexPage("https://example.com/"));
 assert.ok(isIndexPage("not a url"));
 assert.ok(!isIndexPage("https://newsforkids.net/articles/2026/07/08/rush-mission-to-rescue-a-space-telescope/"));
+assert.ok(!isIndexPage("https://www.britannica.com/topic/octopus"), "Britannica topic pages are articles");
+assert.ok(isIndexPage("https://example.com/news/page/2"));
+assert.ok(isIndexPage("https://example.com/topics"));
 assert.ok(!isIndexPage("https://www.sciencealert.com/the-amazing-camouflage-of-the-octopus"));
 console.log("✅ index pages are skipped, articles are kept");
 

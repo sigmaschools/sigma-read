@@ -4,7 +4,11 @@
 export function isIndexPage(url: string): boolean {
   try {
     const path = new URL(url).pathname.replace(/\/+$/, "");
-    return path === "" || /\/(tag|tags|category|categories|topic|topics|section|page|author|search)(\/|$)/i.test(path);
+    if (path === "") return true;
+    if (/\/(tag|tags|category|categories|author|search)(\/|$)/i.test(path)) return true;
+    if (/\/page\/\d+$/i.test(path)) return true;
+    // "/topic/octopus" is an article on some sites (Britannica); only a bare "/topics" is a listing
+    return /\/(topic|topics|section|sections)$/i.test(path);
   } catch {
     return true;
   }
