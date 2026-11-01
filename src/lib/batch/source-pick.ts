@@ -13,17 +13,17 @@ export function grokipediaPageUrl(title: string): string {
   return `https://grokipedia.com/page/${encodeURIComponent(title.trim().replace(/\s+/g, "_"))}`;
 }
 
-/** Lowercase words of 2+ letters with a plural "s" dropped: "Dogs" -> "dog", "games" -> "game" */
+/** Lowercase words of 2+ letters or digits with a plural "s" dropped: "Dogs" -> "dog", "games" -> "game" */
 function words(text: string): string[] {
   return (text.toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) ?? []).map(w => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
 }
+
+const STOP_WORDS = new Set(["the", "of", "and", "an", "in", "on", "for", "to", "with", "at", "by", "from"]);
 
 /**
  * True when the named page shares a whole word (plural "s" aside) with the student's interest,
  * or the interest is its acronym. A general page is for a broad word ("games" -> "Game"); for a named thing it would swap the topic ("SpaceX" -> "Company").
  */
-const STOP_WORDS = new Set(["the", "of", "and", "an", "in", "on", "for", "to", "with", "at", "by", "from"]);
-
 export function generalFits(general: string, query: string): boolean {
   const g = words(general);
   const q = words(query).filter(w => !STOP_WORDS.has(w));
