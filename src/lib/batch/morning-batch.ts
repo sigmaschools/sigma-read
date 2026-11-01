@@ -265,7 +265,7 @@ async function planDailyArticles(
     if (fromGraph.length > 0) {
       graphHorizons.push(...fromGraph);
     } else if (s.adjacent_interests && s.adjacent_interests.length > 0) {
-      allAdjacentInterests.push(...s.adjacent_interests);
+      allAdjacentInterests.push(...s.adjacent_interests.slice(0, 3)); // 3 each, like graph students
     } else {
       studentsNeedingAdjacent.push(s);
     }
@@ -294,7 +294,7 @@ Output ONLY a JSON array of strings:
       const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         const adjacent = JSON.parse(match[0]) as string[];
-        allAdjacentInterests.push(...adjacent);
+        allAdjacentInterests.push(...adjacent.slice(0, 3));
         // Store on student record for future batches
         await sql`UPDATE students SET adjacent_interests = ${JSON.stringify(adjacent)} WHERE id = ${s.id}`;
         console.log(`  🧭 Computed adjacent interests for ${s.name}: ${adjacent.slice(0, 3).join(", ")}...`);
@@ -311,7 +311,7 @@ Output ONLY a JSON array of strings:
   const uniqueAdjacent = [...new Set(pool)];
   const fresh = pool.filter(a => !recentTopics.has(a));
   const horizonPicks = fresh.length > 0 ? [fresh[Math.floor(Math.random() * fresh.length)]] : [];
-  if (graphHorizons.length > 0) console.log(`  🧭 ${uniqueAdjacent.length} horizon candidates (${graphHorizons.length} from the graph)`);
+  console.log(`  🧭 ${uniqueAdjacent.length} horizon candidates (${graphHorizons.length} from the graph), picked: ${horizonPicks[0] ?? "none fresh"}`);
 
   // Fallback if we can't find unrepeated ones
   if (horizonPicks.length < 1) {
