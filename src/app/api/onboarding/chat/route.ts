@@ -115,5 +115,6 @@ export async function POST(req: NextRequest) {
   after(() => prepareStarterArticles(session.userId, anthropic));
 
   // Fixed wrap-up: it names what Sigma heard and says what happens next, in a length a kid reads
-  return NextResponse.json({ message: interviewWrapUp(profile.interests), profileComplete: true, profile });
+  const message = phase === "interest" ? interviewWrapUp(profile.interests) : visibleText;
+  return NextResponse.json({ message, profileComplete: true, profile });
 }
