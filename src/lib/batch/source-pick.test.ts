@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { grokipediaPageUrl, parseSourcePick } from "./source-pick";
+import { generalFits, grokipediaPageUrl, parseSourcePick } from "./source-pick";
 
 const results = [
   { title: "Girls games", url: "https://grokipedia.com/page/Girls_games" },
@@ -55,5 +55,15 @@ assert.deepEqual(parseSourcePick('{"pages": [3, 15, 1.5, 3, 1]}', results), [res
 
 // Titles are encoded so they stay one path segment on grokipedia.com
 assert.equal(grokipediaPageUrl("AC/DC?"), "https://grokipedia.com/page/AC%2FDC%3F");
+
+// A general page must share a word with the interest: "games" -> "Game", never "SpaceX" -> "Company"
+assert.equal(generalFits("Game", "games"), true);
+assert.equal(generalFits("Video game", "games"), true);
+assert.equal(generalFits("Animal", "animals"), true);
+assert.equal(generalFits("Company", "SpaceX"), false);
+assert.deepEqual(parseSourcePick('{"pages": [], "general": "Company"}', results, "SpaceX"), []);
+assert.deepEqual(parseSourcePick('{"pages": [], "general": "Game"}', results, "games"), [
+  { title: "Game", url: "https://grokipedia.com/page/Game" },
+]);
 
 console.log("source-pick tests passed");
