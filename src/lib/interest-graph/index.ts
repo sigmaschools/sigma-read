@@ -19,6 +19,7 @@ import { MODELS } from "../models";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type Signal, type SignalType } from "./affinity";
 import { checkinDue, checkinTopics } from "./checkin";
+import { horizonSeeds, rankHorizonTopics } from "./horizon";
 import { summarizeInterests } from "./summary";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
 import { mergeBatchInterests } from "./batch-interests";
@@ -337,6 +338,26 @@ export async function batchInterestsFor(studentId: number, profile: string[]): P
 }
 
 /** A like or dislike. Changing your mind adds a new signal; only the latest per article counts. */
+/**
+ * Horizon topics for the morning batch: labels of up to `limit` topics next to the student's
+ * strongest interests that they haven't shown a view on yet, best first. Empty when the student
+ * has no strong topics yet (the batch then falls back to its model-suggested list).
+ */
+export async function horizonTopicsFor(studentId: number, limit = 6): Promise<string[]> {
+  const affinities = await getAffinities(studentId);
+  const seeds = horizonSeeds(affinities);
+  if (seeds.length === 0) return [];
+  const [{ labels, parents }, related] = await Promise.all([
+    topicIndex(),
+    Promise.all(seeds.map(async a => [a.topicSlug, await getRelated(a.topicSlug)] as const)),
+  ]);
+  const groups = new Set([...parents.values()].filter((p): p is string => !!p));
+  return rankHorizonTopics(affinities, new Map(related), groups)
+    .filter(t => labels.has(t.slug))
+    .slice(0, limit)
+    .map(t => labels.get(t.slug)!.toLowerCase());
+}
+
 export async function recordArticleRating(studentId: number, articleId: number, liked: boolean) {
   await recordArticleSignal(studentId, articleId, liked ? "liked" : "disliked", `article:${articleId}:rating`, `:${Date.now()}`);
 }
