@@ -17,6 +17,7 @@ function joinList(items: string[]): string {
  */
 export function interviewWrapUp(interests: string[]): string {
   const named = interests.slice(0, 3);
-  const heard = named.length > 0 ? `${joinList(named)}, got it! ` : "Got it! ";
+  const list = joinList(named);
+  const heard = list ? `${list[0].toUpperCase()}${list.slice(1)}, got it! ` : "Got it! ";
   return `${heard}I'm finding your first articles now. While I do, here's a quick look at how SigmaRead works.`;
 }

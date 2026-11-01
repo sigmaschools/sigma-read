@@ -35,27 +35,27 @@ export function closingInstruction(kind: ClosingKind, maxWords?: number): string
   return `[SYSTEM: This is your final message. ${body}${length} Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]`;
 }
 
-/** Used when the model asks a question in its closing anyway */
 /** A student answer this short (in words) counts as a short answer for the quiet-kid nudge */
 const SHORT_ANSWER_WORDS = 4;
 
 export const QUIET_NUDGE = "[Their last two answers were very short. This turn, don't ask another question. Tell them one interesting detail from the article that hasn't come up yet, in your own words, and end with a light invite like \"Wild, right?\" or \"I didn't expect that.\"]";
 
 /**
- * True when the student's last two answers were both very short (e.g. "yeah", "idk", "it was cool").
- * More questions then make the chat feel like a quiz, so Sigma shares something instead.
- * Fires at most every other turn: not when Sigma's last message already followed the nudge.
+ * True when the student keeps giving very short answers ("yeah", "idk", "it was cool"): more
+ * questions then make the chat feel like a quiz, so Sigma shares something instead. Fires on the
+ * 2nd, 4th, 6th... short answer in a row, so the nudge never runs two turns in a row and Sigma
+ * still asks in between. A short question from the student ("why the Moon?") is not a short answer.
  */
 export function needsQuietNudge(messages: TurnMessage[]): boolean {
-  const answers = messages.filter(m => m.role === "user");
-  if (answers.length < 2) return false;
   const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
-  if (!answers.slice(-2).every(m => words(m.content) <= SHORT_ANSWER_WORDS)) return false;
-  // The tutor's previous message: if it had no question, it was already a share turn
-  const lastTutor = [...messages].reverse().find(m => m.role === "assistant");
-  return !lastTutor || endsWithQuestion(lastTutor.content);
+  const isShortAnswer = (t: string) => words(t) <= SHORT_ANSWER_WORDS && !t.trim().endsWith("?");
+  const answers = messages.filter(m => m.role === "user");
+  let streak = 0;
+  for (let i = answers.length - 1; i >= 0 && isShortAnswer(answers[i].content); i--) streak++;
+  return streak >= 2 && streak % 2 === 0;
 }
 
+/** Used when the model asks a question in its closing anyway */
 export const FALLBACK_CLOSING = "That's it for this one. Thanks for talking it through with me.";
 
 /** Used if the model returns an empty mid-conversation message */
