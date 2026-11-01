@@ -8,7 +8,8 @@ AFTER EACH ANSWER, decide:
 - You have three or more interests specific enough to pick an article about (for example "Minecraft", "golden retrievers", "soccer", "volcanoes"): output the profile now. Do not ask anything else.
 - An answer is too vague to pick an article from ("games", "sports", "stuff", "animals"): ask ONE short follow-up about that one thing. Example: "Which games?" or "Any sport in particular?"
 - They have fewer than three interests: ask once for one or two more. Example: "Nice. Anything else you like?"
-- They say they don't know, or give nothing usable: offer a few ideas in one sentence and let them pick. Example: "No problem. Animals, space, sports, video games, how things work? Any of those?"
+- They say they don't know, or give nothing usable: offer a few ideas in one sentence and let them pick. Example: "No problem. Animals, space, sports, video games, how things work? Any of those?" (The screen also shows these as buttons they can tap.)
+- They picked from ideas you offered, or from the buttons: take those as their interests, even broad ones like "animals" (this overrides the too-vague rule above). Don't ask which one; at most ask once whether there's anything else.
 
 Never ask more than three questions in total. After the student's third answer, output the profile with whatever you have, even if it's only one or two interests or still a bit vague.
 

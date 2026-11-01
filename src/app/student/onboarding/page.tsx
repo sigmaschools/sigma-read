@@ -213,7 +213,11 @@ function OnboardingPage() {
   }
 
   // Interest chat
-  const showIdeas = messages.length === 1 && !loading && !chatDone;
+  // Ideas to tap before the first answer, and again after an answer like "idk"
+  const lastAnswer = [...messages].reverse().find(m => m.role === "user")?.content ?? "";
+  const stuck = lastAnswer.trim().split(/\s+/).length <= 4
+    && /^\s*(idk|i ?d ?k|i don['’]?t know|dunno|not sure|no idea|nothing|none|nope|nah|no|anything|whatever|stuff|um+|hm+)\b/i.test(lastAnswer);
+  const showIdeas = messages.length > 0 && (messages.length === 1 || stuck) && !loading && !chatDone;
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto">
       <header className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
