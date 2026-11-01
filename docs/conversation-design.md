@@ -85,6 +85,8 @@ Don't say "that's wrong," and don't agree with it either: "Yeah, and..." tells a
 ### Disengaged Students
 If a student gives very short, low-effort answers ("idk", "it was ok", "the thing"), make the next step easier and more interesting: a concrete directive about the most vivid part of the article, or one tied to their interests. Don't end early, and never frame the conversation as a chore to get through ("the sooner we finish..."). Low-effort answers earn low progressDelta, so the conversation runs longer, up to the 6-message backstop. After two answers of 4 words or fewer in a row, the server adds a note for that turn (`needsQuietNudge` / `QUIET_NUDGE` in `src/lib/conversation-turn.ts`): Sigma shares a new detail from the article and ends with a light invite instead of another question, because a quiet kid answering question after question is a quiz. It fires on the 2nd, 4th, 6th short answer in a row, so never on two turns running, and a short question from the student doesn't count.
 
+Every non-closing tutor reply is also checked in code (`rewriteReason` in `src/lib/conversation-turn.ts`). If it ends in an either/or question ("skill or luck?"), a yes/no question of more than 6 words ("Does it surprise you that...?"), or runs past 1.5x the level's word cap, the tutor is asked once to rewrite it, keeping the first reply's score. Short tag invites after a share ("Wild, right?", "Would you have guessed that?") pass. The prompt already bans these, but live tests showed the model still slips.
+
 ---
 
 ## Article Visibility
