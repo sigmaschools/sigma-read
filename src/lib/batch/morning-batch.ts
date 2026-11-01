@@ -608,7 +608,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     const results = await onTopicResults(plan.query, await grokipediaSearch(plan.query));
     if (results.length === 0) {
       // Fallback to web search
-      console.log(`     ⚠️ No Grokipedia results, trying web search...`);
+      console.log(`     ⚠️ No on-topic Grokipedia results, trying web search...`);
       const webResults = await webSearch(`${plan.query} article`);
       for (const r of webResults.slice(0, 3)) {
         const text = await fetchSourceText(r.url);
