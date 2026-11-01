@@ -91,6 +91,8 @@ export default function StudentHome() {
     if (me.error) { router.push("/login"); return; }
     if (me.role !== "student") { router.push("/login"); return; }
     if (!me.onboardingComplete) { router.push("/student/onboarding"); return; }
+    // First articles still being found or written: back to the tutorial cards, which wait for them
+    if (me.starterArticlesStatus === "pending") { router.push("/student/onboarding?cards=1"); return; }
     setUserName(me.name);
 
     const progRes = await fetch("/api/student/daily-progress");
@@ -113,8 +115,10 @@ export default function StudentHome() {
     let arts = await artRes.json();
     const unread = arts.filter((a: Article) => !a.read);
 
-    // If fewer than 5 unread, auto-serve from cache
-    if (unread.length < 5) {
+    // If fewer than 5 unread, auto-serve from cache. A brand-new student starts with the three
+    // articles picked from their interests, so only top up if those came up short.
+    const isFirstVisit = !prog.error && (prog.totalSessions || 0) === 0;
+    if (unread.length < (isFirstVisit ? 3 : 5)) {
       await fetch("/api/articles/serve-cached", { method: "POST" });
       const refreshRes = await fetch("/api/articles");
       arts = await refreshRes.json();
