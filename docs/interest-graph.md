@@ -85,7 +85,7 @@ as before.
 
 The day's horizon article comes from `horizonTopicsFor` (`src/lib/interest-graph/horizon.ts`):
 for each student, the topics next to their 5 strongest (score 0.15 or more) through the map
-(siblings, children, parent, related links), scored by seed score × link weight and summed, so a
+(siblings, children, related links; parents are groups, so never picked), scored by seed score × link weight and summed, so a
 topic next to several interests ranks higher. Topics the student already has a view on (score
 0.1 or more either way, or rejected) and broad groups (topics with children) are left out. Each
 student's top 3 go into a shared pool with the model-suggested adjacent interests of students
