@@ -64,6 +64,8 @@ export async function topicLabels(slugs: string[]): Promise<Map<string, string>>
  * Haiku in one call, which also saves each new match as an alias so it is free next time.
  * A phrase that matches nothing maps to null (personal facts and unsafe text always do).
  * Pass `learn: false` for model-written phrases, so they never become shared aliases.
+ * The result is keyed by each phrase exactly as passed (not normalized), so callers look up
+ * with their own strings.
  */
 export async function resolveTopics(
   phrases: string[],
@@ -327,6 +329,7 @@ export async function recordChatMentions(args: {
  * Exact matching only (no model call).
  */
 export async function batchInterestsFor(studentId: number, profile: string[]): Promise<string[]> {
+  // No `ai`: exact and alias matches only, no model call and no new aliases. Keyed by raw phrase.
   const [profileSlugs, affinities] = await Promise.all([resolveTopics(profile), getAffinities(studentId)]);
   const labels = await topicLabels(affinities.map(a => a.topicSlug));
   return mergeBatchInterests(profile, profileSlugs, affinities, labels);
