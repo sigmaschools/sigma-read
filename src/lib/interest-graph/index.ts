@@ -34,13 +34,13 @@ export function quietly(work: Promise<unknown>, what: string): Promise<void> {
 
 // ─── Topic lookup ─────────────────────────────────────────────────────────────
 
-let cached: { index: TopicIndex; labels: Map<string, string>; at: number } | null = null;
+let cached: { index: TopicIndex; labels: Map<string, string>; parents: Map<string, string | null>; at: number } | null = null;
 const INDEX_TTL_MS = 5 * 60_000;
 
 async function topicIndex() {
   if (cached && Date.now() - cached.at < INDEX_TTL_MS) return cached;
   const [topics, aliases] = await Promise.all([
-    db.select({ slug: schema.topics.slug, label: schema.topics.label }).from(schema.topics)
+    db.select({ slug: schema.topics.slug, label: schema.topics.label, parentSlug: schema.topics.parentSlug }).from(schema.topics)
       .where(eq(schema.topics.safetyStatus, "approved")),
     db.select({ alias: schema.topicAliases.alias, topicSlug: schema.topicAliases.topicSlug }).from(schema.topicAliases),
   ]);
@@ -48,6 +48,7 @@ async function topicIndex() {
   cached = {
     index: buildIndex(topics, aliases.filter(a => approved.has(a.topicSlug))),
     labels: new Map(topics.map(t => [t.slug, t.label])),
+    parents: new Map(topics.map(t => [t.slug, t.parentSlug])),
     at: Date.now(),
   };
   return cached;
@@ -71,11 +72,11 @@ export async function resolveTopics(
   phrases: string[],
   ai?: { client: Anthropic; studentId?: number; learn?: boolean },
 ): Promise<Map<string, string | null>> {
-  const { index, labels } = await topicIndex();
+  const { index, labels, parents } = await topicIndex();
   const out = new Map<string, string | null>();
   const unmatched: string[] = [];
   for (const p of phrases) {
-    const slug = matchTopic(index, p);
+    const slug = matchTopic(index, p, parents);
     out.set(p, slug);
     if (!slug && matchKey(p) && !unmatched.includes(p)) unmatched.push(p);
   }
