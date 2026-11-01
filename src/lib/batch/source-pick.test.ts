@@ -60,6 +60,8 @@ assert.equal(grokipediaPageUrl("AC/DC?"), "https://grokipedia.com/page/AC%2FDC%3
 assert.equal(generalFits("Game", "games"), true);
 assert.equal(generalFits("Video game", "games"), true);
 assert.equal(generalFits("Animal", "animals"), true);
+assert.equal(generalFits("The Beatles", "the dogs"), false);
+assert.equal(generalFits("Department of Defense", "DoD"), true);
 assert.equal(generalFits("Company", "SpaceX"), false);
 assert.equal(generalFits("Dog", "dogs"), true);
 assert.equal(generalFits("Cat", "cats"), true);

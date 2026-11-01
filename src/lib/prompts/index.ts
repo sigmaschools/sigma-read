@@ -150,7 +150,7 @@ export function comprehensionConversationPrompt(
     : "";
 
   const questionTypeInstructions = level <= 2
-    ? questionTypeLow.trimEnd()
+    ? interpolate(questionTypeLow.trimEnd(), { level })
     : level <= 4
     ? questionTypeMid.trimEnd()
     : questionTypeHigh.trimEnd();
