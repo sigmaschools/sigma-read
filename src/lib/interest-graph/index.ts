@@ -21,6 +21,7 @@ import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type 
 import { checkinDue, checkinTopics } from "./checkin";
 import { summarizeInterests } from "./summary";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
+import { mergeBatchInterests } from "./batch-interests";
 import { CHAT_MENTIONS_SCHEMA, chatMentionTopics, chatMentionsPrompt, verifiedMentions, type ChatMention } from "./chat-mentions";
 
 export { SIGNALS, type Affinity, type SignalType } from "./affinity";
@@ -63,6 +64,8 @@ export async function topicLabels(slugs: string[]): Promise<Map<string, string>>
  * Haiku in one call, which also saves each new match as an alias so it is free next time.
  * A phrase that matches nothing maps to null (personal facts and unsafe text always do).
  * Pass `learn: false` for model-written phrases, so they never become shared aliases.
+ * The result is keyed by each phrase exactly as passed (not normalized), so callers look up
+ * with their own strings.
  */
 export async function resolveTopics(
   phrases: string[],
@@ -318,6 +321,18 @@ export async function recordChatMentions(args: {
     sourceRef: `chat:${args.conversationId}:${f.topicSlug}`,
   })));
   return found;
+}
+
+/**
+ * The interests the morning batch should plan articles for: the profile list minus topics the
+ * student or an adult rejected, plus up to 3 strong graph topics the profile doesn't name.
+ * Exact matching only (no model call).
+ */
+export async function batchInterestsFor(studentId: number, profile: string[]): Promise<string[]> {
+  // No `ai`: exact and alias matches only, no model call and no new aliases. Keyed by raw phrase.
+  const [profileSlugs, affinities] = await Promise.all([resolveTopics(profile), getAffinities(studentId)]);
+  const labels = await topicLabels(affinities.map(a => a.topicSlug));
+  return mergeBatchInterests(profile, profileSlugs, affinities, labels);
 }
 
 /** A like or dislike. Changing your mind adds a new signal; only the latest per article counts. */
