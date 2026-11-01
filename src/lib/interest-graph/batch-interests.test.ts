@@ -20,7 +20,7 @@ console.log("✅ mergeBatchInterests drops rejected profile topics");
 
 // Strong graph topics the profile doesn't name are added, strongest first, capped
 const strong = [aff("soccer", 0.6), aff("sharks", 0.5, "declared"), aff("volcanoes", 0.4), aff("lego", 0.3), aff("comics", 0.3), aff("music", 0.1)];
-assert.deepEqual(mergeBatchInterests(["Sharks"], slugs, strong, labels), ["sharks", "soccer", "volcanoes", "lego"]);
+assert.deepEqual(mergeBatchInterests(["Sharks"], slugs, strong, labels), ["sharks", "soccer", "volcanoes", "comics"]); // ties by slug
 assert.equal(BATCH_MAX_ADDED, 3);
 console.log("✅ mergeBatchInterests adds up to 3 strong graph topics");
 
@@ -38,7 +38,8 @@ assert.deepEqual(
   mergeBatchInterests(["Sharks"], slugs, [aff("music", 0.1), aff("lego", 0.3), aff("soccer", 0.6), aff("volcanoes", 0.4), aff("comics", 0.26)], labels),
   ["sharks", "soccer", "volcanoes", "lego"],
 );
-console.log("✅ mergeBatchInterests sorts by score itself");
+assert.deepEqual(mergeBatchInterests([], slugs, [aff("lego", 0.3), aff("comics", 0.3), aff("music", 0.3), aff("dinosaurs", 0.3)], labels), ["comics", "dinosaurs", "lego"]);
+console.log("✅ mergeBatchInterests sorts by score itself, ties by slug");
 
 // A profile topic at exactly 0 stays; one that went negative is dropped
 assert.deepEqual(mergeBatchInterests(["Sharks", "dinosaurs"], slugs, [aff("sharks", 0, "declared"), aff("dinosaurs", -0.1, "declared")], labels), ["sharks"]);

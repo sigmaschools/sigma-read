@@ -37,7 +37,7 @@ export function mergeBatchInterests(
 
   let added = 0;
   // Strongest first, whatever order the caller passed
-  for (const a of [...affinities].sort((x, y) => y.score - x.score)) {
+  for (const a of [...affinities].sort((x, y) => y.score - x.score || x.topicSlug.localeCompare(y.topicSlug))) {
     if (added === BATCH_MAX_ADDED || a.score < BATCH_MIN_SCORE) break;
     if (a.status === "rejected" || covered.has(a.topicSlug) || !labels.has(a.topicSlug)) continue;
     covered.add(a.topicSlug);
