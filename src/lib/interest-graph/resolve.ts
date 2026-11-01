@@ -49,7 +49,12 @@ export function buildIndex(
 }
 
 /** Exact match on the whole phrase, then without filler like "facts about", then on its ending */
-export function matchTopic(index: TopicIndex, phrase: string): string | null {
+export function matchTopic(
+  index: TopicIndex,
+  phrase: string,
+  /** Topic slug → parent slug, so a front word naming an ancestor ("pet dogs") still matches */
+  parents?: Map<string, string | null>,
+): string | null {
   const key = matchKey(phrase);
   if (!key) return null;
   const direct = index.get(key);
@@ -58,12 +63,25 @@ export function matchTopic(index: TopicIndex, phrase: string): string | null {
     .replace(/^(i (really )?(like|love)|learning about|facts about|fact about|all about|stuff about|anything about|more about|reading about|about) /, "")
     .replace(/ (fact|stuff|thing|video|book|show)$/, "");
   if (trimmed !== key && index.has(trimmed)) return index.get(trimmed)!;
-  // Short noun phrases usually end in their subject: "great white sharks", "volcano eruptions"
+  // Short noun phrases usually end in their subject: "great white sharks", "volcano eruptions".
+  // Not when the words in front name a topic of their own: "computer science" isn't science and
+  // "animal body language" isn't languages, so those are left to the model (or to nothing).
+  // Front words naming the same topic ("great white sharks") or an ancestor ("pet dogs") are fine.
+  const isAncestor = (a: string, slug: string) => {
+    for (let p = parents?.get(slug); p; p = parents?.get(p)) if (p === a) return true;
+    return false;
+  };
   const words = trimmed.split(" ");
   if (words.length > 5) return null;
   for (let i = 1; i < words.length; i++) {
     const tail = index.get(words.slice(i).join(" "));
-    if (tail) return tail;
+    if (!tail) continue;
+    const front = words.slice(0, i);
+    const namesOther = front.some((_, a) => front.some((_, b) => {
+      const other = b >= a ? index.get(front.slice(a, b + 1).join(" ")) : undefined;
+      return other !== undefined && other !== tail && !isAncestor(other, tail);
+    }));
+    return namesOther ? null : tail;
   }
   return null;
 }
