@@ -57,6 +57,9 @@ async function main() {
     // Bare follow-up questions are questions, not invites
     assert.ok(questionInARow("Hmm. Why?", "What stood out to you?"));
     assert.ok(questionInARow("Ok. Is that right?", "What stood out to you?"));
+    assert.ok(questionInARow("Ok. Which part?", "What stood out to you?"));
+    assert.ok(questionInARow("Ok. Thoughts?", "What stood out to you?"));
+    assert.equal(questionInARow("Fish hooks from shells. Pretty wild?", "What stood out?"), false);
     assert.equal(questionInARow("They taste with their arms. Pretty wild, right?", "What stood out to you?"), false);
     assert.equal(questionInARow("They taste with their arms. Would you have guessed that?", "What stood out?"), false);
     assert.equal(questionInARow("Why do you think so?", "Tell me what stood out."), false);
