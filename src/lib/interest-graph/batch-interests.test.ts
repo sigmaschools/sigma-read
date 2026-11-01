@@ -32,3 +32,14 @@ console.log("✅ mergeBatchInterests skips weak and unknown topics");
 // No graph data: the profile as before
 assert.deepEqual(mergeBatchInterests(["Sharks", "my cat"], slugs, [], labels), ["sharks", "my cat"]);
 console.log("✅ mergeBatchInterests falls back to the profile");
+
+// Order of the input doesn't matter: a weak topic early can't hide strong ones
+assert.deepEqual(
+  mergeBatchInterests(["Sharks"], slugs, [aff("music", 0.1), aff("lego", 0.3), aff("soccer", 0.6), aff("volcanoes", 0.4), aff("comics", 0.26)], labels),
+  ["sharks", "soccer", "volcanoes", "lego"],
+);
+console.log("✅ mergeBatchInterests sorts by score itself");
+
+// A profile topic at exactly 0 stays; one that went negative is dropped
+assert.deepEqual(mergeBatchInterests(["Sharks", "dinosaurs"], slugs, [aff("sharks", 0, "declared"), aff("dinosaurs", -0.1, "declared")], labels), ["sharks"]);
+console.log("✅ mergeBatchInterests drops only negative or rejected profile topics");
