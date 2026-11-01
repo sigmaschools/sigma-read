@@ -41,10 +41,13 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     // Without this the route 500s with an empty body and the student sees a blank chat
     console.error("onboarding chat: Claude call failed", e);
-    return NextResponse.json({ error: "The interview couldn't start. Please try again." }, { status: 502 });
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
   }
 
-  const assistantText = response.content[0].type === "text" ? response.content[0].text : "";
+  const assistantText = response.content[0]?.type === "text" ? response.content[0].text : "";
+  if (!assistantText.trim()) {
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
+  }
 
   // Check if interest profile is complete
   const profileMatch = assistantText.match(/\[PROFILE\]\s*(\{[\s\S]*?\})/);

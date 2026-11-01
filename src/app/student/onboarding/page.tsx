@@ -98,7 +98,7 @@ function OnboardingPage() {
   }
 
   async function handleSend() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || messages.length === 0) return;
     const userMessage = input.trim();
     setInput("");
 
@@ -235,12 +235,12 @@ function OnboardingPage() {
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type your response…"
             className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
-            disabled={loading}
+            disabled={loading || messages.length === 0}
             autoFocus
           />
           <button
             onClick={handleSend}
-            disabled={loading || !input.trim()}
+            disabled={loading || messages.length === 0 || !input.trim()}
             className="px-5 py-2.5 bg-[var(--accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
           >
             Send
