@@ -27,15 +27,22 @@ export async function POST(req: NextRequest) {
   const systemPrompt = (phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT)
     + `\n\nThe student's name is ${studentName}.`;
 
-  const response = await tracked(anthropic, "onboarding", session.userId).messages.create({
-    model: MODELS.standard,
-    max_tokens: 2048,
-    system: systemPrompt,
-    messages: messages.map((m: { role: string; content: string }) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    })),
-  });
+  let response;
+  try {
+    response = await tracked(anthropic, "onboarding", session.userId).messages.create({
+      model: MODELS.standard,
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: messages.map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    });
+  } catch (e) {
+    // Without this the route 500s with an empty body and the student sees a blank chat
+    console.error("onboarding chat: Claude call failed", e);
+    return NextResponse.json({ error: "The interview couldn't start. Please try again." }, { status: 502 });
+  }
 
   const assistantText = response.content[0].type === "text" ? response.content[0].text : "";
 

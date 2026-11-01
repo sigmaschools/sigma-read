@@ -41,6 +41,7 @@ function OnboardingPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
+  const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,21 +51,39 @@ function OnboardingPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  /** Posts the conversation; returns the tutor's reply, or null after setting an error. */
+  async function ask(convo: Message[]): Promise<{ message: string; profileComplete?: boolean } | null> {
+    try {
+      const res = await fetch("/api/onboarding/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: convo, phase: "interest" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.message) {
+        setError(data?.error || "Something went wrong. Please try again.");
+        return null;
+      }
+      setError("");
+      return data;
+    } catch {
+      setError("Couldn't reach SigmaRead. Check your connection and try again.");
+      return null;
+    }
+  }
+
+  async function startInterview() {
+    setLoading(true);
+    const data = await ask([{ role: "user", content: "Hi" }]);
+    if (data) setMessages([{ role: "assistant", content: data.message }]);
+    setLoading(false);
+  }
+
   useEffect(() => {
     if (!walkthroughDone || started) return;
     setStarted(true);
-    setLoading(true);
-
-    fetch("/api/onboarding/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }], phase: "interest" }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setMessages([{ role: "assistant", content: data.message }]);
-        setLoading(false);
-      });
+    startInterview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walkthroughDone, started]);
 
   function advanceWalkthrough() {
@@ -87,25 +106,23 @@ function OnboardingPage() {
     setMessages(newMessages);
     setLoading(true);
 
-    try {
-      const res = await fetch("/api/onboarding/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, phase: "interest" }),
-      });
-      const data = await res.json();
-
-      setMessages([...newMessages, { role: "assistant", content: data.message }]);
-
-      if (data.profileComplete) {
-        setTimeout(() => router.push("/student"), 6000);
-        return;
-      }
-
+    const data = await ask(newMessages);
+    if (!data) {
+      // Put the message back so the student can resend it
+      setMessages(messages);
+      setInput(userMessage);
       setLoading(false);
-    } catch {
-      setLoading(false);
+      return;
     }
+
+    setMessages([...newMessages, { role: "assistant", content: data.message }]);
+
+    if (data.profileComplete) {
+      setTimeout(() => router.push("/student"), 6000);
+      return;
+    }
+
+    setLoading(false);
   }
 
   // Walkthrough screens
@@ -191,6 +208,19 @@ function OnboardingPage() {
                 <span className="w-2 h-2 bg-[var(--muted)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
+          </div>
+        )}
+        {error && !loading && (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm text-[var(--danger)]">{error}</p>
+            {messages.length === 0 && (
+              <button
+                onClick={startInterview}
+                className="text-sm font-medium text-[var(--accent)] hover:underline"
+              >
+                Try again
+              </button>
+            )}
           </div>
         )}
         <div ref={bottomRef} />
