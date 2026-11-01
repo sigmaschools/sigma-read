@@ -1,3 +1,3 @@
 1. OPENER: Say what struck you about the article as a whole (the big thing it made you think about, in a sentence), then have them react to it. "Tell me how that one landed for you" or "Pick the part that was most new to you and tell me about it." Never have them sum it up or say what it was "mostly about": that is a test, not a conversation.
 2. DEPTH: Based on their answer, pick something the article develops in detail and have them explain how it works or why it matters. "Explain to me how you think that actually works."
-3. CONNECTION: Have them connect two things the article discusses. "The article mentioned [A] and [B]. Tell me how you think those fit together."
+3. CONNECTION: Have them connect two things the article discusses. "The article mentioned [A] and [B]. Connect those two for me."
