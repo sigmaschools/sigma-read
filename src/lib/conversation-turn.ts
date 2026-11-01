@@ -128,7 +128,7 @@ export async function runTutorTurn(args: {
   const parsed = await ask(finalMessages);
   // The prompt bans quiz-show questions and long turns, but the model still slips (live tests):
   // ask once for a rewrite. The score stays from the first reply, since it grades the same answer.
-  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords, nudged);
+  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords, nudged, lastTutorMessage(args.messages));
   if (problem) {
     console.warn(`Tutor turn ${problem.kind}, asking for a rewrite`);
     const retry = await ask([...finalMessages, { role: "user", content: problem.instruction(parsed.message || "") }]).catch(e => {
@@ -182,7 +182,9 @@ function lastSentence(text: string): string {
  * after a share ("Wild, right?", "Would you have guessed that?") are fine.
  */
 export function endsWithClosedQuestion(text: string): boolean {
-  if (!endsWithQuestion(text)) return false;
+  // A menu hidden in a directive is the same pick-one: "Tell me what you'd build first — the
+  // detector, the horn, or the lights — and why."
+  if (!endsWithQuestion(text)) return endsWithMenu(text);
   const q = lastSentence(text);
   if (/\bor\b/i.test(q) && !/\bor not\b/i.test(q)) {
     // "What matters more — skill or luck?" is a menu; "How did scientists or engineers do it?" is open
@@ -192,23 +194,62 @@ export function endsWithClosedQuestion(text: string): boolean {
   return /^["'“]?(do|does|did|is|are|was|were|would|could|can|will|have|has|should)\b/i.test(q) && words(q) > 6;
 }
 
+/** True if the last sentence offers options to pick from ("the detector, the horn, or the lights") */
+export function endsWithMenu(text: string): boolean {
+  const q = lastSentence(text);
+  // Only a list the student is told to choose from: "Seals, whales, or penguins all handle cold" is a share
+  if (!/\b(pick|choose|which|first|rather|prefer|tell me what (part|kind|one))\b/i.test(q)) return false;
+  // "A, B, or C" lists, or ", or one that..." alternatives after a dash or comma
+  return /[^,.?!]{1,40},\s[^,.?!]{1,40},\s*or\s/i.test(q) || /[—–,]\s*(one|a|an|the)\b[^,.?!—–]*,?\s*or\s+(one|a|an|the)\b/i.test(q);
+}
+
+/** Sigma's last message before this turn, or null on the opener */
+function lastTutorMessage(messages: TurnMessage[]): string | null {
+  return [...messages].reverse().find(m => m.role === "assistant")?.content ?? null;
+}
+
+/** A short tag after a share ("Wild, right?", "Would you have guessed that?"): an invite, not a question to answer */
+function isLightInvite(text: string): boolean {
+  if (!endsWithQuestion(text)) return false;
+  const q = lastSentence(text);
+  // It follows a share: the text before it is a statement, not another question
+  const before = text.trim().slice(0, text.trim().length - q.length).trim();
+  if (!before || endsWithQuestion(before)) return false;
+  // "Pretty wild, right?", "Huh?", "Would you have guessed that?" — not "Why?" or "Is that right?"
+  if (/^["'“]?(why|how|what|who|where|when|is|are|do|does|did|was|were|would|could|can|will|have|has)\b/i.test(q)
+    && !/^["'“]?(would|could|can) you (have )?(guessed|believe|imagine|expect) (that|it)\?/i.test(q)) return false;
+  return /(,\s*(right|huh)|(guessed|believe|imagine|expect) (that|it))\?[\s"'”’)\]\p{Extended_Pictographic}]*$/iu.test(q) || /^(pretty |so |kinda )?(really|right|huh|wild|crazy|weird|nuts|cool|amazing)\?/i.test(q.trim());
+}
+
+/**
+ * True when this reply would make two questions in a row (or opens on one). Sigma mostly gives
+ * directives ("Pick a fact that stands out and tell me why"); a question now and then is fine,
+ * all questions is a quiz (the owner, 2026-11-01).
+ */
+export function questionInARow(message: string, prevMessage: string | null): boolean {
+  if (!endsWithQuestion(message) || isLightInvite(message)) return false;
+  return prevMessage === null || (endsWithQuestion(prevMessage) && !isLightInvite(prevMessage));
+}
+
 /** Why a (non-closing) tutor reply needs a rewrite, if it does */
-export function rewriteReason(message: string, maxWords: number, nudged = false): { kind: string; instruction: (m: string) => string } | null {
+export function rewriteReason(message: string, maxWords: number, nudged = false, prevMessage: string | null = null): { kind: string; instruction: (m: string) => string } | null {
   if (!message.trim()) return null;
   const closed = endsWithClosedQuestion(message);
+  const asksAgain = !closed && !nudged && questionInARow(message, prevMessage);
   const long = words(message) > Math.round(maxWords * 1.5);
-  if (!closed && !long) return null;
+  if (!closed && !asksAgain && !long) return null;
   const fixes = [
+    asksAgain ? "it ends with a question, and too many questions make this feel like a quiz. Keep your thought, but end with a directive instead (\"Pick the part that... and tell me why\", \"Imagine you were... and tell me...\")" : "",
     closed
       ? nudged
         // The quiet-kid turn shares instead of asking, so the fix is a light invite, not a new question
-        ? "it ends with a yes/no or either/or question. Keep the detail you shared, but end with a light invite (\"Wild, right?\"), not a question to answer"
-        : "it ends with a yes/no or either/or question, which a kid answers with one word. Keep your thought, but end with one open question (how, why, what would you, imagine...) and no options to pick from"
+        ? "it ends with a yes/no question or options to pick from. Keep the detail you shared, but end with a light invite (\"Wild, right?\"), not a question to answer"
+        : "it ends with a yes/no question or options to pick from, which a kid answers with one word. Keep your thought, but end with a directive instead (\"Tell me why...\", \"Pick the part that... and explain...\"), with no options to pick from"
       : "",
     long ? `it is ${words(message)} words. Say the same thing in under ${maxWords} words` : "",
   ].filter(Boolean).join("; and ");
   return {
-    kind: [closed && "ended in a closed question", long && "ran long"].filter(Boolean).join(" and "),
+    kind: [closed && "ended in a closed question", asksAgain && "ended in a question where a directive was expected", long && "ran long"].filter(Boolean).join(" and "),
     instruction: m => `[Your reply was: "${m}". Write it again: ${fixes}. Same progressDelta.]`,
   };
 }
