@@ -18,7 +18,7 @@ interface StarterProgress {
 const tutorialCards = [
   { emoji: "📚", title: "Articles picked for you", body: "Every day you'll get articles about things you like." },
   { emoji: "💬", title: "Then chat about it", body: "After you read, you'll chat with Sigma about it. It's not a test. The article stays open." },
-  { emoji: "✨", title: "That's it", body: "Three articles a day. That's it." },
+  { emoji: "✨", title: "That's it", body: "Read three articles a day and talk about each one with Sigma." },
 ];
 
 /** Tap-to-add ideas for students who aren't sure what to say */
