@@ -46,7 +46,7 @@ This is the most critical prompt rule. AI messages must be **short**. Kids write
 
 A message is a short thought of Sigma's own plus one question. L1-2 caps were raised from 15/20 words on 2026-11-01: at 20 words a Level 2 discussion became "Makes sense! Why...?" over and over, a dry series of questions. The tutor doesn't retell the article: the student has it open, and the directive can point to the spot. The 2026-10-30 baseline eval found L3-L5 tutor turns averaging about 60 words, mostly from re-explaining.
 
-**Why?** Max's second test session revealed the AI was averaging 3-4 sentences per message while he wrote 1-2. An adult talking at a kid, not with them.
+**Why?** Max's second test session revealed the AI was averaging 3-4 sentences per message while he wrote 1-2. An adult talking at a kid, not with them. The fix is short messages, not bare questions: two short sentences, one of them Sigma's own thought.
 
 ---
 
