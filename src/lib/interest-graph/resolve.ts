@@ -53,7 +53,7 @@ export function matchTopic(
   index: TopicIndex,
   phrase: string,
   /** Topic slug → parent slug, so a front word naming an ancestor ("pet dogs") still matches */
-  parents?: Map<string, string | null>,
+  parents: Map<string, string | null>,
 ): string | null {
   const key = matchKey(phrase);
   if (!key) return null;
@@ -68,7 +68,8 @@ export function matchTopic(
   // "animal body language" isn't languages, so those are left to the model (or to nothing).
   // Front words naming the same topic ("great white sharks") or an ancestor ("pet dogs") are fine.
   const isAncestor = (a: string, slug: string) => {
-    for (let p = parents?.get(slug); p; p = parents?.get(p)) if (p === a) return true;
+    // Depth cap, so bad parent data can't loop forever
+    for (let p = parents.get(slug), d = 0; p && d < 10; p = parents.get(p), d++) if (p === a) return true;
     return false;
   };
   const words = trimmed.split(" ");
@@ -81,6 +82,7 @@ export function matchTopic(
       const other = b >= a ? index.get(front.slice(a, b + 1).join(" ")) : undefined;
       return other !== undefined && other !== tail && !isAncestor(other, tail);
     }));
+    // The longest matching tail decides; a blocked one doesn't fall through to a shorter tail
     return namesOther ? null : tail;
   }
   return null;

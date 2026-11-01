@@ -35,7 +35,13 @@ import { flattenTaxonomy } from "./taxonomy";
     // Compounds whose front words name another topic are left to the model
     ["computer science", null],
     ["animal body language", null],
+    ["rocket science", null],
+    ["ocean sharks", null],
+    ["dinosaur fossils", null],
     ["pet dogs", "dogs"], // the front word is an ancestor
+    ["space rockets", "space-exploration"],
+    ["baby sharks", "sharks"],
+    ["pro football", "football"],
     ["", null],
   ];
   const parents = new Map(topics.map(t => [t.slug, t.parentSlug]));
@@ -43,6 +49,6 @@ import { flattenTaxonomy } from "./taxonomy";
 
   // Topic names win over aliases with the same key
   const small = buildIndex([{ slug: "cats", label: "Cats" }], [{ alias: "cat", topicSlug: "big-cats" }]);
-  assert.equal(matchTopic(small, "cat"), "cats");
+  assert.equal(matchTopic(small, "cat", new Map()), "cats");
   console.log("✅ matchTopic resolves names, aliases and filler phrases");
 }
