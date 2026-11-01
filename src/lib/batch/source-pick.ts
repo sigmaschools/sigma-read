@@ -13,9 +13,19 @@ export function grokipediaPageUrl(title: string): string {
   return `https://grokipedia.com/page/${encodeURIComponent(title.trim().replace(/\s+/g, "_"))}`;
 }
 
-/** Lowercase words of 2+ letters or digits with a plural "s" dropped: "Dogs" -> "dog", "games" -> "game" */
+/** Singular of a lowercase word: "dogs" -> "dog", "butterflies" -> "butterfly", "wolves" -> "wolf", "foxes" -> "fox" */
+function singular(w: string): string {
+  if (w.length <= 3 || !w.endsWith("s")) return w;
+  if (w.endsWith("ies") && w.length > 4) return w.slice(0, -3) + "y";
+  if (w.endsWith("ves") && w.length > 4) return w.slice(0, -3) + "f";
+  if (/(x|ch|sh|ss)es$/.test(w)) return w.slice(0, -2);
+  if (w.endsWith("ss")) return w;
+  return w.slice(0, -1);
+}
+
+/** Lowercase singular words of 2+ letters or digits: "Dogs" -> "dog", "games" -> "game" */
 function words(text: string): string[] {
-  return (text.toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) ?? []).map(w => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
+  return (text.toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) ?? []).map(singular);
 }
 
 const STOP_WORDS = new Set(["the", "of", "and", "an", "in", "on", "for", "to", "with", "at", "by", "from"]);
@@ -29,8 +39,9 @@ export function generalFits(general: string, query: string): boolean {
   const q = words(query).filter(w => !STOP_WORDS.has(w));
   if (g.some(w => !STOP_WORDS.has(w) && q.includes(w))) return true;
   // An acronym for the page's title: "AI" -> "Artificial intelligence"
-  const initials = g.map(w => w[0]).join("");
-  return q.some(w => w.length >= 2 && w === initials);
+  // with or without the small words: "DoD" -> "Department of Defense", "FBI" -> "Federal Bureau of Investigation"
+  const initials = [g, g.filter(w => !STOP_WORDS.has(w))].map(ws => ws.map(w => w[0]).join(""));
+  return q.some(w => w.length >= 2 && initials.includes(w));
 }
 
 /**
