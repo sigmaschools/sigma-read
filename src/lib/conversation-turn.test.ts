@@ -19,7 +19,7 @@ function fakeClient(reply: { message: string; progressDelta: number }) {
 const convo = (studentTurns: number): TurnMessage[] =>
   Array.from({ length: studentTurns }, (_, i) => [
     { role: "assistant", content: `Tell me about part ${i}.` },
-    { role: "user", content: `answer ${i}` },
+    { role: "user", content: `I think part ${i} matters because of the ink` },
   ]).flat();
 
 const run = (client: Anthropic, messages: TurnMessage[], priorProgress: number) =>
@@ -47,8 +47,14 @@ async function main() {
     assert.equal(needsQuietNudge(q("yeah", "idk")), true);
     assert.equal(needsQuietNudge(q("it was cool", "i dont know")), true);
     assert.equal(needsQuietNudge(q("yeah", "I think it is because they live in deep water")), false);
-    assert.equal(needsQuietNudge(q("yeah", "idk", "They can taste with their arms. Wild, right?")), true);
-    assert.equal(needsQuietNudge(q("yeah", "idk", "They can taste with their arms. I did not expect that.")), false);
+    assert.equal(needsQuietNudge(q("why the Moon?", "how come?")), false);
+    // Not twice in a row: the 3rd short answer gets a normal turn, the 4th the nudge again
+    const more = (n: number): TurnMessage[] => Array.from({ length: n }, () => [
+      { role: "assistant", content: "Wild, right?" }, { role: "user", content: "yeah" },
+    ]).flat();
+    assert.equal(needsQuietNudge(more(3)), false);
+    assert.equal(needsQuietNudge(more(4)), true);
+    assert.equal(needsQuietNudge([...q("I liked how they hide in shells", "yeah"), ...more(1)]), true);
     assert.equal(needsQuietNudge(q("yeah", "idk").slice(2)), false);
 
     const { client, calls } = fakeClient({ message: "They can taste with their arms. Wild, right?", progressDelta: 5 });
