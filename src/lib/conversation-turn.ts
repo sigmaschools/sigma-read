@@ -182,7 +182,9 @@ function lastSentence(text: string): string {
  * after a share ("Wild, right?", "Would you have guessed that?") are fine.
  */
 export function endsWithClosedQuestion(text: string): boolean {
-  if (!endsWithQuestion(text)) return false;
+  // A menu hidden in a directive is the same pick-one: "Tell me what you'd build first — the
+  // detector, the horn, or the lights — and why."
+  if (!endsWithQuestion(text)) return endsWithMenu(text);
   const q = lastSentence(text);
   if (/\bor\b/i.test(q) && !/\bor not\b/i.test(q)) {
     // "What matters more — skill or luck?" is a menu; "How did scientists or engineers do it?" is open
@@ -190,6 +192,13 @@ export function endsWithClosedQuestion(text: string): boolean {
     if (!/^["'“]?(how|why)\b/i.test(q)) return true;
   }
   return /^["'“]?(do|does|did|is|are|was|were|would|could|can|will|have|has|should)\b/i.test(q) && words(q) > 6;
+}
+
+/** True if the last sentence offers options to pick from ("the detector, the horn, or the lights") */
+export function endsWithMenu(text: string): boolean {
+  const q = lastSentence(text);
+  // "A, B, or C" lists, or ", or one that..." alternatives after a dash or comma
+  return /\b[\w'-]+(\s[\w'-]+){0,3},\s[^,.?!]+,?\sor\s/i.test(q) || /[—–,]\s*(one|a|an|the)\b[^,.?!—–]*,?\s*or\s+(one|a|an|the)\b/i.test(q);
 }
 
 /** Sigma's last message before this turn, or null on the opener */
@@ -231,8 +240,8 @@ export function rewriteReason(message: string, maxWords: number, nudged = false,
     closed
       ? nudged
         // The quiet-kid turn shares instead of asking, so the fix is a light invite, not a new question
-        ? "it ends with a yes/no or either/or question. Keep the detail you shared, but end with a light invite (\"Wild, right?\"), not a question to answer"
-        : "it ends with a yes/no or either/or question, which a kid answers with one word. Keep your thought, but end with a directive instead (\"Tell me why...\", \"Pick the part that... and explain...\"), with no options to pick from"
+        ? "it ends with a yes/no question or options to pick from. Keep the detail you shared, but end with a light invite (\"Wild, right?\"), not a question to answer"
+        : "it ends with a yes/no question or options to pick from, which a kid answers with one word. Keep your thought, but end with a directive instead (\"Tell me why...\", \"Pick the part that... and explain...\"), with no options to pick from"
       : "",
     long ? `it is ${words(message)} words. Say the same thing in under ${maxWords} words` : "",
   ].filter(Boolean).join("; and ");
