@@ -18,6 +18,9 @@ async function main() {
     }
   }
   console.log("✅ tutor prompt assembles for every level and style");
+  const { pickConversationStyle } = require("./index");
+  for (let i = 0; i < 200; i++) assert.notEqual(pickConversationStyle("CREATIVE"), "CREATIVE");
+  console.log("✅ a new style never repeats the previous one");
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
