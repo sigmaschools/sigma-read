@@ -30,4 +30,21 @@ assert.equal(parseSourcePick('{"pages": [15]}', results), null);
 assert.equal(parseSourcePick('{"pages": "3"}', results), null);
 assert.equal(parseSourcePick('{"pages": [3,}', results), null);
 
+// Bad page numbers with a usable general page: just the general page
+assert.deepEqual(parseSourcePick('{"pages": [15], "general": "Video game"}', results), [
+  { title: "Video game", url: "https://grokipedia.com/page/Video_game" },
+]);
+
+// No search results at all: the general page alone
+assert.deepEqual(parseSourcePick('{"pages": [], "general": "Animal"}', []), [
+  { title: "Animal", url: "https://grokipedia.com/page/Animal" },
+]);
+
+// A general page that is too long or not a string is ignored
+assert.deepEqual(parseSourcePick(`{"pages": [3], "general": "${"x".repeat(81)}"}`, results), [results[2]]);
+assert.deepEqual(parseSourcePick('{"pages": [3], "general": 7}', results), [results[2]]);
+
+// Titles are encoded so they stay one path segment on grokipedia.com
+assert.equal(grokipediaPageUrl("AC/DC?"), "https://grokipedia.com/page/AC%2FDC%3F");
+
 console.log("source-pick tests passed");
