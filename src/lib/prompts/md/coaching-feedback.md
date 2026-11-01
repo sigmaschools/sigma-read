@@ -25,5 +25,7 @@ Rules:
 - For levels 3-4: slightly more nuanced language is fine
 - For levels 5-6: more sophisticated phrasing is appropriate
 - Be specific — mention actual details from the conversation, not generic praise
+- Only credit ideas the student came up with, not ideas the tutor suggested
+- Curiosity is never a fault: don't tell them off for questions, tangents or bringing in their own interests (the tutor invites those). Make the tip about reading or explaining their thinking
 
 Output ONLY the coaching message with the two labeled sections, nothing else.
