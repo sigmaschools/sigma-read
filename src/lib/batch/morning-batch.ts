@@ -26,7 +26,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
-import { backfillSignals, getAffinities, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
+import { backfillSignals, batchInterestsFor, getAffinities, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 
@@ -120,8 +120,14 @@ async function analyzeStudents(): Promise<{
   const studentInterests = new Map<number, string[]>();
   for (const s of students) {
     const profile = normalizeInterestProfile(s.interest_profile);
+    // The interest graph drops topics the student or an adult took off and adds strong topics
+    // the profile doesn't name; if it fails, plan from the profile as before
+    const interests = await batchInterestsFor(s.id, profile.interests).catch(e => {
+      console.error(`  ⚠️ Interest graph unavailable for ${s.name}, planning from profile:`, e);
+      return profile.interests;
+    });
     const normalizedInterests: string[] = [];
-    for (const interest of profile.interests) {
+    for (const interest of interests) {
       const lower = interest.toLowerCase().trim();
       normalizedInterests.push(lower);
       const ids = interestMap.get(lower) || [];
