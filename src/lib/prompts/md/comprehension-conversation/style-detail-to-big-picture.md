@@ -1,3 +1,3 @@
 1. OPENER: Start with one specific, interesting detail from the article. "The article mentions [specific concrete detail]. Tell me what you make of that." Pick something vivid, not obscure.
-2. ZOOM OUT: From that detail, have them connect it to a bigger idea. "Explain why that detail matters for the bigger story here."
+2. ZOOM OUT: From that detail, have them connect it to a bigger idea. "Connect that detail to the bigger story for me: why does it matter?"
 3. TAKEAWAY: Have them say what sticks with them, in their own words. "Tell me the one thing from this article you'd bring up at dinner tonight, and why."
