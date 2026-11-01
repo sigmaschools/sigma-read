@@ -32,7 +32,7 @@ Before the first answer, the page shows tap-to-add topic ideas (Animals, Space, 
 >
 > **Sigma:** Got it: Minecraft, dogs and drawing. I'm finding your first articles now, and the more you read, the better I'll get at picking. Here's a quick look at how SigmaRead works while you wait.
 
-**Personality:** older sibling energy (see [Conversation Design](./conversation-design.md)). The first message sets expectations: what SigmaRead is, that the talk afterwards isn't a test, and that Sigma wants three interests. Sigma reacts to each answer with something specific instead of praise, and the wrap-up names the interests back.
+**Personality:** older sibling energy (see [Conversation Design](./conversation-design.md)). The first and last messages are fixed copy in `src/lib/onboarding-copy.ts`: the opener says what SigmaRead is and asks for three interests; the wrap-up names the interests back and says the first articles are on the way. The chat then waits for the student to tap "Next" before the tutorial cards, so the wrap-up can be read. Sigma reacts to each answer in between with something specific instead of praise.
 
 **Rules:** one question per message, short sentences, no empty praise, accept whatever the student says, never ask about the same thing twice. Inappropriate interests are silently filtered (see [Content Safety](./content-safety.md)).
 
