@@ -32,9 +32,14 @@ import { flattenTaxonomy } from "./taxonomy";
     ["Great white sharks", "sharks"],
     ["volcano eruptions", "volcanoes"],
     ["my dad", null],
+    // Compounds whose front words name another topic are left to the model
+    ["computer science", null],
+    ["animal body language", null],
+    ["pet dogs", "dogs"], // the front word is an ancestor
     ["", null],
   ];
-  for (const [phrase, slug] of cases) assert.equal(matchTopic(index, phrase), slug, phrase);
+  const parents = new Map(topics.map(t => [t.slug, t.parentSlug]));
+  for (const [phrase, slug] of cases) assert.equal(matchTopic(index, phrase, parents), slug, phrase);
 
   // Topic names win over aliases with the same key
   const small = buildIndex([{ slug: "cats", label: "Cats" }], [{ alias: "cat", topicSlug: "big-cats" }]);
