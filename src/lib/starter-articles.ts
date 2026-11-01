@@ -10,17 +10,22 @@
  */
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { resolveTopics } from "@/lib/interest-graph";
-import { starterInterests } from "@/lib/starter-plan";
+import { starterInterests, starterPending, starterProgress } from "@/lib/starter-plan";
 
-async function setStatus(studentId: number, status: "pending" | "done") {
-  await db.update(schema.students).set({ starterArticlesStatus: status }).where(eq(schema.students.id, studentId));
-}
+/** Mark the job done by now, inside the time the page waits; a write still running may land in the feed later, or be cut off; the home page tops up either way */
+const JOB_TIMEOUT_MS = 140_000;
 
 export async function markStarterPending(studentId: number) {
-  await setStatus(studentId, "pending");
+  await db.update(schema.students)
+    .set({ starterArticlesStatus: "pending", starterArticlesStartedAt: new Date() })
+    .where(eq(schema.students.id, studentId));
+}
+
+async function markStarterDone(studentId: number) {
+  await db.update(schema.students).set({ starterArticlesStatus: "done" }).where(eq(schema.students.id, studentId));
 }
 
 /** Copies a cache row into the student's feed and history; false if they already have it */
@@ -62,6 +67,19 @@ async function cachedForTopic(studentId: number, level: number, slug: string, sk
 }
 
 export async function prepareStarterArticles(studentId: number, client: Anthropic): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>(resolve => {
+    timer = setTimeout(() => { console.error("Starter articles: timed out, the home page fills the rest"); resolve(); }, JOB_TIMEOUT_MS);
+  });
+  try {
+    await Promise.race([findOrWrite(studentId, client), timeout]);
+  } finally {
+    clearTimeout(timer);
+    await markStarterDone(studentId).catch(e => console.error("Starter articles: status update failed:", e));
+  }
+}
+
+async function findOrWrite(studentId: number, client: Anthropic): Promise<void> {
   try {
     const [student] = await db.select().from(schema.students).where(eq(schema.students.id, studentId)).limit(1);
     if (!student) return;
@@ -96,18 +114,27 @@ export async function prepareStarterArticles(studentId: number, client: Anthropi
     }
   } catch (e) {
     console.error("Starter articles failed:", e);
-  } finally {
-    await setStatus(studentId, "done").catch(e => console.error("Starter articles: status update failed:", e));
   }
 }
 
-/** Unread, non-tutorial articles in the student's feed */
-export async function feedArticleCount(studentId: number): Promise<number> {
-  const [row] = await db.select({ n: sql<number>`count(*)` }).from(schema.articles)
-    .where(and(
-      eq(schema.articles.studentId, studentId),
-      eq(schema.articles.read, false),
-      sql`COALESCE(${schema.articles.category}, '') <> 'tutorial'`,
-    ));
-  return Number(row?.n || 0);
+/** Progress for the onboarding screen: only articles added since the job started count */
+export async function starterStatus(studentId: number) {
+  const [student] = await db.select({
+    status: schema.students.starterArticlesStatus,
+    startedAt: schema.students.starterArticlesStartedAt,
+  }).from(schema.students).where(eq(schema.students.id, studentId)).limit(1);
+  if (!student) return null;
+  const pending = starterPending(student.status, student.startedAt);
+  let ready = 0;
+  if (student.startedAt) {
+    const [row] = await db.select({ n: sql<number>`count(*)` }).from(schema.articles)
+      .where(and(
+        eq(schema.articles.studentId, studentId),
+        // A few seconds of slack for clock differences between the app and the database
+        gte(schema.articles.createdAt, new Date(student.startedAt.getTime() - 5000)),
+        sql`COALESCE(${schema.articles.category}, '') <> 'tutorial'`,
+      ));
+    ready = Number(row?.n || 0);
+  }
+  return starterProgress(pending, ready);
 }

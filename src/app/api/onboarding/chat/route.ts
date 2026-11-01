@@ -27,70 +27,86 @@ export async function POST(req: NextRequest) {
 
   // Get student name for personalization
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
-  const studentName = student?.name || "there";
+  if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const studentName = student.name || "there";
+
+  // Onboarding happens once (an admin reset clears the flag): never save the profile or start the
+  // starter articles again, e.g. on a double submit
+  if (phase === "interest" && student.onboardingComplete) {
+    return NextResponse.json({ message: "", profileComplete: true });
+  }
 
   // The page opens the chat with a "Hi" the student never typed, so it isn't an answer
   const answers = Math.max(0, messages.filter((m: { role: string }) => m.role === "user").length - 1);
-  const lastAnswer = phase === "interest" && answers >= MAX_STUDENT_ANSWERS
+  const atCap = phase === "interest" && answers >= MAX_STUDENT_ANSWERS;
+  const lastAnswer = atCap
     ? `\n\nThis was the student's last answer. Output the closing sentence and the [PROFILE] now, with whatever interests you have.`
     : "";
   const systemPrompt = (phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT)
     + `\n\nThe student's name is ${studentName}.` + lastAnswer;
+  const convo = messages.map((m: { role: string; content: string }) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content,
+  }));
 
-  let response;
-  try {
-    response = await tracked(anthropic, "onboarding", session.userId).messages.create({
+  async function reply(extra: { role: "user"; content: string }[] = []): Promise<string> {
+    const response = await tracked(anthropic, "onboarding", session!.userId).messages.create({
       model: MODELS.standard,
       max_tokens: 2048,
       system: systemPrompt,
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
+      messages: [...convo, ...extra],
     });
+    return response.content[0]?.type === "text" ? response.content[0].text : "";
+  }
+
+  let assistantText: string;
+  try {
+    assistantText = await reply();
+    // At the cap the chat must end: if Sigma asked another question anyway, ask once more for the profile
+    if (atCap && !/\[PROFILE\]/.test(assistantText)) {
+      console.error("onboarding chat: no profile at the answer cap, retrying");
+      const retry = await reply([{ role: "user", content: "[Output your one-sentence closing and the [PROFILE] now. Do not ask a question.]" }]);
+      if (/\[PROFILE\]/.test(retry)) assistantText = retry;
+    }
   } catch (e) {
     // Without this the route 500s with an empty body and the student sees a blank chat
     console.error("onboarding chat: Claude call failed", e);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
   }
 
-  const assistantText = response.content[0]?.type === "text" ? response.content[0].text : "";
   if (!assistantText.trim()) {
-    console.error("onboarding chat: Claude returned no text", response.stop_reason);
+    console.error("onboarding chat: Claude returned no text");
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
   }
 
   // Check if interest profile is complete
   const profileMatch = assistantText.match(/\[PROFILE\]\s*(\{[\s\S]*?\})/);
-  if (profileMatch) {
-    try {
-      const profile = normalizeInterestProfile(JSON.parse(profileMatch[1]));
-      // Map grade level to initial reading level (calibrated from first session)
-      const level = gradeToReadingLevel(student?.gradeLevel);
-      await db.update(schema.students)
-        .set({
-          interestProfile: profile,
-          readingLevel: level,
-          onboardingComplete: true,
-        })
-        .where(eq(schema.students.id, session.userId));
-      await quietly(recordDeclaredInterests(session.userId, profile.interests, "onboarding", { client: anthropic }), "onboarding interests");
+  if (!profileMatch) return NextResponse.json({ message: assistantText });
 
-      // Find or write their first articles while the tutorial cards play
-      await markStarterPending(session.userId);
-      after(() => prepareStarterArticles(session.userId, anthropic));
-
-      return NextResponse.json({
-        message: assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim(),
-        profileComplete: true,
-        profile,
-      });
-    } catch (e) {
-      // Parse failed: continue the conversation, without showing the student the broken profile
-      console.error("onboarding chat: profile parse failed", e);
-      return NextResponse.json({ message: assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim() || "Tell me one more thing you like." });
-    }
+  const visibleText = assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim();
+  let profile;
+  try {
+    profile = normalizeInterestProfile(JSON.parse(profileMatch[1]));
+  } catch (e) {
+    // Parse failed: continue the conversation, without showing the student the broken profile
+    console.error("onboarding chat: profile parse failed", e);
+    return NextResponse.json({ message: visibleText || "Tell me one more thing you like." });
   }
 
-  return NextResponse.json({ message: assistantText });
+  // Map grade level to initial reading level (calibrated from first session)
+  const level = gradeToReadingLevel(student.gradeLevel);
+  await db.update(schema.students)
+    .set({
+      interestProfile: profile,
+      readingLevel: level,
+      onboardingComplete: true,
+    })
+    .where(eq(schema.students.id, session.userId));
+  await quietly(recordDeclaredInterests(session.userId, profile.interests, "onboarding", { client: anthropic }), "onboarding interests");
+
+  // Find or write their first articles while the tutorial cards play
+  await markStarterPending(session.userId);
+  after(() => prepareStarterArticles(session.userId, anthropic));
+
+  return NextResponse.json({ message: visibleText, profileComplete: true, profile });
 }
