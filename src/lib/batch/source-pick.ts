@@ -20,13 +20,14 @@ function words(text: string): string[] {
 
 /**
  * True when the named page shares a whole word (plural "s" aside) with the student's interest,
- * or the interest is its acronym. A general page is for a
- * broad word ("games" -> "Game"); for a named thing it would swap the topic ("SpaceX" -> "Company").
+ * or the interest is its acronym. A general page is for a broad word ("games" -> "Game"); for a named thing it would swap the topic ("SpaceX" -> "Company").
  */
+const STOP_WORDS = new Set(["the", "of", "and", "an", "in", "on", "for", "to", "with", "at", "by", "from"]);
+
 export function generalFits(general: string, query: string): boolean {
   const g = words(general);
-  const q = words(query);
-  if (g.some(w => q.includes(w))) return true;
+  const q = words(query).filter(w => !STOP_WORDS.has(w));
+  if (g.some(w => !STOP_WORDS.has(w) && q.includes(w))) return true;
   // An acronym for the page's title: "AI" -> "Artificial intelligence"
   const initials = g.map(w => w[0]).join("");
   return q.some(w => w.length >= 2 && w === initials);
@@ -35,7 +36,8 @@ export function generalFits(general: string, query: string): boolean {
 /**
  * Reads Haiku's reply: {"pages": [3, 1], "general": "Video game"}.
  * - pages: the numbered results that are about the topic, best first
- * - general: the title of the general page on the topic, when no listed page is that page
+ * - general: the title of the general page on the topic, when no listed page is that page.
+ *   Kept only when it fits `query` (the student's interest, see generalFits)
  * Returns null when the reply can't be read, or names only pages that weren't listed and no
  * general page, so the caller keeps the search order. An empty list (with no general page) means none fit.
  */
