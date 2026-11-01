@@ -14,4 +14,5 @@ assert.ok(interviewWrapUp(["a", "b", "c", "d"]).startsWith("A, b and c, got it!"
 // The prompt quotes the opener; keep the two in sync
 const prompt = readFileSync(new URL("./prompts/md/interest-interview.md", import.meta.url), "utf8");
 assert.ok(prompt.includes(interviewOpener("[name]")), "interest-interview.md must quote interviewOpener");
+assert.ok(interviewWrapUp(["iPhone", "soccer"]).startsWith("iPhone and soccer, got it!"));
 console.log("onboarding-copy tests passed");

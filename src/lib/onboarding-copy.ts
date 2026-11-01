@@ -18,6 +18,9 @@ function joinList(items: string[]): string {
 export function interviewWrapUp(interests: string[]): string {
   const named = interests.slice(0, 3);
   const list = joinList(named);
-  const heard = list ? `${list[0].toUpperCase()}${list.slice(1)}, got it! ` : "Got it! ";
+  // Capitalize "dogs" but leave mixed-case names like "iPhone" alone
+  const first = list.split(/\s/)[0];
+  const start = first === first.toLowerCase() ? `${list[0].toUpperCase()}${list.slice(1)}` : list;
+  const heard = list ? `${start}, got it! ` : "Got it! ";
   return `${heard}I'm finding your first articles now. While I do, here's a quick look at how SigmaRead works.`;
 }
