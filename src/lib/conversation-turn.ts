@@ -198,7 +198,7 @@ export function endsWithClosedQuestion(text: string): boolean {
 export function endsWithMenu(text: string): boolean {
   const q = lastSentence(text);
   // "A, B, or C" lists, or ", or one that..." alternatives after a dash or comma
-  return /\b[\w'-]+(\s[\w'-]+){0,3},\s[^,.?!]+,?\sor\s/i.test(q) || /[—–,]\s*(one|a|an|the)\b[^,.?!—–]*,?\s*or\s+(one|a|an|the)\b/i.test(q);
+  return /[^,.?!]{1,40},\s[^,.?!]{1,40},\s*or\s/i.test(q) || /[—–,]\s*(one|a|an|the)\b[^,.?!—–]*,?\s*or\s+(one|a|an|the)\b/i.test(q);
 }
 
 /** Sigma's last message before this turn, or null on the opener */
@@ -214,8 +214,9 @@ function isLightInvite(text: string): boolean {
   const before = text.trim().slice(0, text.trim().length - q.length).trim();
   if (!before || endsWithQuestion(before)) return false;
   // "Pretty wild, right?", "Huh?", "Would you have guessed that?" — not "Why?" or "Is that right?"
-  if (/^["'“]?(why|how|what|who|where|when|is|are|do|does)\b/i.test(q) && !/guessed that\?/i.test(q)) return false;
-  return /(,\s*(right|huh)|guessed that|believe that|imagine that|expect that)\?[\s"'”’)\]\p{Extended_Pictographic}]*$/iu.test(q) || /^(pretty |so |kinda )?(really|right|huh|wild|crazy|weird|nuts|cool|amazing)\?/i.test(q.trim());
+  if (/^["'“]?(why|how|what|who|where|when|is|are|do|does|did|was|were|would|could|can|will|have|has)\b/i.test(q)
+    && !/^["'“]?(would|could|can) you (have )?(guessed|believe|imagine|expect) (that|it)\?/i.test(q)) return false;
+  return /(,\s*(right|huh)|(guessed|believe|imagine|expect) (that|it))\?[\s"'”’)\]\p{Extended_Pictographic}]*$/iu.test(q) || /^(pretty |so |kinda )?(really|right|huh|wild|crazy|weird|nuts|cool|amazing)\?/i.test(q.trim());
 }
 
 /**
