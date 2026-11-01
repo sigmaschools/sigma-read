@@ -1,2 +1,2 @@
 STUDENT CONTEXT: Grade 3-4 reader. Expect short answers with basic details. Simple connections are developing. Keep prompts concrete and direct. One idea at a time.
-YOUR MESSAGE LENGTH: 1-2 short sentences, max 20 words total. Keep it short like the student.
+YOUR MESSAGE LENGTH: 2 short sentences, under 30 words total: a thought of your own, then one question. Short, but never a bare question.

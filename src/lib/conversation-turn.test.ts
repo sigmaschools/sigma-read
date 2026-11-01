@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, needsQuietNudge, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -19,7 +19,7 @@ function fakeClient(reply: { message: string; progressDelta: number }) {
 const convo = (studentTurns: number): TurnMessage[] =>
   Array.from({ length: studentTurns }, (_, i) => [
     { role: "assistant", content: `Tell me about part ${i}.` },
-    { role: "user", content: `answer ${i}` },
+    { role: "user", content: `I think part ${i} matters because of the ink` },
   ]).flat();
 
 const run = (client: Anthropic, messages: TurnMessage[], priorProgress: number) =>
@@ -34,6 +34,33 @@ async function main() {
     assert.equal(r.complete, false);
     assert.equal(r.closing, null);
     console.log("✅ opener uses the opener instruction");
+  }
+
+  // ─── Quiet kid: two very short answers in a row get a share turn ──────────
+  {
+    const q = (a: string, b: string, last = "Why do you think that is?"): TurnMessage[] => [
+      { role: "assistant", content: "Octopuses have three hearts. What stood out to you?" },
+      { role: "user", content: a },
+      { role: "assistant", content: last },
+      { role: "user", content: b },
+    ];
+    assert.equal(needsQuietNudge(q("yeah", "idk")), true);
+    assert.equal(needsQuietNudge(q("it was cool", "i dont know")), true);
+    assert.equal(needsQuietNudge(q("yeah", "I think it is because they live in deep water")), false);
+    assert.equal(needsQuietNudge(q("why the Moon?", "how come?")), false);
+    // Not twice in a row: the 3rd short answer gets a normal turn, the 4th the nudge again
+    const more = (n: number): TurnMessage[] => Array.from({ length: n }, () => [
+      { role: "assistant", content: "Wild, right?" }, { role: "user", content: "yeah" },
+    ]).flat();
+    assert.equal(needsQuietNudge(more(3)), false);
+    assert.equal(needsQuietNudge(more(4)), true);
+    assert.equal(needsQuietNudge([...q("I liked how they hide in shells", "yeah"), ...more(1)]), true);
+    assert.equal(needsQuietNudge(q("yeah", "idk").slice(2)), false);
+
+    const { client, calls } = fakeClient({ message: "They can taste with their arms. Wild, right?", progressDelta: 5 });
+    await run(client, q("yeah", "idk"), 20);
+    assert.equal(calls[0][calls[0].length - 1].content, QUIET_NUDGE);
+    console.log("✅ quiet kid gets a share turn");
   }
 
   // ─── Crossing 100 mid-conversation defers completion one exchange ──────────
