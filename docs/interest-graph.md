@@ -1,8 +1,8 @@
 # Interest graph
 
 What each student is into, as scores over a shared topic map, used to choose their articles.
-Phase 1 of the design in the "Student interest graph" doc, plus chat-mention extraction. Horizon
-topics chosen per student and learned topic links come later.
+Phase 1 of the design in the "Student interest graph" doc, plus chat-mention extraction and
+horizon topics from the map. Learned topic links come later.
 
 All code goes through `src/lib/interest-graph` (`recordSignals`, `getAffinities`, `getRelated`,
 `resolveTopics` and helpers), never the tables, so the graph can move to Compass later by
@@ -81,7 +81,16 @@ a rejected or negative topic, plus up to 3 graph topics scoring 0.25 or more tha
 doesn't already name (an interest picked up in chat, a topic they keep choosing), strongest first,
 by label. Matching is exact, with no model call. If the graph can't be read, the batch plans from
 the profile as before (logged). The least-recently-featured rotation then picks up to 3 per student
-as before. Horizon (adjacent) interests are still computed from the profile.
+as before.
+
+The day's horizon article comes from `horizonTopicsFor` (`src/lib/interest-graph/horizon.ts`):
+for each student, the topics next to their 5 strongest (score 0.15 or more) through the map
+(siblings, children, parent, related links), scored by seed score × link weight and summed, so a
+topic next to several interests ranks higher. Topics the student already has a view on (score
+0.1 or more either way, or rejected) and broad groups (topics with children) are left out. Each
+student's top 3 go into a shared pool with the model-suggested adjacent interests of students
+who have no graph data yet, and one topic not featured in the last 14 days is picked at random.
+Serving's explore slots then show it to students for whom it is new.
 
 ## Serving
 

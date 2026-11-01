@@ -26,7 +26,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
-import { backfillSignals, batchInterestsFor, getAffinities, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
+import { backfillSignals, batchInterestsFor, getAffinities, horizonTopicsFor, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 
@@ -249,13 +249,22 @@ async function planDailyArticles(
     });
   }
 
-  // --- Horizon articles (2) ---
-  // Use pre-computed adjacent interests; compute if missing
+  // --- Horizon article (1) ---
+  // From the interest graph: topics next to each student's strongest interests that they
+  // haven't shown a view on yet (top 3 each). Students without graph data use their
+  // model-suggested adjacent interests, computed once and stored.
+  const graphHorizons: string[] = [];
   const allAdjacentInterests: string[] = [];
   const studentsNeedingAdjacent: Student[] = [];
 
   for (const s of students) {
-    if (s.adjacent_interests && s.adjacent_interests.length > 0) {
+    const fromGraph = await horizonTopicsFor(s.id, 3).catch(e => {
+      console.error(`  ⚠️ Interest graph unavailable for ${s.name}'s horizon topics:`, e);
+      return [] as string[];
+    });
+    if (fromGraph.length > 0) {
+      graphHorizons.push(...fromGraph);
+    } else if (s.adjacent_interests && s.adjacent_interests.length > 0) {
       allAdjacentInterests.push(...s.adjacent_interests);
     } else {
       studentsNeedingAdjacent.push(s);
@@ -295,11 +304,13 @@ Output ONLY a JSON array of strings:
     }
   }
 
-  // Pick 1 horizon topic from the adjacent pool, avoiding recent
-  const uniqueAdjacent = [...new Set(allAdjacentInterests.map(a => a.toLowerCase()))];
-  const horizonPicks = uniqueAdjacent
-    .filter(a => !recentTopics.has(a.toLowerCase()))
-    .slice(0, 1);
+  // Pick 1 horizon topic at random from everyone's candidates, avoiding recent ones, so no
+  // single student's list decides every day
+  const pool = [...graphHorizons, ...allAdjacentInterests];
+  const uniqueAdjacent = [...new Set(pool.map(a => a.toLowerCase()))];
+  const fresh = uniqueAdjacent.filter(a => !recentTopics.has(a));
+  const horizonPicks = fresh.length > 0 ? [fresh[Math.floor(Math.random() * fresh.length)]] : [];
+  if (graphHorizons.length > 0) console.log(`  🧭 Graph horizon candidates: ${uniqueAdjacent.join(", ")}`);
 
   // Fallback if we can't find unrepeated ones
   if (horizonPicks.length < 1) {
