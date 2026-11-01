@@ -144,12 +144,6 @@ function OnboardingPage() {
     setLoading(false);
   }
 
-  // Long enough to read Sigma's one-line goodbye, then the cards
-  useEffect(() => {
-    if (!chatDone) return;
-    const timer = setTimeout(() => setPhase("cards"), 1800);
-    return () => clearTimeout(timer);
-  }, [chatDone]);
 
 
   function addTopic(topic: string) {
@@ -301,6 +295,15 @@ function OnboardingPage() {
             </div>
           </div>
         )}
+        {chatDone ? (
+          // The student reads Sigma's wrap-up, then moves on when ready
+          <button
+            onClick={() => setPhase("cards")}
+            className="w-full py-3 bg-[var(--accent)] text-white text-[15px] font-medium rounded-xl hover:bg-[var(--accent-hover)] transition"
+          >
+            Next: see how SigmaRead works
+          </button>
+        ) : (
         <div className="flex gap-2">
           <input
             type="text"
@@ -320,6 +323,7 @@ function OnboardingPage() {
             Send
           </button>
         </div>
+        )}
       </div>
     </div>
   );

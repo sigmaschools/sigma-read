@@ -39,12 +39,12 @@ This is the most critical prompt rule. AI messages must be **short**. Kids write
 
 | Reading Level | Max AI Message Length |
 |---------------|---------------------|
-| L1 (Grade 2-3) | 1 sentence, under 15 words |
-| L2 (Grade 3-4) | 1 sentence, under 20 words |
+| L1 (Grade 2-3) | 2 short sentences, under 25 words |
+| L2 (Grade 3-4) | 2 short sentences, under 30 words |
 | L3-L4 (Grade 5-7) | 1-2 sentences, under 40 words |
 | L5-L6 (Grade 8+) | 2 sentences max, under 50 words |
 
-A message is a short reaction (or none) plus one directive. The tutor doesn't retell the article: the student has it open, and the directive can point to the spot. The 2026-10-30 baseline eval found L3-L5 tutor turns averaging about 60 words, mostly from re-explaining.
+A message is a short thought of Sigma's own plus one question. L1-2 caps were raised from 15/20 words on 2026-11-01: at 20 words a Level 2 discussion became "Makes sense! Why...?" over and over, a dry series of questions. The tutor doesn't retell the article: the student has it open, and the directive can point to the spot. The 2026-10-30 baseline eval found L3-L5 tutor turns averaging about 60 words, mostly from re-explaining.
 
 **Why?** Max's second test session revealed the AI was averaging 3-4 sentences per message while he wrote 1-2. An adult talking at a kid, not with them.
 

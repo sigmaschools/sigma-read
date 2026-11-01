@@ -14,6 +14,11 @@ import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
 
+/** Sigma's first message in the interest chat (the user's own copy) */
+function interviewOpener(name: string): string {
+  return `Hi ${name}, I'm Sigma. SigmaRead is an app that helps you become a stronger reader by giving you articles matched to your interests. To get started, tell me three things you're interested in — they can be hobbies, topics, sports, whatever you like.`;
+}
+
 /** The interest chat ends after this many student answers, profile or not */
 const MAX_STUDENT_ANSWERS = 3;
 
@@ -42,6 +47,11 @@ export async function POST(req: NextRequest) {
   const lastAnswer = atCap
     ? `\n\nThis was the student's last answer. Output the closing sentence and the [PROFILE] now, with whatever interests you have.`
     : "";
+  // The first message is fixed copy, so every student gets the same clear introduction
+  if (phase === "interest" && !messages.some((m: { role: string }) => m.role === "assistant")) {
+    return NextResponse.json({ message: interviewOpener(studentName) });
+  }
+
   const systemPrompt = (phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT)
     + `\n\nThe student's name is ${studentName}.` + lastAnswer;
   const convo = messages.map((m: { role: string; content: string }) => ({
