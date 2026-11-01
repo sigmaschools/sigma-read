@@ -76,7 +76,7 @@ export async function runTutorTurn(args: {
   // The threshold was reached on an earlier turn; the tutor's reply then still expected an answer,
   // so the closing comes one exchange later, here.
   const alreadyComplete = args.priorProgress >= 100 && exchangeNumber >= 3;
-  const closing: ClosingKind | null = alreadyComplete ? "earned" : forceComplete ? "forced" : null;
+  let closing: ClosingKind | null = alreadyComplete ? "earned" : forceComplete ? "forced" : null;
 
   const finalMessages: { role: "user" | "assistant"; content: string }[] = args.messages.length > 0
     ? args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
@@ -117,6 +117,12 @@ export async function runTutorTurn(args: {
     message = FALLBACK_CLOSING;
   }
 
+  // Past the threshold the tutor sometimes says goodbye on its own instead of asking. Treat that
+  // as the earned closing, so the student isn't left with a goodbye and an open reply box.
+  if (!closing && progressScore >= 100 && exchangeNumber >= 3 && !endsWithQuestion(message) && soundsLikeGoodbye(message)) {
+    closing = "earned";
+  }
+
   // Complete only on a closing turn. When the threshold is first crossed mid-conversation, the
   // tutor's reply still ends with a directive, so the student answers once more and the next
   // turn closes cleanly.
@@ -128,4 +134,9 @@ export async function runTutorTurn(args: {
 /** True if the text ends in a question, ignoring trailing quotes, brackets and emoji */
 export function endsWithQuestion(text: string): boolean {
   return /\?[\s"'”’)\]\p{Extended_Pictographic}]*$/u.test(text);
+}
+
+/** A sign-off rather than a prompt: "Thanks for talking games with me, this was fun!" */
+export function soundsLikeGoodbye(text: string): boolean {
+  return /\b(thanks|thank you|bye|goodbye|see you|was fun|fun talking|nice talking|great talking|talking with me|chatting)\b/i.test(text);
 }
