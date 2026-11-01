@@ -128,7 +128,7 @@ export async function runTutorTurn(args: {
   const parsed = await ask(finalMessages);
   // The prompt bans quiz-show questions and long turns, but the model still slips (live tests):
   // ask once for a rewrite. The score stays from the first reply, since it grades the same answer.
-  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords, nudged, previousTutorMessage(args.messages));
+  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords, nudged, lastTutorMessage(args.messages));
   if (problem) {
     console.warn(`Tutor turn ${problem.kind}, asking for a rewrite`);
     const retry = await ask([...finalMessages, { role: "user", content: problem.instruction(parsed.message || "") }]).catch(e => {
@@ -192,9 +192,8 @@ export function endsWithClosedQuestion(text: string): boolean {
   return /^["'“]?(do|does|did|is|are|was|were|would|could|can|will|have|has|should)\b/i.test(q) && words(q) > 6;
 }
 
-/** Why a (non-closing) tutor reply needs a rewrite, if it does */
 /** Sigma's last message before this turn, or null on the opener */
-function previousTutorMessage(messages: TurnMessage[]): string | null {
+function lastTutorMessage(messages: TurnMessage[]): string | null {
   return [...messages].reverse().find(m => m.role === "assistant")?.content ?? null;
 }
 
@@ -202,7 +201,12 @@ function previousTutorMessage(messages: TurnMessage[]): string | null {
 function isLightInvite(text: string): boolean {
   if (!endsWithQuestion(text)) return false;
   const q = lastSentence(text);
-  return words(q) <= 3 || /\b(right|huh|guessed that|believe that|imagine that|expect that)\?[\s"'”’)\]\p{Extended_Pictographic}]*$/iu.test(q);
+  // It follows a share: the text before it is a statement, not another question
+  const before = text.trim().slice(0, text.trim().length - q.length).trim();
+  if (!before || endsWithQuestion(before)) return false;
+  // "Pretty wild, right?", "Huh?", "Would you have guessed that?" — not "Why?" or "Is that right?"
+  if (/^["'“]?(why|how|what|who|where|when|is|are|do|does)\b/i.test(q) && !/guessed that\?/i.test(q)) return false;
+  return /(,\s*(right|huh)|guessed that|believe that|imagine that|expect that)\?[\s"'”’)\]\p{Extended_Pictographic}]*$/iu.test(q) || /^[^\s]+(\s[^\s]+)?\?$/.test(q.trim()) && !/^(why|how|what)/i.test(q);
 }
 
 /**
@@ -210,15 +214,16 @@ function isLightInvite(text: string): boolean {
  * directives ("Pick a fact that stands out and tell me why"); a question now and then is fine,
  * all questions is a quiz (the owner, 2026-11-01).
  */
-export function questionInARow(message: string, previousTutorMessage: string | null): boolean {
+export function questionInARow(message: string, prevMessage: string | null): boolean {
   if (!endsWithQuestion(message) || isLightInvite(message)) return false;
-  return previousTutorMessage === null || (endsWithQuestion(previousTutorMessage) && !isLightInvite(previousTutorMessage));
+  return prevMessage === null || (endsWithQuestion(prevMessage) && !isLightInvite(prevMessage));
 }
 
-export function rewriteReason(message: string, maxWords: number, nudged = false, previousTutorMessage: string | null = null): { kind: string; instruction: (m: string) => string } | null {
+/** Why a (non-closing) tutor reply needs a rewrite, if it does */
+export function rewriteReason(message: string, maxWords: number, nudged = false, prevMessage: string | null = null): { kind: string; instruction: (m: string) => string } | null {
   if (!message.trim()) return null;
   const closed = endsWithClosedQuestion(message);
-  const asksAgain = !closed && !nudged && questionInARow(message, previousTutorMessage);
+  const asksAgain = !closed && !nudged && questionInARow(message, prevMessage);
   const long = words(message) > Math.round(maxWords * 1.5);
   if (!closed && !asksAgain && !long) return null;
   const fixes = [
@@ -232,7 +237,7 @@ export function rewriteReason(message: string, maxWords: number, nudged = false,
     long ? `it is ${words(message)} words. Say the same thing in under ${maxWords} words` : "",
   ].filter(Boolean).join("; and ");
   return {
-    kind: [closed && "ended in a closed question", asksAgain && "asked a second question in a row", long && "ran long"].filter(Boolean).join(" and "),
+    kind: [closed && "ended in a closed question", asksAgain && "ended in a question where a directive was expected", long && "ran long"].filter(Boolean).join(" and "),
     instruction: m => `[Your reply was: "${m}". Write it again: ${fixes}. Same progressDelta.]`,
   };
 }
