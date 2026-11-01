@@ -14,7 +14,7 @@ import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
 
-/** Sigma's first message in the interest chat (the user's own copy) */
+/** Sigma's first message in the interest chat (the owner's own copy; quoted in interest-interview.md too, keep in sync) */
 function interviewOpener(name: string): string {
   return `Hi ${name}, I'm Sigma. SigmaRead is an app that helps you become a stronger reader by giving you articles matched to your interests. To get started, tell me three things you're interested in — they can be hobbies, topics, sports, whatever you like.`;
 }
