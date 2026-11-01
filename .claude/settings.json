@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Vercel__create_deployment",
+      "mcp__Vercel__create_project_env",
+      "mcp__Vercel__edit_project_env",
+      "Bash(vercel deploy:*)",
+      "Bash(vercel redeploy:*)",
+      "Bash(vercel env:*)"
+    ]
+  }
+}
