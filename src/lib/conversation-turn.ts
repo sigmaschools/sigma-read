@@ -121,6 +121,7 @@ export async function runTutorTurn(args: {
   // as the earned closing, so the student isn't left with a goodbye and an open reply box.
   if (!closing && progressScore >= 100 && exchangeNumber >= 3 && !endsWithQuestion(message) && soundsLikeGoodbye(message)) {
     closing = "earned";
+    console.warn("Tutor said goodbye before the closing instruction; treating it as the earned closing");
   }
 
   // Complete only on a closing turn. When the threshold is first crossed mid-conversation, the
