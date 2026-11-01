@@ -17,8 +17,8 @@ export function grokipediaPageUrl(title: string): string {
  * Reads Haiku's reply: {"pages": [3, 1], "general": "Video game"}.
  * - pages: the numbered results that are about the topic, best first
  * - general: the title of the general page on the topic, when no listed page is that page
- * Returns null when the reply can't be read, or names pages that weren't listed, so the
- * caller keeps the search order. An empty list (with no general page) means none fit.
+ * Returns null when the reply can't be read, or names only pages that weren't listed and no
+ * general page, so the caller keeps the search order. An empty list (with no general page) means none fit.
  */
 export function parseSourcePick(text: string, candidates: SearchResult[]): SearchResult[] | null {
   const match = text.match(/\{[\s\S]*\}/);
@@ -32,11 +32,12 @@ export function parseSourcePick(text: string, candidates: SearchResult[]): Searc
   if (!Array.isArray(reply.pages)) return null;
   const numbers = reply.pages as unknown[];
   const valid = numbers.filter((n): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= candidates.length);
-  if (numbers.length > 0 && valid.length === 0) return null;
+  const rawGeneral = typeof reply.general === "string" ? reply.general.trim() : "";
+  const general = rawGeneral.length <= 80 ? rawGeneral : "";
+  if (numbers.length > 0 && valid.length === 0 && !general) return null;
 
   const picked = valid.map(n => candidates[n - 1]);
-  const general = typeof reply.general === "string" ? reply.general.trim() : "";
-  if (general && general.length <= 80) {
+  if (general) {
     const url = grokipediaPageUrl(general);
     if (!picked.some(r => r.url.toLowerCase() === url.toLowerCase())) picked.unshift({ title: general, url });
   }
