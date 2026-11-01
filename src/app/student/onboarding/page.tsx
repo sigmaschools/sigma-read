@@ -41,6 +41,7 @@ function OnboardingPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
+  const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,21 +51,39 @@ function OnboardingPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  /** Posts the conversation; returns the tutor's reply, or null after setting an error. */
+  async function ask(convo: Message[]): Promise<{ message: string; profileComplete?: boolean } | null> {
+    try {
+      const res = await fetch("/api/onboarding/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: convo, phase: "interest" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !(data?.message || data?.profileComplete)) {
+        setError(data?.error || "Something went wrong. Please try again.");
+        return null;
+      }
+      setError("");
+      return data;
+    } catch {
+      setError("Couldn't reach SigmaRead. Check your connection and try again.");
+      return null;
+    }
+  }
+
+  async function startInterview() {
+    setLoading(true);
+    const data = await ask([{ role: "user", content: "Hi" }]);
+    if (data) setMessages([{ role: "assistant", content: data.message }]);
+    setLoading(false);
+  }
+
   useEffect(() => {
     if (!walkthroughDone || started) return;
     setStarted(true);
-    setLoading(true);
-
-    fetch("/api/onboarding/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }], phase: "interest" }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setMessages([{ role: "assistant", content: data.message }]);
-        setLoading(false);
-      });
+    startInterview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walkthroughDone, started]);
 
   function advanceWalkthrough() {
@@ -79,7 +98,7 @@ function OnboardingPage() {
   }
 
   async function handleSend() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || messages.length === 0) return;
     const userMessage = input.trim();
     setInput("");
 
@@ -87,25 +106,23 @@ function OnboardingPage() {
     setMessages(newMessages);
     setLoading(true);
 
-    try {
-      const res = await fetch("/api/onboarding/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, phase: "interest" }),
-      });
-      const data = await res.json();
-
-      setMessages([...newMessages, { role: "assistant", content: data.message }]);
-
-      if (data.profileComplete) {
-        setTimeout(() => router.push("/student"), 6000);
-        return;
-      }
-
+    const data = await ask(newMessages);
+    if (!data) {
+      // Put the message back so the student can resend it
+      setMessages(messages);
+      setInput(userMessage);
       setLoading(false);
-    } catch {
-      setLoading(false);
+      return;
     }
+
+    setMessages(data.message ? [...newMessages, { role: "assistant", content: data.message }] : newMessages);
+
+    if (data.profileComplete) {
+      setTimeout(() => router.push("/student"), 6000);
+      return;
+    }
+
+    setLoading(false);
   }
 
   // Walkthrough screens
@@ -193,6 +210,19 @@ function OnboardingPage() {
             </div>
           </div>
         )}
+        {error && !loading && (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm text-[var(--danger)]">{error}</p>
+            {messages.length === 0 && (
+              <button
+                onClick={startInterview}
+                className="text-sm font-medium text-[var(--accent)] hover:underline"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -205,12 +235,12 @@ function OnboardingPage() {
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type your response…"
             className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
-            disabled={loading}
+            disabled={loading || messages.length === 0}
             autoFocus
           />
           <button
             onClick={handleSend}
-            disabled={loading || !input.trim()}
+            disabled={loading || messages.length === 0 || !input.trim()}
             className="px-5 py-2.5 bg-[var(--accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
           >
             Send
