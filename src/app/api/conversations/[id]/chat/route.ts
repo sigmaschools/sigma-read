@@ -10,6 +10,7 @@ import { MODELS } from "@/lib/models";
 import { getStudentConversation } from "@/lib/ownership";
 import { runTutorTurn } from "@/lib/conversation-turn";
 import { saveComprehensionReport } from "@/lib/comprehension-report";
+import { stripMarkdown } from "@/lib/plain-text";
 
 const anthropic = new Anthropic();
 
@@ -170,7 +171,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }],
       }).catch(e => { console.error("Coaching feedback failed:", e); return null; }),
     ]);
-    const coachingFeedback = feedbackResponse?.content[0]?.type === "text" ? feedbackResponse.content[0].text.trim() : null;
+    // The card shows plain text: strip any *emphasis* or _emphasis_ the model adds anyway
+    const coachingFeedback = feedbackResponse?.content[0]?.type === "text"
+      ? stripMarkdown(feedbackResponse.content[0].text)
+      : null;
 
     // Persist coaching feedback as a message so it appears on resume
     if (coachingFeedback) {

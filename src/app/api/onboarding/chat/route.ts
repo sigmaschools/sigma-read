@@ -13,6 +13,7 @@ import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
+import { interviewOpener, interviewWrapUp } from "@/lib/onboarding-copy";
 
 /** The interest chat ends after this many student answers, profile or not */
 const MAX_STUDENT_ANSWERS = 3;
@@ -42,6 +43,11 @@ export async function POST(req: NextRequest) {
   const lastAnswer = atCap
     ? `\n\nThis was the student's last answer. Output the closing sentence and the [PROFILE] now, with whatever interests you have.`
     : "";
+  // The first message is fixed copy, so every student gets the same clear introduction
+  if (phase === "interest" && answers === 0 && !messages.some((m: { role: string }) => m.role === "assistant")) {
+    return NextResponse.json({ message: interviewOpener(studentName) });
+  }
+
   const systemPrompt = (phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT)
     + `\n\nThe student's name is ${studentName}.` + lastAnswer;
   const convo = messages.map((m: { role: string; content: string }) => ({
@@ -108,5 +114,7 @@ export async function POST(req: NextRequest) {
   await markStarterPending(session.userId);
   after(() => prepareStarterArticles(session.userId, anthropic));
 
-  return NextResponse.json({ message: visibleText, profileComplete: true, profile });
+  // Fixed wrap-up: it names what Sigma heard and says what happens next, in a length a kid reads
+  const message = phase === "interest" ? interviewWrapUp(profile.interests) : visibleText;
+  return NextResponse.json({ message, profileComplete: true, profile });
 }

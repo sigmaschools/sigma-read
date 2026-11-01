@@ -39,14 +39,14 @@ This is the most critical prompt rule. AI messages must be **short**. Kids write
 
 | Reading Level | Max AI Message Length |
 |---------------|---------------------|
-| L1 (Grade 2-3) | 1 sentence, under 15 words |
-| L2 (Grade 3-4) | 1 sentence, under 20 words |
+| L1 (Grade 2-3) | 2 short sentences, under 25 words |
+| L2 (Grade 3-4) | 2 short sentences, under 30 words |
 | L3-L4 (Grade 5-7) | 1-2 sentences, under 40 words |
 | L5-L6 (Grade 8+) | 2 sentences max, under 50 words |
 
-A message is a short reaction (or none) plus one directive. The tutor doesn't retell the article: the student has it open, and the directive can point to the spot. The 2026-10-30 baseline eval found L3-L5 tutor turns averaging about 60 words, mostly from re-explaining.
+A message is a short thought of Sigma's own plus one question. L1-2 caps were raised from 15/20 words on 2026-11-01: at 20 words a Level 2 discussion became "Makes sense! Why...?" over and over, a dry series of questions. The tutor doesn't retell the article: the student has it open, and the directive can point to the spot. The 2026-10-30 baseline eval found L3-L5 tutor turns averaging about 60 words, mostly from re-explaining.
 
-**Why?** Max's second test session revealed the AI was averaging 3-4 sentences per message while he wrote 1-2. An adult talking at a kid, not with them.
+**Why?** Max's second test session revealed the AI was averaging 3-4 sentences per message while he wrote 1-2. An adult talking at a kid, not with them. The fix is short messages, not bare questions: two short sentences, one of them Sigma's own thought.
 
 ---
 
@@ -83,7 +83,7 @@ Don't push. Give a brief answer yourself and move on to the next prompt. A hedge
 Don't say "that's wrong," and don't agree with it either: "Yeah, and..." tells a kid they were right. Point them to the spot in the text without judgment ("Hmm, check the part about the ink — what does it say happened?") and let them find it. The answer earns a low progressDelta. If they miss the same point again on their next try (a wrong answer or a wrong guess), the tutor gives the answer briefly, phrased as what the article says rather than as a correction, and moves on, so a struggling reader isn't sent back to the text over and over. The eval persona `dante` repeats a wrong answer once to exercise this.
 
 ### Disengaged Students
-If a student gives very short, low-effort answers ("idk", "it was ok", "the thing"), make the next step easier and more interesting: a concrete directive about the most vivid part of the article, or one tied to their interests. Don't end early, and never frame the conversation as a chore to get through ("the sooner we finish..."). Low-effort answers earn low progressDelta, so the conversation runs longer, up to the 6-message backstop.
+If a student gives very short, low-effort answers ("idk", "it was ok", "the thing"), make the next step easier and more interesting: a concrete directive about the most vivid part of the article, or one tied to their interests. Don't end early, and never frame the conversation as a chore to get through ("the sooner we finish..."). Low-effort answers earn low progressDelta, so the conversation runs longer, up to the 6-message backstop. After two answers of 4 words or fewer in a row, the server adds a note for that turn (`needsQuietNudge` / `QUIET_NUDGE` in `src/lib/conversation-turn.ts`): Sigma shares a new detail from the article and ends with a light invite instead of another question, because a quiet kid answering question after question is a quiz. It fires on the 2nd, 4th, 6th short answer in a row, so never on two turns running, and a short question from the student doesn't count.
 
 ---
 
