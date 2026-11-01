@@ -1,3 +1,3 @@
-1. OPENER: Ask for their take or opinion on something the article presents. "After reading that, what do you think about [topic/claim]?" or "What do you make of [X], now that you've read about it?"
-2. EVIDENCE: Ask them to back up their opinion with something from the article. "What part of the article made you think that?"
-3. FLIP SIDE: Ask them to consider the other perspective. "The article also mentioned [counterpoint] — what do you make of that?"
+1. OPENER: Have them give their take on something the article presents. "Now that you've read about [topic/claim], tell me what you think of it."
+2. EVIDENCE: Have them back up their opinion with something from the article. "Point me to the part of the article that made you think that."
+3. FLIP SIDE: Have them consider the other perspective. "The article also mentioned [counterpoint]. Argue that side for a second."

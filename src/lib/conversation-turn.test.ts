@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, needsQuietNudge, endsWithClosedQuestion, rewriteReason, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, needsQuietNudge, endsWithClosedQuestion, rewriteReason, questionInARow, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -51,7 +51,37 @@ async function main() {
 
     assert.equal(endsWithClosedQuestion("How do you think scientists or engineers figured that out?"), false);
     assert.equal(endsWithClosedQuestion("If you had to pick, a house or a boat?"), true);
-    assert.equal(rewriteReason("Why do you think that is?", 30), null);
+    assert.equal(rewriteReason("Why do you think that is?", 30, false, "Tell me what stood out."), null);
+    // Menus inside directives (live test)
+    assert.equal(endsWithClosedQuestion("Imagine you had to wire up a fire alarm. Tell me what part you'd build first — the detector, the horn, or the lights — and why."), true);
+    assert.equal(endsWithClosedQuestion("Tell me what kind of detector you'd pick for your room — one that catches fast fires with flames, or one that catches slow smoky fires — and why."), true);
+    assert.equal(endsWithClosedQuestion("Tell me why you think they all flash at the same time instead of randomly."), false);
+    assert.equal(endsWithClosedQuestion("Imagine you were watching that rocket go up and tell me how you'd feel."), false);
+    assert.equal(endsWithClosedQuestion("Tell me why scientists or engineers would care about that."), false);
+    assert.equal(endsWithClosedQuestion("Tell me, in a sentence or two, why it matters."), false);
+    assert.equal(endsWithClosedQuestion("Seals, whales, or penguins — each one handles the cold differently."), false);
+    assert.equal(endsWithClosedQuestion("Tell me why scientists, engineers, or kids would care about that."), false);
+    assert.equal(endsWithClosedQuestion("Pick one to build first, the detector, the horn, or the lights, and tell me why."), true);
+    assert.equal(endsWithClosedQuestion("Imagine you were a scientist, then tell me whether you'd stay or go."), false);
+    assert.ok(questionInARow("Wow. Did the scientists expect that?", "What stood out?"));
+    assert.equal(questionInARow("They taste with their arms. Can you believe it?", "What stood out?"), false);
+    // Mostly directives: a question is fine now and then, never two in a row (or as the opener)
+    assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, "Cool. What stood out to you?")!.kind.includes("directive was expected"));
+    // Bare follow-up questions are questions, not invites
+    assert.ok(questionInARow("Hmm. Why?", "What stood out to you?"));
+    assert.ok(questionInARow("Ok. Is that right?", "What stood out to you?"));
+    assert.ok(questionInARow("Ok. Which part?", "What stood out to you?"));
+    assert.ok(questionInARow("Ok. Thoughts?", "What stood out to you?"));
+    assert.equal(questionInARow("Fish hooks from shells. Pretty wild?", "What stood out?"), false);
+    assert.equal(questionInARow("They taste with their arms. Pretty wild, right?", "What stood out to you?"), false);
+    assert.equal(questionInARow("They taste with their arms. Would you have guessed that?", "What stood out?"), false);
+    assert.equal(questionInARow("Why do you think so?", "Tell me what stood out."), false);
+    assert.ok(questionInARow("Why do you think so?", "Was that the scariest part? Why?"));
+    assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, null)!.instruction("x").includes("directive"));
+    assert.equal(rewriteReason("Neat. Why do you think that is?", 30, false, "Fish hooks from shells. Wild, right?"), null);
+    assert.equal(rewriteReason("Fish hooks from shells. Wild, right?", 30, false, "What stood out to you?"), null);
+    assert.equal(rewriteReason("Pick the part that stood out and tell me why.", 30, false, "What stood out to you?"), null);
+    assert.equal(rewriteReason("Neat. Why do you think that is?", 30, true, "What stood out to you?"), null);
     assert.ok(rewriteReason("Neat. Did you know they can do that with no tools at all?", 30, true)!.instruction("x").includes("light invite"));
     assert.ok(rewriteReason(Array(50).fill("word").join(" ") + "?", 30)?.kind.includes("ran long"));
 
@@ -67,7 +97,7 @@ async function main() {
     } } } as unknown as Anthropic;
     const r = await run(client, convo(1), 0);
     assert.equal(calls.length, 2);
-    assert.ok(calls[1][calls[1].length - 1].content.includes("either/or"));
+    assert.ok(calls[1][calls[1].length - 1].content.includes("options to pick from"));
     assert.equal(r.message, "Neat. Why do you think skill makes winning feel better?");
     assert.equal(r.progressDelta, 20);
 
