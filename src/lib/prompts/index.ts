@@ -169,14 +169,14 @@ export function comprehensionConversationPrompt(
     interestProfile,
     previousArticlesSection,
     questionTypeInstructions,
-    messageLengthRule: level <= 2 ? `One or two short sentences, under ${maxWords} words in total.` : level <= 4 ? `1-2 sentences, under ${maxWords} words.` : `2 sentences max, under ${maxWords} words.`,
+    messageLengthRule: level <= 2 ? `Two short sentences, under ${maxWords} words in total.` : level <= 4 ? `1-2 sentences, under ${maxWords} words.` : `2 sentences max, under ${maxWords} words.`,
     messageLengthThreshold: `${maxWords} words`,
   });
 }
 
 /** Word cap for a tutor message at this reading level (the closing message included) */
 export function maxWordsForLevel(level: number): number {
-  return level <= 1 ? 15 : level <= 2 ? 20 : level <= 4 ? 40 : 50;
+  return level <= 1 ? 25 : level <= 2 ? 30 : level <= 4 ? 40 : 50;
 }
 
 export function comprehensionReportPrompt(articleText: string, transcript: string, level: number) {
