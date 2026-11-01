@@ -10,6 +10,7 @@ import { MODELS } from "@/lib/models";
 import { getStudentConversation } from "@/lib/ownership";
 import { runTutorTurn } from "@/lib/conversation-turn";
 import { saveComprehensionReport } from "@/lib/comprehension-report";
+import { stripMarkdown } from "@/lib/plain-text";
 
 const anthropic = new Anthropic();
 
@@ -172,7 +173,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     ]);
     // The card shows plain text: strip any *emphasis* or _emphasis_ the model adds anyway
     const coachingFeedback = feedbackResponse?.content[0]?.type === "text"
-      ? feedbackResponse.content[0].text.replace(/\*{1,2}([^*\n]+?)\*{1,2}/g, "$1").replace(/(^|\s)_([^_\n]+?)_(?=\s|[.,!?]|$)/g, "$1$2").trim()
+      ? stripMarkdown(feedbackResponse.content[0].text)
       : null;
 
     // Persist coaching feedback as a message so it appears on resume
