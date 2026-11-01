@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
 
   const assistantText = response.content[0]?.type === "text" ? response.content[0].text : "";
   if (!assistantText.trim()) {
+    console.error("onboarding chat: Claude returned no text", response.stop_reason);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
   }
 
