@@ -206,7 +206,7 @@ function isLightInvite(text: string): boolean {
   if (!before || endsWithQuestion(before)) return false;
   // "Pretty wild, right?", "Huh?", "Would you have guessed that?" — not "Why?" or "Is that right?"
   if (/^["'“]?(why|how|what|who|where|when|is|are|do|does)\b/i.test(q) && !/guessed that\?/i.test(q)) return false;
-  return /(,\s*(right|huh)|guessed that|believe that|imagine that|expect that)\?[\s"'”’)\]\p{Extended_Pictographic}]*$/iu.test(q) || /^[^\s]+(\s[^\s]+)?\?$/.test(q.trim()) && !/^(why|how|what)/i.test(q);
+  return /(,\s*(right|huh)|guessed that|believe that|imagine that|expect that)\?[\s"'”’)\]\p{Extended_Pictographic}]*$/iu.test(q) || /^(pretty |so |kinda )?(really|right|huh|wild|crazy|weird|nuts|cool|amazing)\?/i.test(q.trim());
 }
 
 /**
