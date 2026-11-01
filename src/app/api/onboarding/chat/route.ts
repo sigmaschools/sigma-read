@@ -27,17 +27,28 @@ export async function POST(req: NextRequest) {
   const systemPrompt = (phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT)
     + `\n\nThe student's name is ${studentName}.`;
 
-  const response = await tracked(anthropic, "onboarding", session.userId).messages.create({
-    model: MODELS.standard,
-    max_tokens: 2048,
-    system: systemPrompt,
-    messages: messages.map((m: { role: string; content: string }) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    })),
-  });
+  let response;
+  try {
+    response = await tracked(anthropic, "onboarding", session.userId).messages.create({
+      model: MODELS.standard,
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: messages.map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    });
+  } catch (e) {
+    // Without this the route 500s with an empty body and the student sees a blank chat
+    console.error("onboarding chat: Claude call failed", e);
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
+  }
 
-  const assistantText = response.content[0].type === "text" ? response.content[0].text : "";
+  const assistantText = response.content[0]?.type === "text" ? response.content[0].text : "";
+  if (!assistantText.trim()) {
+    console.error("onboarding chat: Claude returned no text", response.stop_reason);
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
+  }
 
   // Check if interest profile is complete
   const profileMatch = assistantText.match(/\[PROFILE\]\s*(\{[\s\S]*?\})/);
