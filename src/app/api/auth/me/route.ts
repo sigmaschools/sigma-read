@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { starterPending } from "@/lib/starter-plan";
 
 export async function GET() {
   const session = await getSession();
@@ -35,5 +36,7 @@ export async function GET() {
     onboardingComplete: student.onboardingComplete,
     readingLevel: student.readingLevel,
     interestProfile: student.interestProfile,
+    // True while the first articles are still being found or written (not once the job has gone stale)
+    starterArticlesPending: starterPending(student.starterArticlesStatus, student.starterArticlesStartedAt),
   });
 }

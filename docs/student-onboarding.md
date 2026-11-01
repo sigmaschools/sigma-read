@@ -1,78 +1,68 @@
 # Student Onboarding
 
-*Last updated: February 8, 2026*
+*Last updated: November 1, 2026*
 
 ---
 
 ## Overview
 
-When a new student first logs in, they go through a brief onboarding flow that explains how SigmaRead works and captures their interests. The entire process takes **under 2 minutes**.
+When a new student first logs in, they chat with Sigma about what they like, see three short tutorial cards, and land on three articles about their interests. Target: under 2 minutes, at most 3 typed answers.
 
 ---
 
-## Step 1: Product Walkthrough (3 screens)
+## Step 1: Interest chat (AI conversation)
 
-A simple 3-screen walkthrough that sets expectations:
-
-| Screen | Content |
-|--------|---------|
-| 📚 **Welcome** | "You'll read short articles picked just for you" |
-| 💬 **Discuss** | "After reading, you'll have a quick discussion about what you read" |
-| ✅ **That's it!** | "Read, discuss, done. Let's get started" |
-
-- Progress dots show which screen you're on
-- "Next" button advances through screens
-- Final screen says "Let's go" instead of "Next"
-- Ultra-concise, kid-friendly copy. No jargon. No walls of text.
-
-**Replay:** The walkthrough can be replayed anytime via the user dropdown menu → "Welcome" (adds `?demo=true` to the URL, which replays without resetting the student's data).
-
----
-
-## Step 2: Interest Interview (AI Conversation)
-
-After the walkthrough, the AI (named "Sigma") has a brief conversation to learn the student's interests.
+The chat opens immediately (no screens before it). Prompt: `src/lib/prompts/md/interest-interview.md`.
 
 **Flow:**
-1. AI introduces itself and asks for 3 interests
-2. Student responds
-3. AI acknowledges briefly and wraps up — **2 exchanges total, that's it**
+1. Sigma says hi and asks what they're into (one or two short sentences).
+2. After each answer Sigma either outputs the profile (three specific interests) or asks ONE short follow-up: which games, anything else, or a few ideas if they don't know.
+3. At most three student answers. After the third, the server tells Sigma to output the profile with whatever it has (`MAX_STUDENT_ANSWERS` in `src/app/api/onboarding/chat/route.ts`).
+
+Before the first answer, the page shows tap-to-add topic ideas (Animals, Space, Sports, ...) that fill the text box.
 
 **Example:**
-> **Sigma:** Hi Emma, I'm Sigma. SigmaRead gives you articles matched to your interests. Tell me three things you're interested in — hobbies, topics, sports, whatever you like.
+> **Sigma:** Hi Emma, I'm Sigma. I'll find articles for you to read. What are you into? Anything counts.
 >
-> **Emma:** I like dogs, drawing, and space
+> **Emma:** games and dogs
 >
-> **Sigma:** Cool. I'll start putting together some articles for you.
+> **Sigma:** Which games?
+>
+> **Emma:** minecraft
+>
+> **Sigma:** Got it. Here's how SigmaRead works while I get your articles ready.
 
-**Rules:**
-- One question per message. Never stack multiple questions.
-- 1-2 sentences per AI message. Respect the student's time.
-- No forced enthusiasm ("Awesome!", "That's so cool!")
-- Accept whatever the student says without judgment
-- Inappropriate interests are silently filtered (see [Content Safety](./content-safety.md))
-- Speech-to-text is expected — informal language is fine
+**Rules:** one question per message, short sentences, no forced enthusiasm, accept whatever the student says. Inappropriate interests are silently filtered (see [Content Safety](./content-safety.md)).
 
-**Output:** The AI generates a structured interest profile:
-```json
-{
-  "primary_interests": ["dogs", "drawing", "space"],
-  "secondary_interests": ["animals", "art", "astronomy"],
-  "notes": "Visual/creative learner based on drawing interest"
-}
-```
+**Output:** `{"interests": ["Minecraft", "dogs", ...]}` (specific words first). Saving it sets the reading level from the grade, records the interests in the interest graph, marks onboarding complete, and starts the starter articles.
 
 ---
 
-## Step 3: Initial Article Delivery
+## Step 2: Tutorial (3 cards)
 
-Immediately after onboarding completes:
-- Student's reading level is set to **Level 2** (default — calibrates from first conversation)
-- **12 articles** are pre-filled from the cache into the student's buffer
-- Student lands on their home screen with 3 articles ready to go
-- **Zero delay** — articles are available instantly
+| Card | Text |
+|------|------|
+| 📚 Articles picked for you | "Every day you'll get articles about things you like." |
+| 💬 Then chat about it | "After you read, you'll chat with Sigma about it. It's not a test. The article stays open." |
+| ✨ That's it | "Three articles a day. That's it." |
 
-The grade level (set by the guide when creating the account) will be used for future calibration, but the initial default is always L2 to avoid starting too hard.
+The last card's button reads "Getting your articles ready…" (with "1 of 3 ready") until the starter articles are done, then "Show me my articles". It stops waiting after 150 seconds either way. If the student reloads while articles are still coming, the home page sends them back to the cards (`/student/onboarding?cards=1`).
+
+There is no tutorial article or practice discussion any more; the first real article's discussion is the practice. Older students may still have a "Welcome" tutorial article, which keeps working.
+
+**Replay:** user menu → "Welcome" (`?demo=true`) shows the three cards and returns home.
+
+---
+
+## Step 3: First three articles
+
+`src/lib/starter-articles.ts`, run in the background (`after()`) when the profile is saved. `students.starter_articles_status` is `pending` until it finishes, then `done`.
+
+For each of the student's first three interests:
+1. If the shared cache has an unseen, unflagged article tagged with that topic at the student's level, serve it (instant).
+2. Otherwise write one with the morning batch's steps (`writeInterestArticle` in `src/lib/batch/morning-batch.ts`): find a source, rewrite at level 4, tag, adapt to the student's level. Both versions go into the cache for other students.
+
+Interests written in parallel; expect about a minute or two. Anything that fails is skipped. On the first visit the home page tops the feed up from the cache only if fewer than 3 articles are unread (5 afterwards).
 
 ---
 
@@ -91,7 +81,7 @@ The guide does NOT set interests or reading level. Those come from the student's
 
 ## Un-Onboarded Students
 
-Students who haven't completed onboarding see the walkthrough + interest interview when they log in. They cannot access the main app until onboarding is complete.
+Students who haven't completed onboarding see the interest chat when they log in. They cannot access the main app until onboarding is complete.
 
 Some test students are intentionally left un-onboarded for testing the onboarding flow.
 
