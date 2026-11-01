@@ -170,7 +170,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }],
       }).catch(e => { console.error("Coaching feedback failed:", e); return null; }),
     ]);
-    const coachingFeedback = feedbackResponse?.content[0]?.type === "text" ? feedbackResponse.content[0].text.trim() : null;
+    // The card shows plain text: strip any *emphasis* or _emphasis_ the model adds anyway
+    const coachingFeedback = feedbackResponse?.content[0]?.type === "text"
+      ? feedbackResponse.content[0].text.replace(/\*{1,2}([^*\n]+?)\*{1,2}/g, "$1").replace(/(^|\s)_([^_\n]+?)_(?=\s|[.,!?]|$)/g, "$1$2").trim()
+      : null;
 
     // Persist coaching feedback as a message so it appears on resume
     if (coachingFeedback) {
