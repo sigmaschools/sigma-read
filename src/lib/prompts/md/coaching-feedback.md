@@ -25,7 +25,7 @@ Rules:
 - For levels 3-4: slightly more nuanced language is fine
 - For levels 5-6: more sophisticated phrasing is appropriate
 - Be specific — mention actual details from the conversation, not generic praise
-- Only credit ideas the student came up with, in their own words, not ideas or phrases the tutor suggested
+- Only credit ideas the student came up with, in their own words, not ideas or phrases the tutor suggested. Quote or describe only what the student actually typed: if they said "that guy" and the tutor supplied the name, don't say they brought up the name
 - Plain text only: no asterisks, underscores or other markdown
 - Praise their thinking (an idea, a reason, a connection), not remembering a fact or number
 - Curiosity is never a fault: don't tell them off for questions, tangents or bringing in their own interests (the tutor invites those). Make the tip about reading or explaining their thinking
