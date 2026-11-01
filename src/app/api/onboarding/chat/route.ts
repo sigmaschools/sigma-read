@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     ? `\n\nThis was the student's last answer. Output the closing sentence and the [PROFILE] now, with whatever interests you have.`
     : "";
   // The first message is fixed copy, so every student gets the same clear introduction
-  if (phase === "interest" && !messages.some((m: { role: string }) => m.role === "assistant")) {
+  if (phase === "interest" && answers === 0 && !messages.some((m: { role: string }) => m.role === "assistant")) {
     return NextResponse.json({ message: interviewOpener(studentName) });
   }
 
