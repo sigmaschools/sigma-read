@@ -609,20 +609,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     console.log(`  📖 Grokipedia: "${plan.query}" (${plan.type})`);
 
     const results = await onTopicResults(plan.query, await grokipediaSearch(plan.query));
-    if (results.length === 0) {
-      // Fallback to web search
-      console.log(`     ⚠️ No on-topic Grokipedia results, trying web search...`);
-      const webResults = await webSearch(`${plan.query} article`);
-      for (const r of webResults.slice(0, 3)) {
-        const text = await fetchSourceText(r.url);
-        if (text) {
-          sourced.push({ query: plan.query, type: plan.type, sourceUrl: r.url, sourceText: text });
-          console.log(`     ✅ Web search fallback: ${r.url.substring(0, 60)}...`);
-          break;
-        }
-      }
-      continue;
-    }
+    if (results.length === 0) console.log(`     ⚠️ No on-topic Grokipedia results`);
 
     // Pick a result not recently used for angle variety
     let fetched = false;
@@ -651,8 +638,23 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
           sourced.push({ query: plan.query, type: plan.type, sourceUrl: fallback.url, sourceText: text });
           usedUrls.add(fallback.url);
           console.log(`     ✅ ${fallback.title} (${fallback.url.substring(0, 55)}...)`);
+          fetched = true;
         } else {
           console.log(`     ⚠️ Could not fetch any Grokipedia article`);
+        }
+      }
+    }
+
+    // Nothing from Grokipedia (no on-topic page, or a named page that doesn't exist): web search
+    if (!fetched) {
+      console.log(`     ⚠️ Trying web search...`);
+      const webResults = await webSearch(`${plan.query} article`);
+      for (const r of webResults.slice(0, 3)) {
+        const text = await fetchSourceText(r.url);
+        if (text) {
+          sourced.push({ query: plan.query, type: plan.type, sourceUrl: r.url, sourceText: text });
+          console.log(`     ✅ Web search fallback: ${r.url.substring(0, 60)}...`);
+          break;
         }
       }
     }

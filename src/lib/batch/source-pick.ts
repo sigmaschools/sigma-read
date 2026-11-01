@@ -21,11 +21,13 @@ export function grokipediaPageUrl(title: string): string {
  * general page, so the caller keeps the search order. An empty list (with no general page) means none fit.
  */
 export function parseSourcePick(text: string, candidates: SearchResult[]): SearchResult[] | null {
-  const match = text.match(/\{[\s\S]*\}/);
+  // The old reply shape, a bare array like [3, 1], still counts as the page list
+  const match = text.match(/\{[\s\S]*\}/) ?? text.match(/\[[\d,\s]*\]/);
   if (!match) return null;
   let reply: { pages?: unknown; general?: unknown };
   try {
-    reply = JSON.parse(match[0]);
+    const parsed = JSON.parse(match[0]);
+    reply = Array.isArray(parsed) ? { pages: parsed } : parsed;
   } catch {
     return null;
   }
@@ -33,7 +35,8 @@ export function parseSourcePick(text: string, candidates: SearchResult[]): Searc
   const numbers = reply.pages as unknown[];
   const valid = numbers.filter((n): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= candidates.length);
   const rawGeneral = typeof reply.general === "string" ? reply.general.trim() : "";
-  const general = rawGeneral.length <= 80 ? rawGeneral : "";
+  // A real title: short, with at least one letter or digit (not "." or "..")
+  const general = rawGeneral.length <= 80 && /[\p{L}\p{N}]/u.test(rawGeneral) ? rawGeneral : "";
   if (numbers.length > 0 && valid.length === 0 && !general) return null;
 
   const picked = valid.map(n => candidates[n - 1]);

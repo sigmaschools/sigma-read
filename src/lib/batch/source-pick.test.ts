@@ -44,6 +44,15 @@ assert.deepEqual(parseSourcePick('{"pages": [], "general": "Animal"}', []), [
 assert.deepEqual(parseSourcePick(`{"pages": [3], "general": "${"x".repeat(81)}"}`, results), [results[2]]);
 assert.deepEqual(parseSourcePick('{"pages": [3], "general": 7}', results), [results[2]]);
 
+// The old bare-array reply still works
+assert.deepEqual(parseSourcePick("[3, 1]", results), [results[2], results[0]]);
+
+// Titles that are only dots are ignored
+assert.deepEqual(parseSourcePick('{"pages": [3], "general": ".."}', results), [results[2]]);
+
+// Valid numbers are kept from a mix; repeats and non-integers are dropped
+assert.deepEqual(parseSourcePick('{"pages": [3, 15, 1.5, 3, 1]}', results), [results[2], results[0]]);
+
 // Titles are encoded so they stay one path segment on grokipedia.com
 assert.equal(grokipediaPageUrl("AC/DC?"), "https://grokipedia.com/page/AC%2FDC%3F");
 
