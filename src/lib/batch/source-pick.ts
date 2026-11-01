@@ -25,7 +25,7 @@ function words(text: string): string[] {
 function forms(w: string): string[] {
   const out = [w];
   if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss")) out.push(w.slice(0, -1));
-  if (w.length > 4 && w.endsWith("es")) out.push(w.slice(0, -2));
+  if (w.length > 4 && /(s|x|z|ch|sh|o)es$/.test(w)) out.push(w.slice(0, -2));
   if (w.length > 4 && w.endsWith("ies")) out.push(w.slice(0, -3) + "y");
   if (w.length > 4 && w.endsWith("ves")) out.push(w.slice(0, -3) + "f", w.slice(0, -3) + "fe");
   if (w.length > 5 && w.endsWith("ing")) out.push(w.slice(0, -3), w.slice(0, -3) + "e");

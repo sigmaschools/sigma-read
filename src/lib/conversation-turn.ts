@@ -136,7 +136,13 @@ export function endsWithQuestion(text: string): boolean {
   return /\?[\s"'”’)\]\p{Extended_Pictographic}]*$/u.test(text);
 }
 
-/** A sign-off rather than a prompt: "Thanks for talking games with me, this was fun!" */
+/**
+ * A sign-off rather than a prompt: the last sentence says goodbye and asks nothing of the student.
+ * "Thanks for talking games with me, this was fun!" is one; "Thanks for that, tell me more." is not.
+ */
 export function soundsLikeGoodbye(text: string): boolean {
-  return /\b(thanks|thank you|bye|goodbye|see you|was fun|fun talking|nice talking|great talking|talking with me|chatting)\b/i.test(text);
+  const last = text.trim().split(/(?<=[.!?])\s+/).at(-1) ?? "";
+  const signOff = /\b(thanks|thank you|bye|goodbye|see you|was fun|fun talking|nice talking|great talking|talking with me|chatting with me)\b/i;
+  const directive = /\b(tell|say|explain|describe|think|imagine|pick|show|walk|share|try|look|guess|what|why|how|which|would|could)\b/i;
+  return signOff.test(last) && !directive.test(last);
 }
