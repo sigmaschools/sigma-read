@@ -55,6 +55,16 @@ export const CONVERSATION_STYLES = [
   "PERSPECTIVE_SHIFT", "DETAIL_TO_BIG_PICTURE", "CREATIVE"
 ] as const;
 
+/** The arc each style gives a conversation (moves, not a script; the conversation keeps going after the last one) */
+const styleSteps: Record<string, string> = {
+  OVERVIEW_THEN_DEPTH: styleOverviewThenDepth,
+  SURPRISE: styleSurprise,
+  OPINION: styleOpinion,
+  PERSPECTIVE_SHIFT: stylePerspectiveShift,
+  DETAIL_TO_BIG_PICTURE: styleDetailToBigPicture,
+  CREATIVE: styleCreative,
+};
+
 export function pickConversationStyle(): string {
   return CONVERSATION_STYLES[Math.floor(Math.random() * CONVERSATION_STYLES.length)];
 }
@@ -155,7 +165,10 @@ export function comprehensionConversationPrompt(
     : questionTypeHigh.trimEnd();
 
   const maxWords = maxWordsForLevel(level);
+  const styleName = fixedStyle && styleSteps[fixedStyle] ? fixedStyle : "OVERVIEW_THEN_DEPTH";
   return interpolate(conversationBaseMd.trimEnd(), {
+    styleName,
+    styleSteps: styleSteps[styleName].trimEnd(),
     levelContext: levelContextMap[level] || levelContextMap[3],
     likedSection,
     articleText,
@@ -163,7 +176,7 @@ export function comprehensionConversationPrompt(
     interestProfile,
     previousArticlesSection,
     questionTypeInstructions,
-    messageLengthRule: level <= 2 ? `One sentence, under ${maxWords} words.` : level <= 4 ? `1-2 sentences, under ${maxWords} words.` : `2 sentences max, under ${maxWords} words.`,
+    messageLengthRule: level <= 2 ? `One or two short sentences, under ${maxWords} words in total.` : level <= 4 ? `1-2 sentences, under ${maxWords} words.` : `2 sentences max, under ${maxWords} words.`,
     messageLengthThreshold: `${maxWords} words`,
   });
 }
