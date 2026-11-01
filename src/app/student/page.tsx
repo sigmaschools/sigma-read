@@ -158,9 +158,11 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Show up to 5 unread articles, with tutorial articles sorted to top
+  // Show up to 5 unread articles, oldest first, with tutorial articles sorted to top. Oldest first,
+  // so a top-up never pushes out an article the student hasn't read yet (it hid their starter
+  // articles, picked from their interests at onboarding)
   const unread = articles.filter((a) => !a.read);
-  const visibleSlice = unread.slice(-5);
+  const visibleSlice = unread.slice(0, 5);
   const visible = [...visibleSlice].sort((a, b) => {
     if (a.category === "tutorial" && b.category !== "tutorial") return -1;
     if (a.category !== "tutorial" && b.category === "tutorial") return 1;

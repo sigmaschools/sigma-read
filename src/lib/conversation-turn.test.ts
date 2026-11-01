@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, needsQuietNudge, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, needsQuietNudge, endsWithClosedQuestion, rewriteReason, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -34,6 +34,54 @@ async function main() {
     assert.equal(r.complete, false);
     assert.equal(r.closing, null);
     console.log("✅ opener uses the opener instruction");
+  }
+
+  // ─── Closed questions and long turns get one rewrite ──────────────────────
+  {
+    // From live tests
+    assert.equal(endsWithClosedQuestion("Playing Starcraft takes real skill, right? The article says some games are about skill, others luck. What do you think matters more for fun — skill or luck?"), true);
+    assert.equal(endsWithClosedQuestion("For me it'd be managing resources. What about the ancient games in the article, do you think Senet or Ur took real skill?"), true);
+    assert.equal(endsWithClosedQuestion("Pretty cool. Does it surprise you that people 4,500 years ago liked the same kind of games we do now?"), true);
+    // Open questions and light invites pass
+    assert.equal(endsWithClosedQuestion("A canoe in the open ocean — that's intense. What do you think made them brave enough to go out there?"), false);
+    assert.equal(endsWithClosedQuestion("The game makes a new world every time. Pretty wild, right?"), false);
+    assert.equal(endsWithClosedQuestion("Over 32 million people play every day. Would you have guessed that?"), false);
+    assert.equal(endsWithClosedQuestion("That sounds terrifying, honestly."), false);
+    assert.equal(endsWithClosedQuestion("Would you want to live there or not? Why?"), false);
+
+    assert.equal(endsWithClosedQuestion("How do you think scientists or engineers figured that out?"), false);
+    assert.equal(endsWithClosedQuestion("If you had to pick, a house or a boat?"), true);
+    assert.equal(rewriteReason("Why do you think that is?", 30), null);
+    assert.ok(rewriteReason("Neat. Did you know they can do that with no tools at all?", 30, true)!.instruction("x").includes("light invite"));
+    assert.ok(rewriteReason(Array(50).fill("word").join(" ") + "?", 30)?.kind.includes("ran long"));
+
+    // The rewrite replaces the message; the score stays from the first reply
+    const replies = [
+      { message: "Neat. Which matters more, skill or luck?", progressDelta: 20 },
+      { message: "Neat. Why do you think skill makes winning feel better?", progressDelta: 5 },
+    ];
+    const calls: { role: string; content: string }[][] = [];
+    const client = { messages: { create: async (req: { messages: { role: string; content: string }[] }) => {
+      calls.push(req.messages);
+      return { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(replies[calls.length - 1]) }] };
+    } } } as unknown as Anthropic;
+    const r = await run(client, convo(1), 0);
+    assert.equal(calls.length, 2);
+    assert.ok(calls[1][calls[1].length - 1].content.includes("either/or"));
+    assert.equal(r.message, "Neat. Why do you think skill makes winning feel better?");
+    assert.equal(r.progressDelta, 20);
+
+    // A failed rewrite keeps the first reply; a closing turn is never rewritten
+    let n = 0;
+    const flaky = { messages: { create: async () => {
+      if (n++ === 1) throw new Error("overloaded");
+      return { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(replies[0]) }] };
+    } } } as unknown as Anthropic;
+    assert.equal((await run(flaky, convo(1), 0)).message, replies[0].message);
+    const { client: closer, calls: closeCalls } = fakeClient({ message: "Thanks, that was fun. Skill or luck, you pick next time.", progressDelta: 0 });
+    await run(closer, convo(6), 60);
+    assert.equal(closeCalls.length, 1);
+    console.log("✅ closed questions get one rewrite");
   }
 
   // ─── Quiet kid: two very short answers in a row get a share turn ──────────
