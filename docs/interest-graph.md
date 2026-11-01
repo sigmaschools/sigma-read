@@ -41,7 +41,9 @@ generated from it (`npx tsx scripts/gen-topic-seed.ts`), and a test fails if the
 site wraps recording in `quietly()`, so a graph failure never breaks the student's page.
 
 Free text resolves by exact match on slug, label or alias (case, plurals, punctuation and filler
-like "facts about" are ignored, and short phrases match on their last words). What's left can go
+like "facts about" are ignored, and short phrases match on their last words unless the words in
+front name a different topic that isn't an ancestor: "great white sharks" and "pet dogs" match, but
+"computer science" doesn't land on science). What's left can go
 to Haiku in one call per request (onboarding, typed interests, batch tagging), constrained to the
 topic list or "none". Personal facts and unsafe text map to none. Matches are saved as aliases.
 

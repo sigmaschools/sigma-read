@@ -49,7 +49,12 @@ export function buildIndex(
 }
 
 /** Exact match on the whole phrase, then without filler like "facts about", then on its ending */
-export function matchTopic(index: TopicIndex, phrase: string): string | null {
+export function matchTopic(
+  index: TopicIndex,
+  phrase: string,
+  /** Topic slug → parent slug, so a front word naming an ancestor ("pet dogs") still matches */
+  parents: Map<string, string | null>,
+): string | null {
   const key = matchKey(phrase);
   if (!key) return null;
   const direct = index.get(key);
@@ -58,12 +63,35 @@ export function matchTopic(index: TopicIndex, phrase: string): string | null {
     .replace(/^(i (really )?(like|love)|learning about|facts about|fact about|all about|stuff about|anything about|more about|reading about|about) /, "")
     .replace(/ (fact|stuff|thing|video|book|show)$/, "");
   if (trimmed !== key && index.has(trimmed)) return index.get(trimmed)!;
-  // Short noun phrases usually end in their subject: "great white sharks", "volcano eruptions"
+  // Short noun phrases usually end in their subject: "great white sharks", "volcano eruptions".
+  // Not when the words in front name an unrelated topic: "computer science" isn't science and
+  // "animal body language" isn't languages, so those are left to the model (or to nothing).
+  // Front words naming the same topic ("great white sharks"), an ancestor ("pet dogs") or a
+  // descendant of it are fine.
   const words = trimmed.split(" ");
   if (words.length > 5) return null;
   for (let i = 1; i < words.length; i++) {
     const tail = index.get(words.slice(i).join(" "));
-    if (tail) return tail;
+    if (!tail) continue;
+    // The longest matching tail decides; a blocked one doesn't fall through to a shorter tail
+    return frontNamesUnrelated(index, parents, words.slice(0, i), tail) ? null : tail;
   }
   return null;
+}
+
+/** Whether any run of the front words names a topic outside the tail topic's own line */
+function frontNamesUnrelated(index: TopicIndex, parents: Map<string, string | null>, front: string[], tail: string): boolean {
+  for (let a = 0; a < front.length; a++) {
+    for (let b = a + 1; b <= front.length; b++) {
+      const other = index.get(front.slice(a, b).join(" "));
+      if (other && other !== tail && !isAncestor(parents, other, tail) && !isAncestor(parents, tail, other)) return true;
+    }
+  }
+  return false;
+}
+
+function isAncestor(parents: Map<string, string | null>, ancestor: string, slug: string): boolean {
+  // Depth cap, so bad parent data can't loop forever
+  for (let p = parents.get(slug), d = 0; p && d < 10; p = parents.get(p), d++) if (p === ancestor) return true;
+  return false;
 }

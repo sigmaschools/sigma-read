@@ -32,12 +32,34 @@ import { flattenTaxonomy } from "./taxonomy";
     ["Great white sharks", "sharks"],
     ["volcano eruptions", "volcanoes"],
     ["my dad", null],
+    // Compounds whose front words name another topic are left to the model
+    ["computer science", null],
+    ["animal body language", null],
+    ["rocket science", null],
+    ["ocean sharks", null],
+    ["dinosaur fossils", null],
+    ["pet dogs", "dogs"], // the front word is an ancestor
+    ["space rockets", "space-exploration"],
+    ["baby sharks", "sharks"],
+    ["pro football", "football"],
     ["", null],
   ];
-  for (const [phrase, slug] of cases) assert.equal(matchTopic(index, phrase), slug, phrase);
+  const parents = new Map(topics.map(t => [t.slug, t.parentSlug]));
+  for (const [phrase, slug] of cases) assert.equal(matchTopic(index, phrase, parents), slug, phrase);
 
   // Topic names win over aliases with the same key
   const small = buildIndex([{ slug: "cats", label: "Cats" }], [{ alias: "cat", topicSlug: "big-cats" }]);
-  assert.equal(matchTopic(small, "cat"), "cats");
+  assert.equal(matchTopic(small, "cat", new Map()), "cats");
+
+  // Front words naming a descendant or a grandparent are fine; an unrelated one blocks the match
+  const tree = buildIndex([
+    { slug: "animals", label: "Animals" }, { slug: "fish", label: "Fish" }, { slug: "sharks", label: "Sharks" },
+    { slug: "space", label: "Space" },
+  ], []);
+  const up = new Map<string, string | null>([["animals", null], ["fish", "animals"], ["sharks", "fish"], ["space", null]]);
+  assert.equal(matchTopic(tree, "sharks fish", up), "fish");
+  assert.equal(matchTopic(tree, "animal sharks", up), "sharks");
+  assert.equal(matchTopic(tree, "space sharks", up), null);
+  assert.equal(matchTopic(tree, "space sharks fish", up), null, "a blocked tail doesn't fall through");
   console.log("✅ matchTopic resolves names, aliases and filler phrases");
 }
