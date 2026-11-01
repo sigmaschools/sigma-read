@@ -52,6 +52,12 @@ async function main() {
     assert.equal(endsWithClosedQuestion("How do you think scientists or engineers figured that out?"), false);
     assert.equal(endsWithClosedQuestion("If you had to pick, a house or a boat?"), true);
     assert.equal(rewriteReason("Why do you think that is?", 30, false, "Tell me what stood out."), null);
+    // Menus inside directives (live test)
+    assert.equal(endsWithClosedQuestion("Imagine you had to wire up a fire alarm. Tell me what part you'd build first — the detector, the horn, or the lights — and why."), true);
+    assert.equal(endsWithClosedQuestion("Tell me what kind of detector you'd pick for your room — one that catches fast fires with flames, or one that catches slow smoky fires — and why."), true);
+    assert.equal(endsWithClosedQuestion("Tell me why you think they all flash at the same time instead of randomly."), false);
+    assert.equal(endsWithClosedQuestion("Imagine you were watching that rocket go up and tell me how you'd feel."), false);
+    assert.equal(endsWithClosedQuestion("Tell me why scientists or engineers would care about that."), false);
     // Mostly directives: a question is fine now and then, never two in a row (or as the opener)
     assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, "Cool. What stood out to you?")!.kind.includes("directive was expected"));
     // Bare follow-up questions are questions, not invites
@@ -84,7 +90,7 @@ async function main() {
     } } } as unknown as Anthropic;
     const r = await run(client, convo(1), 0);
     assert.equal(calls.length, 2);
-    assert.ok(calls[1][calls[1].length - 1].content.includes("either/or"));
+    assert.ok(calls[1][calls[1].length - 1].content.includes("options to pick from"));
     assert.equal(r.message, "Neat. Why do you think skill makes winning feel better?");
     assert.equal(r.progressDelta, 20);
 
