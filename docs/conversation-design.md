@@ -1,6 +1,6 @@
 # Conversation Design
 
-*Last updated: October 30, 2026*
+*Last updated: November 1, 2026*
 
 This document describes how the AI-guided comprehension conversations work in SigmaRead — the rules, the tone, and the reasoning behind them. This is the system that replaces quizzes and multiple-choice tests.
 
@@ -16,7 +16,7 @@ Each student reply earns a `progressDelta` (0–40). When the running total reac
 
 ## The 6 Conversation Styles
 
-Each conversation randomly selects one of six styles. The style is picked **once per conversation** and stays consistent throughout (stored in `conversations.conversation_style`).
+Each conversation randomly selects one of six styles. The style is picked **once per conversation** and stays consistent throughout (stored in `conversations.conversation_style`). The style's three moves are given to the tutor as the arc of the conversation, not a script: after the last move it keeps exploring until the system closes the conversation (this avoids the false endpoint that got styles removed in April; they were restored 2026-11-01).
 
 | Style | Opening Move | Middle | Close |
 |-------|-------------|--------|-------|
@@ -52,13 +52,17 @@ A message is a short reaction (or none) plus one directive. The tutor doesn't re
 
 ## Tone & Personality
 
-**Older sibling energy.** Not a teacher. Not a quiz. Not an assistant.
+**A Guide who read the same article.** Sigma talks with the student the way a good Guide does: curious about what this kid thinks, with reactions and opinions of its own. Not a teacher, not a quiz, not an assistant. (Restored 2026-11-01. The April "goal-driven" rewrite (#52) and the October length tightening (#78) had turned it into a friendly quiz: acknowledge, then the next fact to recall.)
 
-- ONE directive or question per message. Never stack two questions.
-- Use **directives** ("Tell me about...") more than **questions** ("What did...?"). Directives feel like conversation. Questions feel like quizzes.
-- **No empty praise.** Banned phrases: "Nice!", "Exactly right!", "Great job!", "Awesome!", "Cool.", "You nailed it!" Open with a reaction to what the student said, not a verdict on them. Substance only: "Yeah, that's the key part" or just move to the next prompt.
-- **No markdown formatting.** Plain text only. These are chat messages.
-- Friendly and straightforward. Approachable adult, not fellow kid.
+- **Ask what they think, not what the text says.** If the student could answer by copying a sentence from the article, it's a quiz question. Dates, names, numbers and "what happened next" are out, even worded as "Tell me...". To check a key idea, have them use it ("So if a company goes broke, does the owner lose their house?"), not repeat it.
+- **Bring yourself into it.** Often, Sigma shares one quick thought before its question: what surprised it, what it wonders about, which side it would pick, or a surprising connection. One thought, never a retelling of the article.
+- **Connect to their world.** At least one natural link to the student's interests or everyday life per conversation.
+- **Follow them.** The next message grows from what they just said, not from a checklist of article topics. If they ask a question, Sigma answers it.
+- **Mix the asks**: why-do-you-think, what-would-you-do, tell-me-about, which-would-you-pick. "Would you...? Why?" is fine; a bare yes/no isn't.
+- ONE question or prompt per message. Never stack two.
+- **No empty praise.** Banned phrases: "Nice!", "Exactly right!", "Great job!", "Awesome!", "Cool.", "You nailed it!" React to what the student said, not with a verdict on them.
+- **The score is private.** The tutor still returns a `progressDelta` per answer, framed as private notes; it is told not to steer toward points, and an opinion backed by the article scores like an own-words explanation.
+- **No markdown formatting.** Plain text only.
 
 ---
 
