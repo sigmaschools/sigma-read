@@ -49,6 +49,8 @@ function OnboardingPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Set once the profile is saved: the chat is over, so sending stays off
+  const [chatDone, setChatDone] = useState(false);
   const [progress, setProgress] = useState<StarterProgress | null>(null);
   const [waitedTooLong, setWaitedTooLong] = useState(false);
   const startedRef = useRef(false);
@@ -119,7 +121,7 @@ function OnboardingPage() {
   }, [phase, isDemo]);
 
   async function handleSend() {
-    if (!input.trim() || loading || messages.length === 0) return;
+    if (!input.trim() || loading || chatDone || messages.length === 0) return;
     const userMessage = input.trim();
     setInput("");
 
@@ -138,13 +140,17 @@ function OnboardingPage() {
     }
 
     setMessages(data.message ? [...newMessages, { role: "assistant", content: data.message }] : newMessages);
+    if (data.profileComplete) setChatDone(true);
     setLoading(false);
-
-    if (data.profileComplete) {
-      // Long enough to read Sigma's one-line goodbye
-      setTimeout(() => setPhase("cards"), 1800);
-    }
   }
+
+  // Long enough to read Sigma's one-line goodbye, then the cards
+  useEffect(() => {
+    if (!chatDone) return;
+    const timer = setTimeout(() => setPhase("cards"), 1800);
+    return () => clearTimeout(timer);
+  }, [chatDone]);
+
 
   function addTopic(topic: string) {
     setInput(prev => {
@@ -207,7 +213,7 @@ function OnboardingPage() {
   }
 
   // Interest chat
-  const showIdeas = messages.length === 1 && !loading;
+  const showIdeas = messages.length === 1 && !loading && !chatDone;
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto">
       <header className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
@@ -299,12 +305,12 @@ function OnboardingPage() {
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type what you like…"
             className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
-            disabled={loading || messages.length === 0}
+            disabled={loading || chatDone || messages.length === 0}
             autoFocus
           />
           <button
             onClick={handleSend}
-            disabled={loading || messages.length === 0 || !input.trim()}
+            disabled={loading || chatDone || messages.length === 0 || !input.trim()}
             className="px-5 py-2.5 bg-[var(--accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
           >
             Send

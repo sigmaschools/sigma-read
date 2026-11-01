@@ -18,8 +18,17 @@ export function starterInterests(profile: unknown, count = STARTER_COUNT): strin
   return out;
 }
 
+/** A job still "pending" after this long died (deploy, crash, time limit) or ran over: stop waiting for it. Matches the onboarding page's own wait. */
+export const STARTER_STALE_MS = 150_000;
+
+/** True while the first articles are still being found or written */
+export function starterPending(status: string | null, startedAt: Date | null, now = new Date()): boolean {
+  if (status !== "pending") return false;
+  return !!startedAt && now.getTime() - startedAt.getTime() < STARTER_STALE_MS;
+}
+
 /** What the onboarding screen shows: articles ready so far, and whether to stop waiting */
-export function starterProgress(status: string | null, ready: number, count = STARTER_COUNT): { ready: number; total: number; done: boolean } {
+export function starterProgress(pending: boolean, ready: number, count = STARTER_COUNT): { ready: number; total: number; done: boolean } {
   const shown = Math.min(ready, count);
-  return { ready: shown, total: count, done: status !== "pending" || shown >= count };
+  return { ready: shown, total: count, done: !pending || shown >= count };
 }
