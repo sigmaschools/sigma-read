@@ -46,7 +46,7 @@ List subjects the student showed a personal interest in, in their own words: som
 Leave out:
 - answers to the tutor's questions, and anything that only repeats what the article or the tutor said
 - the article's subject and anything the article covers, even if the student found it exciting (reading it is already counted)
-- dislikes ("I hate spiders", "math is boring")
+- dislikes ("I hate spiders", "math is boring"), and things they find hard, scary or annoying, or only mention having to do ("I always fall off that thing", "we have to run laps in gym"): doing something isn't the same as liking it
 - personal or family facts (health, religion, home life, feelings, money), and names of people they know
 - anything unsafe for children
 
