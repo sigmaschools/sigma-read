@@ -68,8 +68,18 @@ or an adult's removal marks a topic rejected (score 0) until the student names i
 onboarding or a typed interest, which starts the topic over) or an adult restores it (which keeps
 its history since the student's last fresh start, and doesn't make it a declared interest). So a
 removed topic comes back if the student asks for it again. Articles on rejected topics are never
-served; the morning batch can still generate from the raw profile strings until that is pruned.
+served, and the morning batch doesn't plan articles for them (see Generation).
 `confidence` grows with the amount of recent evidence, not its direction.
+
+## Generation
+
+The morning batch plans interest articles per student from `batchInterestsFor`
+(`src/lib/interest-graph/batch-interests.ts`): the profile list minus any phrase that resolves to
+a rejected or negative topic, plus up to 3 graph topics scoring 0.25 or more that the profile
+doesn't already name (an interest picked up in chat, a topic they keep choosing), strongest first,
+by label. Matching is exact, with no model call. If the graph can't be read, the batch plans from
+the profile as before (logged). The least-recently-featured rotation then picks up to 3 per student
+as before. Horizon (adjacent) interests are still computed from the profile.
 
 ## Serving
 
