@@ -128,7 +128,7 @@ export async function runTutorTurn(args: {
   const parsed = await ask(finalMessages);
   // The prompt bans quiz-show questions and long turns, but the model still slips (live tests):
   // ask once for a rewrite. The score stays from the first reply, since it grades the same answer.
-  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords, nudged);
+  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords, nudged, previousTutorMessage(args.messages));
   if (problem) {
     console.warn(`Tutor turn ${problem.kind}, asking for a rewrite`);
     const retry = await ask([...finalMessages, { role: "user", content: problem.instruction(parsed.message || "") }]).catch(e => {
@@ -193,22 +193,46 @@ export function endsWithClosedQuestion(text: string): boolean {
 }
 
 /** Why a (non-closing) tutor reply needs a rewrite, if it does */
-export function rewriteReason(message: string, maxWords: number, nudged = false): { kind: string; instruction: (m: string) => string } | null {
+/** Sigma's last message before this turn, or null on the opener */
+function previousTutorMessage(messages: TurnMessage[]): string | null {
+  return [...messages].reverse().find(m => m.role === "assistant")?.content ?? null;
+}
+
+/** A short tag after a share ("Wild, right?", "Would you have guessed that?"): an invite, not a question to answer */
+function isLightInvite(text: string): boolean {
+  if (!endsWithQuestion(text)) return false;
+  const q = lastSentence(text);
+  return words(q) <= 3 || /\b(right|huh|guessed that|believe that|imagine that|expect that)\?[\s"'”’)\]\p{Extended_Pictographic}]*$/iu.test(q);
+}
+
+/**
+ * True when this reply would make two questions in a row (or opens on one). Sigma mostly gives
+ * directives ("Pick a fact that stands out and tell me why"); a question now and then is fine,
+ * all questions is a quiz (the owner, 2026-11-01).
+ */
+export function questionInARow(message: string, previousTutorMessage: string | null): boolean {
+  if (!endsWithQuestion(message) || isLightInvite(message)) return false;
+  return previousTutorMessage === null || (endsWithQuestion(previousTutorMessage) && !isLightInvite(previousTutorMessage));
+}
+
+export function rewriteReason(message: string, maxWords: number, nudged = false, previousTutorMessage: string | null = null): { kind: string; instruction: (m: string) => string } | null {
   if (!message.trim()) return null;
   const closed = endsWithClosedQuestion(message);
+  const asksAgain = !closed && !nudged && questionInARow(message, previousTutorMessage);
   const long = words(message) > Math.round(maxWords * 1.5);
-  if (!closed && !long) return null;
+  if (!closed && !asksAgain && !long) return null;
   const fixes = [
+    asksAgain ? "it ends with a question, and too many questions make this feel like a quiz. Keep your thought, but end with a directive instead (\"Pick the part that... and tell me why\", \"Imagine you were... and tell me...\")" : "",
     closed
       ? nudged
         // The quiet-kid turn shares instead of asking, so the fix is a light invite, not a new question
         ? "it ends with a yes/no or either/or question. Keep the detail you shared, but end with a light invite (\"Wild, right?\"), not a question to answer"
-        : "it ends with a yes/no or either/or question, which a kid answers with one word. Keep your thought, but end with one open question (how, why, what would you, imagine...) and no options to pick from"
+        : "it ends with a yes/no or either/or question, which a kid answers with one word. Keep your thought, but end with a directive instead (\"Tell me why...\", \"Pick the part that... and explain...\"), with no options to pick from"
       : "",
     long ? `it is ${words(message)} words. Say the same thing in under ${maxWords} words` : "",
   ].filter(Boolean).join("; and ");
   return {
-    kind: [closed && "ended in a closed question", long && "ran long"].filter(Boolean).join(" and "),
+    kind: [closed && "ended in a closed question", asksAgain && "asked a second question in a row", long && "ran long"].filter(Boolean).join(" and "),
     instruction: m => `[Your reply was: "${m}". Write it again: ${fixes}. Same progressDelta.]`,
   };
 }
