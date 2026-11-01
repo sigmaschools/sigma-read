@@ -305,12 +305,13 @@ Output ONLY a JSON array of strings:
   }
 
   // Pick 1 horizon topic at random from everyone's candidates, avoiding recent ones, so no
-  // single student's list decides every day
-  const pool = [...graphHorizons, ...allAdjacentInterests];
-  const uniqueAdjacent = [...new Set(pool.map(a => a.toLowerCase()))];
-  const fresh = uniqueAdjacent.filter(a => !recentTopics.has(a));
+  // single student's list decides every day. Duplicates stay in the draw, so a topic several
+  // students are near is more likely.
+  const pool = [...graphHorizons, ...allAdjacentInterests].map(a => a.toLowerCase());
+  const uniqueAdjacent = [...new Set(pool)];
+  const fresh = pool.filter(a => !recentTopics.has(a));
   const horizonPicks = fresh.length > 0 ? [fresh[Math.floor(Math.random() * fresh.length)]] : [];
-  if (graphHorizons.length > 0) console.log(`  🧭 Graph horizon candidates: ${uniqueAdjacent.join(", ")}`);
+  if (graphHorizons.length > 0) console.log(`  🧭 ${uniqueAdjacent.length} horizon candidates (${graphHorizons.length} from the graph)`);
 
   // Fallback if we can't find unrepeated ones
   if (horizonPicks.length < 1) {

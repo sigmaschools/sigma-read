@@ -89,7 +89,8 @@ for each student, the topics next to their 5 strongest (score 0.15 or more) thro
 topic next to several interests ranks higher. Topics the student already has a view on (score
 0.1 or more either way, or rejected) and broad groups (topics with children) are left out. Each
 student's top 3 go into a shared pool with the model-suggested adjacent interests of students
-who have no graph data yet, and one topic not featured in the last 14 days is picked at random.
+who have no graph data yet, and one topic not featured in the last 14 days is picked at random (a topic several students
+are near is more likely).
 Serving's explore slots then show it to students for whom it is new.
 
 ## Serving
