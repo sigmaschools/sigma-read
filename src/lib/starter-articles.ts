@@ -69,7 +69,7 @@ async function cachedForTopic(studentId: number, level: number, slug: string, sk
 /** Topics next to the student's (closest first), with labels to search for; none they already named */
 async function relatedInterests(slugs: string[], named: string[]): Promise<{ label: string; slug: string }[]> {
   const taken = new Set([...slugs, ...named.map(n => n.toLowerCase())]);
-  const related = (await Promise.all(slugs.map(getRelated))).flat().sort((a, b) => b.weight - a.weight);
+  const related = (await Promise.all(slugs.map(s => getRelated(s)))).flat().sort((a, b) => b.weight - a.weight);
   const fresh = [...new Set(related.map(r => r.slug))].filter(s => !taken.has(s));
   const labels = await topicLabels(fresh);
   return fresh.filter(s => labels.has(s) && !taken.has(labels.get(s)!.toLowerCase())).map(s => ({ slug: s, label: labels.get(s)! }));
