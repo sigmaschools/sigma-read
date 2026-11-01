@@ -29,6 +29,7 @@ import { tracked } from "../ai-usage";
 import { backfillSignals, batchInterestsFor, getAffinities, horizonTopicsFor, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
+import { parseSourcePick, type SearchResult } from "./source-pick";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -380,13 +381,14 @@ async function fetchGrokipediaArticle(url: string): Promise<string | null> {
 }
 
 /**
- * Search results come back in the site's order, so "soccer" can lead with a TV channel and
- * "animals" with a novel. Haiku keeps only the pages that are a general article about the topic,
- * best first. If the check itself fails, the results are kept as they were.
+ * Search results come back in the site's order, so "soccer" can lead with a TV channel,
+ * "animals" with a novel and "games" with "Girls games". Haiku keeps only the pages about the
+ * topic itself, best first, and names the general page on the topic when the search missed it
+ * (tried first; a page that doesn't exist just fails to fetch). If the check fails or its reply
+ * can't be read, the results are kept as they were.
  */
-async function onTopicResults(query: string, results: { title: string; url: string }[]): Promise<{ title: string; url: string }[]> {
+async function onTopicResults(query: string, results: SearchResult[]): Promise<SearchResult[]> {
   const candidates = results.slice(0, 12);
-  if (candidates.length === 0) return [];
   try {
     const response = await tracked(anthropic, "batch_source_pick").messages.create({
       model: HAIKU_MODEL,
@@ -396,24 +398,25 @@ async function onTopicResults(query: string, results: { title: string; url: stri
         content: `A student aged 8-14 wants to read about: "${query}"
 
 Encyclopedia pages found:
-${candidates.map((r, i) => `${i + 1}. ${r.title}`).join("\n")}
+${candidates.map((r, i) => `${i + 1}. ${r.title}`).join("\n") || "(none)"}
 
-Which pages are about "${query}" itself, as the student most likely means it? Leave out pages about something that only shares the name (a book, film, album, song, TV channel, company, team or person), unless that is clearly what "${query}" names. Best first.
+Which pages are about "${query}" itself, as the student most likely means it? Leave out:
+- pages about something that only shares the name (a book, film, album, song, TV channel, company, team or person), unless that is clearly what "${query}" names
+- pages about a narrow corner of the topic (one event, one niche, or one group of people), when "${query}" is broad
+Best first.
 
-Reply with only a JSON array of page numbers, e.g. [3, 1]. Reply [] if none fit.`,
+If none of the listed pages is the main encyclopedia page on "${query}", also give that page's usual title, e.g. "Video game" for "games" or "Animal" for "animals".
+
+Reply with only JSON, e.g. {"pages": [3, 1]} or {"pages": [], "general": "Video game"}.`,
       }],
     });
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-    const match = text.match(/\[[\d,\s]*\]/);
-    if (!match) return results;
-    const picked = (JSON.parse(match[0]) as number[])
-      .filter(n => Number.isInteger(n) && n >= 1 && n <= candidates.length)
-      .map(n => candidates[n - 1]);
-    const unique = [...new Map(picked.map(r => [r.url, r])).values()];
-    if (unique.length < candidates.length) {
-      console.log(`     🎯 On topic for "${query}": ${unique.map(r => r.title).join(", ") || "none"}`);
+    const picked = parseSourcePick(text, candidates);
+    if (!picked) return results;
+    if (picked.length !== candidates.length || picked.some((r, i) => r.url !== candidates[i].url)) {
+      console.log(`     🎯 On topic for "${query}": ${picked.map(r => r.title).join(", ") || "none"}`);
     }
-    return unique;
+    return picked;
   } catch (e) {
     console.log(`     ⚠️ Topic check failed for "${query}", using search order: ${(e as Error).message}`);
     return results;
@@ -606,20 +609,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     console.log(`  📖 Grokipedia: "${plan.query}" (${plan.type})`);
 
     const results = await onTopicResults(plan.query, await grokipediaSearch(plan.query));
-    if (results.length === 0) {
-      // Fallback to web search
-      console.log(`     ⚠️ No on-topic Grokipedia results, trying web search...`);
-      const webResults = await webSearch(`${plan.query} article`);
-      for (const r of webResults.slice(0, 3)) {
-        const text = await fetchSourceText(r.url);
-        if (text) {
-          sourced.push({ query: plan.query, type: plan.type, sourceUrl: r.url, sourceText: text });
-          console.log(`     ✅ Web search fallback: ${r.url.substring(0, 60)}...`);
-          break;
-        }
-      }
-      continue;
-    }
+    if (results.length === 0) console.log(`     ⚠️ No on-topic Grokipedia results`);
 
     // Pick a result not recently used for angle variety
     let fetched = false;
@@ -648,8 +638,23 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
           sourced.push({ query: plan.query, type: plan.type, sourceUrl: fallback.url, sourceText: text });
           usedUrls.add(fallback.url);
           console.log(`     ✅ ${fallback.title} (${fallback.url.substring(0, 55)}...)`);
+          fetched = true;
         } else {
           console.log(`     ⚠️ Could not fetch any Grokipedia article`);
+        }
+      }
+    }
+
+    // Nothing from Grokipedia (no on-topic page, or a named page that doesn't exist): web search
+    if (!fetched) {
+      console.log(`     ⚠️ Trying web search...`);
+      const webResults = await webSearch(`${plan.query} article`);
+      for (const r of webResults.slice(0, 3)) {
+        const text = await fetchSourceText(r.url);
+        if (text) {
+          sourced.push({ query: plan.query, type: plan.type, sourceUrl: r.url, sourceText: text });
+          console.log(`     ✅ Web search fallback: ${r.url.substring(0, 60)}...`);
+          break;
         }
       }
     }
