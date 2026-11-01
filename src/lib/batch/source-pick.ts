@@ -19,16 +19,17 @@ function words(text: string): string[] {
 }
 
 /**
- * True when the named page shares a word with the student's interest. A general page is for a
+ * True when the named page shares a whole word (plural "s" aside) with the student's interest,
+ * or the interest is its acronym. A general page is for a
  * broad word ("games" -> "Game"); for a named thing it would swap the topic ("SpaceX" -> "Company").
  */
 export function generalFits(general: string, query: string): boolean {
+  const g = words(general);
   const q = words(query);
-  // Same first 4 letters (or the whole word, when shorter): "game"/"game", "dog"/"dog", "ai"/"ai"
-  return words(general).some(g => q.some(w => {
-    const n = Math.min(g.length, w.length, 4);
-    return g.slice(0, n) === w.slice(0, n) && (n >= 3 || g === w);
-  }));
+  if (g.some(w => q.includes(w))) return true;
+  // An acronym for the page's title: "AI" -> "Artificial intelligence"
+  const initials = g.map(w => w[0]).join("");
+  return q.some(w => w.length >= 2 && w === initials);
 }
 
 /**

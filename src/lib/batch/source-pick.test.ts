@@ -64,7 +64,10 @@ assert.equal(generalFits("Company", "SpaceX"), false);
 assert.equal(generalFits("Dog", "dogs"), true);
 assert.equal(generalFits("Cat", "cats"), true);
 assert.equal(generalFits("Car", "cars"), true);
-assert.equal(generalFits("Artificial intelligence", "AI"), false);
+assert.equal(generalFits("Artificial intelligence", "AI"), true);
+assert.equal(generalFits("Space", "SpaceX"), false);
+assert.equal(generalFits("Mine", "Minecraft"), false);
+assert.equal(generalFits("Car", "cartoons"), false);
 assert.equal(generalFits("AI", "ai"), true);
 assert.deepEqual(parseSourcePick('{"pages": [], "general": "Company"}', results, "SpaceX"), []);
 assert.deepEqual(parseSourcePick('{"pages": [], "general": "Game"}', results, "games"), [
