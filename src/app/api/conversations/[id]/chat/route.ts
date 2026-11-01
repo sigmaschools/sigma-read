@@ -87,8 +87,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .orderBy(desc(schema.articles.createdAt))
     .limit(5);
 
-  // Pick conversation style once per conversation, reuse on subsequent messages
-  const conversationStyle = conversation.conversationStyle || pickConversationStyle();
+  // Pick conversation style once per conversation, reuse on subsequent messages.
+  // A new one differs from the student's last conversation, so openers don't repeat back to back
+  let conversationStyle = conversation.conversationStyle;
+  if (!conversationStyle) {
+    const [last] = await db.select({ style: schema.conversations.conversationStyle })
+      .from(schema.conversations)
+      .innerJoin(schema.readingSessions, eq(schema.conversations.readingSessionId, schema.readingSessions.id))
+      .where(and(eq(schema.readingSessions.studentId, session.userId), ne(schema.conversations.id, conversationId)))
+      .orderBy(desc(schema.conversations.id))
+      .limit(1);
+    conversationStyle = pickConversationStyle(last?.style);
+  }
   const isTutorial = article.category === "tutorial";
 
   // Get AI response — use tutorial prompt for tutorial articles

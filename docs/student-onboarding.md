@@ -22,17 +22,19 @@ The chat opens immediately (no screens before it). Prompt: `src/lib/prompts/md/i
 Before the first answer, the page shows tap-to-add topic ideas (Animals, Space, Sports, ...) that fill the text box.
 
 **Example:**
-> **Sigma:** Hi Emma, I'm Sigma. I'll find articles for you to read. What are you into? Anything counts.
+> **Sigma:** Hi Emma, I'm Sigma. I'll pick articles just for you, and after you read one we'll talk about it, no tests. What are three things you're into, like Minecraft, soccer or dogs?
 >
-> **Emma:** games and dogs
+> **Emma:** games, dogs and drawing
 >
-> **Sigma:** Which games?
+> **Sigma:** Dogs and drawing, there's a lot to read there. Which games do you play the most?
 >
 > **Emma:** minecraft
 >
-> **Sigma:** Got it. Here's how SigmaRead works while I get your articles ready.
+> **Sigma:** Got it: Minecraft, dogs and drawing. I'm finding your first articles now, and the more you read, the better I'll get at picking. Here's a quick look at how SigmaRead works while you wait.
 
-**Rules:** one question per message, short sentences, no forced enthusiasm, accept whatever the student says. Inappropriate interests are silently filtered (see [Content Safety](./content-safety.md)).
+**Personality:** older sibling energy (see [Conversation Design](./conversation-design.md)). The first message sets expectations: what SigmaRead is, that the talk afterwards isn't a test, and that Sigma wants three interests. Sigma reacts to each answer with something specific instead of praise, and the wrap-up names the interests back.
+
+**Rules:** one question per message, short sentences, no empty praise, accept whatever the student says, never ask about the same thing twice. Inappropriate interests are silently filtered (see [Content Safety](./content-safety.md)).
 
 **Output:** `{"interests": ["Minecraft", "dogs", ...]}` (specific words first). Saving it sets the reading level from the grade, records the interests in the interest graph, marks onboarding complete, and starts the starter articles.
 

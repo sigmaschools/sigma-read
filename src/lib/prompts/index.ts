@@ -55,8 +55,10 @@ export const CONVERSATION_STYLES = [
   "PERSPECTIVE_SHIFT", "DETAIL_TO_BIG_PICTURE", "CREATIVE"
 ] as const;
 
-export function pickConversationStyle(): string {
-  return CONVERSATION_STYLES[Math.floor(Math.random() * CONVERSATION_STYLES.length)];
+/** A random style, never the one the student just had (when given) */
+export function pickConversationStyle(previous?: string | null): string {
+  const options = CONVERSATION_STYLES.filter(s => s !== previous);
+  return options[Math.floor(Math.random() * options.length)];
 }
 
 // --- Lookup tables ---
@@ -79,6 +81,7 @@ const levelContextMap: Record<number, string> = {
   6: levelContext6.trimEnd(),
 };
 
+/** The arc each style gives a conversation (moves, not a script; the conversation keeps going after the last one) */
 const styleStepsMap: Record<string, string> = {
   OVERVIEW_THEN_DEPTH: styleOverviewThenDepth.trimEnd(),
   SURPRISE: styleSurprise.trimEnd(),
@@ -149,13 +152,16 @@ export function comprehensionConversationPrompt(
     : "";
 
   const questionTypeInstructions = level <= 2
-    ? questionTypeLow.trimEnd()
+    ? interpolate(questionTypeLow.trimEnd(), { level })
     : level <= 4
     ? questionTypeMid.trimEnd()
     : questionTypeHigh.trimEnd();
 
   const maxWords = maxWordsForLevel(level);
+  const styleName = fixedStyle && Object.hasOwn(styleStepsMap, fixedStyle) ? fixedStyle : pickConversationStyle();
   return interpolate(conversationBaseMd.trimEnd(), {
+    styleName,
+    styleSteps: styleStepsMap[styleName],
     levelContext: levelContextMap[level] || levelContextMap[3],
     likedSection,
     articleText,
@@ -163,7 +169,7 @@ export function comprehensionConversationPrompt(
     interestProfile,
     previousArticlesSection,
     questionTypeInstructions,
-    messageLengthRule: level <= 2 ? `One sentence, under ${maxWords} words.` : level <= 4 ? `1-2 sentences, under ${maxWords} words.` : `2 sentences max, under ${maxWords} words.`,
+    messageLengthRule: level <= 2 ? `One or two short sentences, under ${maxWords} words in total.` : level <= 4 ? `1-2 sentences, under ${maxWords} words.` : `2 sentences max, under ${maxWords} words.`,
     messageLengthThreshold: `${maxWords} words`,
   });
 }
