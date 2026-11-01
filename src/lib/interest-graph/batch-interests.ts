@@ -20,7 +20,7 @@ export function mergeBatchInterests(
   /** Topic slug → label */
   labels: Map<string, string>,
 ): string[] {
-  const dropped = new Set(affinities.filter(a => a.status === "rejected" || a.score <= 0).map(a => a.topicSlug));
+  const dropped = new Set(affinities.filter(a => a.status === "rejected" || a.score < 0).map(a => a.topicSlug));
   const out: string[] = [];
   const covered = new Set<string>();
   const add = (phrase: string) => {
@@ -36,7 +36,8 @@ export function mergeBatchInterests(
   }
 
   let added = 0;
-  for (const a of affinities) { // strongest first
+  // Strongest first, whatever order the caller passed
+  for (const a of [...affinities].sort((x, y) => y.score - x.score)) {
     if (added === BATCH_MAX_ADDED || a.score < BATCH_MIN_SCORE) break;
     if (a.status === "rejected" || covered.has(a.topicSlug) || !labels.has(a.topicSlug)) continue;
     covered.add(a.topicSlug);
