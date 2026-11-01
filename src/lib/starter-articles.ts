@@ -12,8 +12,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
-import { resolveTopics } from "@/lib/interest-graph";
-import { starterInterests, starterPending, starterProgress } from "@/lib/starter-plan";
+import { getRelated, resolveTopics, topicLabels } from "@/lib/interest-graph";
+import { STARTER_COUNT, starterInterests, starterPending, starterProgress } from "@/lib/starter-plan";
 
 /** Mark the job done by now, inside the time the page waits; a write still running may land in the feed later, or be cut off; the home page tops up either way */
 const JOB_TIMEOUT_MS = 140_000;
@@ -66,6 +66,15 @@ async function cachedForTopic(studentId: number, level: number, slug: string, sk
   return rows.find(r => !skip.includes(r.id))?.id ?? null;
 }
 
+/** Topics next to the student's (closest first), with labels to search for; none they already named */
+async function relatedInterests(slugs: string[], named: string[]): Promise<{ label: string; slug: string }[]> {
+  const taken = new Set([...slugs, ...named.map(n => n.toLowerCase())]);
+  const related = (await Promise.all(slugs.map(s => getRelated(s)))).flat().sort((a, b) => b.weight - a.weight);
+  const fresh = [...new Set(related.map(r => r.slug))].filter(s => !taken.has(s));
+  const labels = await topicLabels(fresh);
+  return fresh.filter(s => labels.has(s) && !taken.has(labels.get(s)!.toLowerCase())).map(s => ({ slug: s, label: labels.get(s)! }));
+}
+
 export async function prepareStarterArticles(studentId: number, client: Anthropic): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<void>(resolve => {
@@ -88,6 +97,16 @@ async function findOrWrite(studentId: number, client: Anthropic): Promise<void> 
 
     const slugs = await resolveTopics(interests, { client, studentId })
       .catch(e => { console.error("Starter articles: topic lookup failed, writing every interest:", e); return new Map<string, string | null>(); });
+
+    // Fewer interests than articles: fill with topics next to theirs, so it's still three
+    if (interests.length < STARTER_COUNT) {
+      const extra = await relatedInterests([...slugs.values()].filter((s): s is string => !!s), interests)
+        .catch(e => { console.error("Starter articles: related topics unavailable:", e); return [] as { label: string; slug: string }[]; });
+      for (const t of extra.slice(0, STARTER_COUNT - interests.length)) {
+        interests.push(t.label);
+        slugs.set(t.label, t.slug);
+      }
+    }
 
     // Cache first: instant, and nothing to write
     const served: number[] = [];
