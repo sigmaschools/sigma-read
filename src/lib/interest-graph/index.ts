@@ -337,7 +337,6 @@ export async function batchInterestsFor(studentId: number, profile: string[]): P
   return mergeBatchInterests(profile, profileSlugs, affinities, labels);
 }
 
-/** A like or dislike. Changing your mind adds a new signal; only the latest per article counts. */
 /**
  * Horizon topics for the morning batch: labels of up to `limit` topics next to the student's
  * strongest interests that they haven't shown a view on yet, best first. Empty when the student
@@ -358,6 +357,7 @@ export async function horizonTopicsFor(studentId: number, limit = 6): Promise<st
     .map(t => labels.get(t.slug)!.toLowerCase());
 }
 
+/** A like or dislike. Changing your mind adds a new signal; only the latest per article counts. */
 export async function recordArticleRating(studentId: number, articleId: number, liked: boolean) {
   await recordArticleSignal(studentId, articleId, liked ? "liked" : "disliked", `article:${articleId}:rating`, `:${Date.now()}`);
 }
