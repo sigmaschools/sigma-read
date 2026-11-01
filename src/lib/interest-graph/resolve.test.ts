@@ -50,5 +50,16 @@ import { flattenTaxonomy } from "./taxonomy";
   // Topic names win over aliases with the same key
   const small = buildIndex([{ slug: "cats", label: "Cats" }], [{ alias: "cat", topicSlug: "big-cats" }]);
   assert.equal(matchTopic(small, "cat", new Map()), "cats");
+
+  // Front words naming a descendant or a grandparent are fine; an unrelated one blocks the match
+  const tree = buildIndex([
+    { slug: "animals", label: "Animals" }, { slug: "fish", label: "Fish" }, { slug: "sharks", label: "Sharks" },
+    { slug: "space", label: "Space" },
+  ], []);
+  const up = new Map<string, string | null>([["animals", null], ["fish", "animals"], ["sharks", "fish"], ["space", null]]);
+  assert.equal(matchTopic(tree, "sharks fish", up), "fish");
+  assert.equal(matchTopic(tree, "animal sharks", up), "sharks");
+  assert.equal(matchTopic(tree, "space sharks", up), null);
+  assert.equal(matchTopic(tree, "space sharks fish", up), null, "a blocked tail doesn't fall through");
   console.log("✅ matchTopic resolves names, aliases and filler phrases");
 }
