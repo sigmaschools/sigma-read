@@ -1,3 +1,3 @@
-1. OPENER: Spark a creative/curious response. "If you could ask the person in this article one question, what would it be?" or "What would you want to know more about after reading this?"
+1. OPENER: Spark a creative/curious response. "What would you want to know more about after reading this?", "If you could change one thing in this story, what would it be?" or "If you could ask the person in this article one question, what would it be?"
 2. EXPLORE: Dig into why they chose that. "What made you curious about that? The article touches on it."
 3. SYNTHESIS: Ask them to pull it together in their own take. "What do you think the writer most wanted you to come away with? Do you buy it?"

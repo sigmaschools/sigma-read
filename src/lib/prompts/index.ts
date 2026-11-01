@@ -55,8 +55,10 @@ export const CONVERSATION_STYLES = [
   "PERSPECTIVE_SHIFT", "DETAIL_TO_BIG_PICTURE", "CREATIVE"
 ] as const;
 
-export function pickConversationStyle(): string {
-  return CONVERSATION_STYLES[Math.floor(Math.random() * CONVERSATION_STYLES.length)];
+/** A random style, never the one the student just had (when given) */
+export function pickConversationStyle(previous?: string | null): string {
+  const options = CONVERSATION_STYLES.filter(s => s !== previous);
+  return options[Math.floor(Math.random() * options.length)];
 }
 
 // --- Lookup tables ---

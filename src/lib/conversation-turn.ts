@@ -26,7 +26,7 @@ export function closingTargetWords(maxWords: number): number {
 
 export function closingInstruction(kind: ClosingKind, maxWords?: number): string {
   const body = kind === "earned"
-    ? "The student has shown solid understanding. Wrap up in one warm sentence that picks out one specific idea they explained and reacts to the idea itself, like \"Turtles breathing through their backsides is such a strange trick.\" No verdict on them: no \"You nailed it\", \"Great job\", \"Awesome\" or similar praise."
+    ? "The student has shown solid understanding. Wrap up in one warm sentence that picks out one specific idea they explained and reacts to the idea itself, like \"Turtles breathing through their backsides is such a strange trick.\" No verdict on them: no \"You nailed it\", \"Great job\", \"Awesome\" or similar praise, and no stock sign-off like \"Cool chat!\" or \"Nice chatting\"."
     : "We're out of time for this conversation. Wrap up in one warm sentence that names one specific thing the student said or noticed. Don't claim they got the key parts, nailed it or mastered the article. If their last answer missed the point, work the right answer into the goodbye in a few plain words, as the article states it, without saying they were wrong and without opening with Yeah (that tells them they were right). If nothing they said was on track, skip naming something they said: give that answer and thank them for sticking with it, without praise. No stock sign-off such as \"Nice chatting\" or \"Thanks for chatting\": the specific thing is the goodbye.";
   // Short caps (L1-L2) get a target below the cap, since closings overshoot them by a few words.
   // Larger caps don't: there a target near the cap made closings longer, not shorter
