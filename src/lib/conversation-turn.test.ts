@@ -51,7 +51,14 @@ async function main() {
 
     assert.equal(endsWithClosedQuestion("How do you think scientists or engineers figured that out?"), false);
     assert.equal(endsWithClosedQuestion("If you had to pick, a house or a boat?"), true);
-    assert.equal(rewriteReason("Why do you think that is?", 30), null);
+    assert.equal(rewriteReason("Why do you think that is?", 30, false, "Tell me what stood out."), null);
+    // Mostly directives: a question is fine now and then, never two in a row (or as the opener)
+    assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, "Cool. What stood out to you?")!.kind.includes("in a row"));
+    assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, null)!.instruction("x").includes("directive"));
+    assert.equal(rewriteReason("Neat. Why do you think that is?", 30, false, "Fish hooks from shells. Wild, right?"), null);
+    assert.equal(rewriteReason("Fish hooks from shells. Wild, right?", 30, false, "What stood out to you?"), null);
+    assert.equal(rewriteReason("Pick the part that stood out and tell me why.", 30, false, "What stood out to you?"), null);
+    assert.equal(rewriteReason("Neat. Why do you think that is?", 30, true, "What stood out to you?"), null);
     assert.ok(rewriteReason("Neat. Did you know they can do that with no tools at all?", 30, true)!.instruction("x").includes("light invite"));
     assert.ok(rewriteReason(Array(50).fill("word").join(" ") + "?", 30)?.kind.includes("ran long"));
 
