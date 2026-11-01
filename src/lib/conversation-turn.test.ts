@@ -58,6 +58,10 @@ async function main() {
     assert.equal(endsWithClosedQuestion("Tell me why you think they all flash at the same time instead of randomly."), false);
     assert.equal(endsWithClosedQuestion("Imagine you were watching that rocket go up and tell me how you'd feel."), false);
     assert.equal(endsWithClosedQuestion("Tell me why scientists or engineers would care about that."), false);
+    assert.equal(endsWithClosedQuestion("Tell me, in a sentence or two, why it matters."), false);
+    assert.equal(endsWithClosedQuestion("Imagine you were a scientist, then tell me whether you'd stay or go."), false);
+    assert.ok(questionInARow("Wow. Did the scientists expect that?", "What stood out?"));
+    assert.equal(questionInARow("They taste with their arms. Can you believe it?", "What stood out?"), false);
     // Mostly directives: a question is fine now and then, never two in a row (or as the opener)
     assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, "Cool. What stood out to you?")!.kind.includes("directive was expected"));
     // Bare follow-up questions are questions, not invites
