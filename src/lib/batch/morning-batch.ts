@@ -405,13 +405,13 @@ Which pages are about "${query}" itself, as the student most likely means it? Le
 - pages about a narrow corner of the topic (one event, one niche, or one group of people), when "${query}" is broad
 Best first.
 
-If none of the listed pages is the main encyclopedia page on "${query}", also give that page's usual title, e.g. "Video game" for "games" or "Animal" for "animals".
+If "${query}" is a broad word (not the name of one thing, like a game, company, team or person) and none of the listed pages is the main encyclopedia page on it, also give that page's usual title, e.g. "Video game" for "games" or "Animal" for "animals".
 
 Reply with only JSON, e.g. {"pages": [3, 1]} or {"pages": [], "general": "Video game"}.`,
       }],
     });
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-    const picked = parseSourcePick(text, candidates);
+    const picked = parseSourcePick(text, candidates, query);
     if (!picked) return results;
     if (picked.length !== candidates.length || picked.some((r, i) => r.url !== candidates[i].url)) {
       console.log(`     🎯 On topic for "${query}": ${picked.map(r => r.title).join(", ") || "none"}`);

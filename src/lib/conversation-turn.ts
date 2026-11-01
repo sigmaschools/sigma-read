@@ -26,7 +26,7 @@ export function closingTargetWords(maxWords: number): number {
 
 export function closingInstruction(kind: ClosingKind, maxWords?: number): string {
   const body = kind === "earned"
-    ? "The student has shown solid understanding. Wrap up in one warm sentence that picks out one specific idea they explained and reacts to the idea itself, like \"Turtles breathing through their backsides is such a strange trick.\" No verdict on them: no \"You nailed it\", \"Great job\", \"Awesome\" or similar praise."
+    ? "The student has shown solid understanding. Wrap up in one warm sentence that picks out one specific idea they explained and reacts to the idea itself, like \"Turtles breathing through their backsides is such a strange trick.\" No verdict on them: no \"You nailed it\", \"Great job\", \"Awesome\" or similar praise, and no stock sign-off like \"Cool chat!\" or \"Nice chatting\"."
     : "We're out of time for this conversation. Wrap up in one warm sentence that names one specific thing the student said or noticed. Don't claim they got the key parts, nailed it or mastered the article. If their last answer missed the point, work the right answer into the goodbye in a few plain words, as the article states it, without saying they were wrong and without opening with Yeah (that tells them they were right). If nothing they said was on track, skip naming something they said: give that answer and thank them for sticking with it, without praise. No stock sign-off such as \"Nice chatting\" or \"Thanks for chatting\": the specific thing is the goodbye.";
   // Short caps (L1-L2) get a target below the cap, since closings overshoot them by a few words.
   // Larger caps don't: there a target near the cap made closings longer, not shorter
@@ -76,7 +76,7 @@ export async function runTutorTurn(args: {
   // The threshold was reached on an earlier turn; the tutor's reply then still expected an answer,
   // so the closing comes one exchange later, here.
   const alreadyComplete = args.priorProgress >= 100 && exchangeNumber >= 3;
-  const closing: ClosingKind | null = alreadyComplete ? "earned" : forceComplete ? "forced" : null;
+  let closing: ClosingKind | null = alreadyComplete ? "earned" : forceComplete ? "forced" : null;
 
   const finalMessages: { role: "user" | "assistant"; content: string }[] = args.messages.length > 0
     ? args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
@@ -117,6 +117,13 @@ export async function runTutorTurn(args: {
     message = FALLBACK_CLOSING;
   }
 
+  // Past the threshold the tutor sometimes says goodbye on its own instead of asking. Treat that
+  // as the earned closing, so the student isn't left with a goodbye and an open reply box.
+  if (!closing && progressScore >= 100 && exchangeNumber >= 3 && !endsWithQuestion(message) && soundsLikeGoodbye(message)) {
+    closing = "earned";
+    console.warn("Tutor said goodbye before the closing instruction; treating it as the earned closing");
+  }
+
   // Complete only on a closing turn. When the threshold is first crossed mid-conversation, the
   // tutor's reply still ends with a directive, so the student answers once more and the next
   // turn closes cleanly.
@@ -128,4 +135,15 @@ export async function runTutorTurn(args: {
 /** True if the text ends in a question, ignoring trailing quotes, brackets and emoji */
 export function endsWithQuestion(text: string): boolean {
   return /\?[\s"'”’)\]\p{Extended_Pictographic}]*$/u.test(text);
+}
+
+/**
+ * A sign-off rather than a prompt: the last sentence says goodbye and asks nothing of the student.
+ * "Thanks for talking games with me, this was fun!" is one; "Thanks for that, tell me more." is not.
+ */
+export function soundsLikeGoodbye(text: string): boolean {
+  const last = text.trim().split(/(?<=[.!?])\s+/).at(-1) ?? "";
+  const signOff = /\b(thanks|thank you|bye|goodbye|see you|was fun|fun talking|nice talking|great talking|talking with me|chatting with me)\b/i;
+  const directive = /\b(tell|say|explain|describe|think|imagine|pick|show|walk|share|try|look|guess|what|why|how|which|would|could)\b/i;
+  return signOff.test(last) && !directive.test(last);
 }

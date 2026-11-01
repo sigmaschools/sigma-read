@@ -46,6 +46,23 @@ async function main() {
     console.log("✅ crossing the threshold defers completion");
   }
 
+  // ─── A goodbye past the threshold closes now, but not below it ─────────────
+  {
+    const bye = { message: "That's the heart of it, 4500 years and counting. Thanks for talking games with me, this was fun!", progressDelta: 30 };
+    const r = await run(fakeClient(bye).client, convo(5), 97);
+    assert.equal(r.complete, true, "no goodbye with an open reply box");
+    assert.equal(r.closing, "earned");
+    const early = await run(fakeClient(bye).client, convo(3), 20);
+    assert.equal(early.complete, false, "below the threshold the turn stays open");
+    const prompt = await run(fakeClient({ message: "Thanks for that. Why do you think so?", progressDelta: 30 }).client, convo(5), 97);
+    assert.equal(prompt.complete, false, "a turn ending in a question is not a goodbye");
+    for (const m of ["Thanks for that, tell me more.", "Minecraft was fun to build in, so tell me how the builders did it.", "Thanks for talking it through. Say more about the engines."]) {
+      const r2 = await run(fakeClient({ message: m, progressDelta: 30 }).client, convo(5), 97);
+      assert.equal(r2.complete, false, `a directive is not a goodbye: ${m}`);
+    }
+    console.log("✅ unprompted goodbye past the threshold closes the conversation");
+  }
+
   // ─── Next turn after the threshold closes as earned ────────────────────────
   {
     const { client, calls } = fakeClient({ message: "You figured out the dance is a map.", progressDelta: 0 });

@@ -1,6 +1,6 @@
 # Conversation Design
 
-*Last updated: October 30, 2026*
+*Last updated: November 1, 2026*
 
 This document describes how the AI-guided comprehension conversations work in SigmaRead — the rules, the tone, and the reasoning behind them. This is the system that replaces quizzes and multiple-choice tests.
 
@@ -10,13 +10,13 @@ This document describes how the AI-guided comprehension conversations work in Si
 
 After a student reads an article, they have a brief conversation with the AI about what they read. The article stays visible the entire time (side panel on desktop, bottom drawer on mobile). The AI assesses comprehension through conversation — no quizzes, no fill-in-the-blank.
 
-Each student reply earns a `progressDelta` (0–40). When the running total reaches 100 (and at least 3 exchanges have happened), the student answers the tutor's last directive and the next tutor message is an **earned** closing. Strong readers finish in 3-4 exchanges. There's a hard backstop at **6 student messages**, which produces a **forced** closing. Earned closings react to one specific idea the student explained, not a verdict on them (no "You nailed it", "Great job", "Awesome" or similar). Forced closings name something the student said without claiming mastery, and if the student's last answer missed the point they work the right answer into the goodbye (without saying the student was wrong or opening with "Yeah"), with no stock sign-off like "Nice chatting". Both closing instructions repeat the level's word cap (`maxWordsForLevel` in `src/lib/prompts/index.ts`), since closings otherwise run long at Level 1. For caps of 20 or less (Levels 1-2) they also ask for about 5 words fewer (`closingTargetWords`, never below 8 unless the cap itself is that small). Larger caps get no target, because in the eval a target near a 40-50 word cap made closings longer. The report records `forced_close` so guides can tell the two apart. The turn logic lives in `src/lib/conversation-turn.ts`.
+Each student reply earns a `progressDelta` (0–40). When the running total reaches 100 (and at least 3 exchanges have happened), the student answers the tutor's last directive and the next tutor message is an **earned** closing. Strong readers finish in 3-4 exchanges. There's a hard backstop at **6 student messages**, which produces a **forced** closing. Earned closings react to one specific idea the student explained, not a verdict on them (no "You nailed it", "Great job", "Awesome" or similar). Forced closings name something the student said without claiming mastery, and if the student's last answer missed the point they work the right answer into the goodbye (without saying the student was wrong or opening with "Yeah"), with no stock sign-off like "Nice chatting". Both closing instructions repeat the level's word cap (`maxWordsForLevel` in `src/lib/prompts/index.ts`), since closings otherwise run long at Level 1. For caps of 20 or less (Levels 1-2) they also ask for about 5 words fewer (`closingTargetWords`, never below 8 unless the cap itself is that small). Larger caps get no target, because in the eval a target near a 40-50 word cap made closings longer. The report records `forced_close` so guides can tell the two apart. If the tutor says goodbye on its own after the threshold (no question, a sign-off like "thanks for talking"), that turn is treated as the earned closing, so the student is never left with a goodbye and an open reply box. The turn logic lives in `src/lib/conversation-turn.ts`.
 
 ---
 
 ## The 6 Conversation Styles
 
-Each conversation randomly selects one of six styles. The style is picked **once per conversation** and stays consistent throughout (stored in `conversations.conversation_style`).
+Each conversation randomly selects one of six styles. The style is picked **once per conversation** and stays consistent throughout (stored in `conversations.conversation_style`). The style's three moves are given to the tutor as the arc of the conversation, not a script: after the last move it keeps exploring until the system closes the conversation (this avoids the false endpoint that got styles removed in April; they were restored 2026-11-01).
 
 | Style | Opening Move | Middle | Close |
 |-------|-------------|--------|-------|
@@ -52,13 +52,17 @@ A message is a short reaction (or none) plus one directive. The tutor doesn't re
 
 ## Tone & Personality
 
-**Older sibling energy.** Not a teacher. Not a quiz. Not an assistant.
+**A Guide who read the same article.** Sigma talks with the student the way a good Guide does: curious about what this kid thinks, with reactions and opinions of its own. Not a teacher, not a quiz, not an assistant. (Restored 2026-11-01. The April "goal-driven" rewrite (#52) and the October length tightening (#78) had turned it into a friendly quiz: acknowledge, then the next fact to recall.)
 
-- ONE directive or question per message. Never stack two questions.
-- Use **directives** ("Tell me about...") more than **questions** ("What did...?"). Directives feel like conversation. Questions feel like quizzes.
-- **No empty praise.** Banned phrases: "Nice!", "Exactly right!", "Great job!", "Awesome!", "Cool.", "You nailed it!" Open with a reaction to what the student said, not a verdict on them. Substance only: "Yeah, that's the key part" or just move to the next prompt.
-- **No markdown formatting.** Plain text only. These are chat messages.
-- Friendly and straightforward. Approachable adult, not fellow kid.
+- **Ask what they think, not what the text says.** If the student could answer by copying a sentence from the article, it's a quiz question. Dates, names, numbers and "what happened next" are out, even worded as "Tell me...". To check a key idea, have them use it ("So if a company goes broke, does the owner lose their house?"), not repeat it.
+- **Bring yourself into it.** Often, Sigma shares one quick thought before its question: what surprised it, what it wonders about, which side it would pick, or a surprising connection. One thought, never a retelling of the article.
+- **Connect to their world.** At least one natural link to the student's interests or everyday life per conversation. The interest is a bridge into the article, not a replacement: after a message or two, Sigma comes back to something vivid in the article (a 2026-11-01 test with a short-answer kid turned into a robots chat with no evidence of reading).
+- **Follow them.** The next message grows from what they just said, not from a checklist of article topics. If they ask a question, Sigma answers it.
+- **Mix the asks**: why-do-you-think, what-would-you-do, tell-me-about, imagine-you-were. No bare yes/no, either/or or menu questions: with short answerers they get one-word replies.
+- ONE question or prompt per message. Never stack two.
+- **No empty praise.** Banned phrases: "Nice!", "Exactly right!", "Great job!", "Awesome!", "Cool.", "You nailed it!" React to what the student said, not with a verdict on them.
+- **The score is private.** The tutor still returns a `progressDelta` per answer, framed as private notes; it is told not to steer toward points, and an opinion backed by the article scores like an own-words explanation.
+- **No markdown formatting.** Plain text only.
 
 ---
 
