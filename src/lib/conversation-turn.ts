@@ -102,7 +102,8 @@ export async function runTutorTurn(args: {
     ? args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
     : [{ role: "user", content: OPENER_INSTRUCTION }];
   if (closing) finalMessages.push({ role: "user", content: closingInstruction(closing, args.maxWords) });
-  else if (needsQuietNudge(args.messages)) finalMessages.push({ role: "user", content: QUIET_NUDGE });
+  const nudged = !closing && needsQuietNudge(args.messages);
+  if (nudged) finalMessages.push({ role: "user", content: QUIET_NUDGE });
 
   async function ask(messages: typeof finalMessages) {
     const request = { model: args.model, max_tokens: 1024, system: args.systemPrompt, messages };
@@ -127,7 +128,7 @@ export async function runTutorTurn(args: {
   const parsed = await ask(finalMessages);
   // The prompt bans quiz-show questions and long turns, but the model still slips (live tests):
   // ask once for a rewrite. The score stays from the first reply, since it grades the same answer.
-  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords);
+  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords, nudged);
   if (problem) {
     console.warn(`Tutor turn ${problem.kind}, asking for a rewrite`);
     const retry = await ask([...finalMessages, { role: "user", content: problem.instruction(parsed.message || "") }]).catch(e => {
@@ -183,18 +184,27 @@ function lastSentence(text: string): string {
 export function endsWithClosedQuestion(text: string): boolean {
   if (!endsWithQuestion(text)) return false;
   const q = lastSentence(text);
-  if (/\bor\b/i.test(q) && !/\bor not\b/i.test(q)) return true;
+  if (/\bor\b/i.test(q) && !/\bor not\b/i.test(q)) {
+    // "What matters more — skill or luck?" is a menu; "How did scientists or engineers do it?" is open
+    if (/[—–,:]\s*[^,—–:?]*\bor\b[^?]*\?/.test(q)) return true;
+    if (!/^["'“]?(how|why)\b/i.test(q)) return true;
+  }
   return /^["'“]?(do|does|did|is|are|was|were|would|could|can|will|have|has|should)\b/i.test(q) && words(q) > 6;
 }
 
 /** Why a (non-closing) tutor reply needs a rewrite, if it does */
-export function rewriteReason(message: string, maxWords: number): { kind: string; instruction: (m: string) => string } | null {
+export function rewriteReason(message: string, maxWords: number, nudged = false): { kind: string; instruction: (m: string) => string } | null {
   if (!message.trim()) return null;
   const closed = endsWithClosedQuestion(message);
   const long = words(message) > Math.round(maxWords * 1.5);
   if (!closed && !long) return null;
   const fixes = [
-    closed ? "it ends with a yes/no or either/or question, which a kid answers with one word. Keep your thought, but end with one open question (how, why, what would you, imagine...) and no options to pick from" : "",
+    closed
+      ? nudged
+        // The quiet-kid turn shares instead of asking, so the fix is a light invite, not a new question
+        ? "it ends with a yes/no or either/or question. Keep the detail you shared, but end with a light invite (\"Wild, right?\"), not a question to answer"
+        : "it ends with a yes/no or either/or question, which a kid answers with one word. Keep your thought, but end with one open question (how, why, what would you, imagine...) and no options to pick from"
+      : "",
     long ? `it is ${words(message)} words. Say the same thing in under ${maxWords} words` : "",
   ].filter(Boolean).join("; and ");
   return {

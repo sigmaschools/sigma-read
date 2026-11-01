@@ -49,7 +49,10 @@ async function main() {
     assert.equal(endsWithClosedQuestion("That sounds terrifying, honestly."), false);
     assert.equal(endsWithClosedQuestion("Would you want to live there or not? Why?"), false);
 
+    assert.equal(endsWithClosedQuestion("How do you think scientists or engineers figured that out?"), false);
+    assert.equal(endsWithClosedQuestion("If you had to pick, a house or a boat?"), true);
     assert.equal(rewriteReason("Why do you think that is?", 30), null);
+    assert.ok(rewriteReason("Neat. Did you know they can do that with no tools at all?", 30, true)!.instruction("x").includes("light invite"));
     assert.ok(rewriteReason(Array(50).fill("word").join(" ") + "?", 30)?.kind.includes("ran long"));
 
     // The rewrite replaces the message; the score stays from the first reply
@@ -67,6 +70,17 @@ async function main() {
     assert.ok(calls[1][calls[1].length - 1].content.includes("either/or"));
     assert.equal(r.message, "Neat. Why do you think skill makes winning feel better?");
     assert.equal(r.progressDelta, 20);
+
+    // A failed rewrite keeps the first reply; a closing turn is never rewritten
+    let n = 0;
+    const flaky = { messages: { create: async () => {
+      if (n++ === 1) throw new Error("overloaded");
+      return { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(replies[0]) }] };
+    } } } as unknown as Anthropic;
+    assert.equal((await run(flaky, convo(1), 0)).message, replies[0].message);
+    const { client: closer, calls: closeCalls } = fakeClient({ message: "Thanks, that was fun. Skill or luck, you pick next time.", progressDelta: 0 });
+    await run(closer, convo(6), 60);
+    assert.equal(closeCalls.length, 1);
     console.log("✅ closed questions get one rewrite");
   }
 
