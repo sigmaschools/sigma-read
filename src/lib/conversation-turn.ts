@@ -197,6 +197,8 @@ export function endsWithClosedQuestion(text: string): boolean {
 /** True if the last sentence offers options to pick from ("the detector, the horn, or the lights") */
 export function endsWithMenu(text: string): boolean {
   const q = lastSentence(text);
+  // Only a list the student is told to choose from: "Seals, whales, or penguins all handle cold" is a share
+  if (!/\b(pick|choose|which|first|rather|prefer|tell me what (part|kind|one))\b/i.test(q)) return false;
   // "A, B, or C" lists, or ", or one that..." alternatives after a dash or comma
   return /[^,.?!]{1,40},\s[^,.?!]{1,40},\s*or\s/i.test(q) || /[—–,]\s*(one|a|an|the)\b[^,.?!—–]*,?\s*or\s+(one|a|an|the)\b/i.test(q);
 }

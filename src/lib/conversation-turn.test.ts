@@ -59,6 +59,9 @@ async function main() {
     assert.equal(endsWithClosedQuestion("Imagine you were watching that rocket go up and tell me how you'd feel."), false);
     assert.equal(endsWithClosedQuestion("Tell me why scientists or engineers would care about that."), false);
     assert.equal(endsWithClosedQuestion("Tell me, in a sentence or two, why it matters."), false);
+    assert.equal(endsWithClosedQuestion("Seals, whales, or penguins — each one handles the cold differently."), false);
+    assert.equal(endsWithClosedQuestion("Tell me why scientists, engineers, or kids would care about that."), false);
+    assert.equal(endsWithClosedQuestion("Pick one to build first, the detector, the horn, or the lights, and tell me why."), true);
     assert.equal(endsWithClosedQuestion("Imagine you were a scientist, then tell me whether you'd stay or go."), false);
     assert.ok(questionInARow("Wow. Did the scientists expect that?", "What stood out?"));
     assert.equal(questionInARow("They taste with their arms. Can you believe it?", "What stood out?"), false);
