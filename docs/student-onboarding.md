@@ -22,15 +22,15 @@ The chat opens immediately (no screens before it). Prompt: `src/lib/prompts/md/i
 Before the first answer, the page shows tap-to-add topic ideas (Animals, Space, Sports, ...) that fill the text box.
 
 **Example:**
-> **Sigma:** Hi Emma, I'm Sigma. Every day I'll pick short articles just for you, and after you read one, we'll talk about it. Not a test, just a conversation. To start, tell me three things you're into. Hobbies, sports, animals, games, anything counts.
+> **Sigma:** Hi Emma, I'm Sigma. I'll pick articles just for you, and after you read one we'll talk about it, no tests. What are three things you're into, like Minecraft, soccer or dogs?
 >
-> **Emma:** games and dogs
+> **Emma:** games, dogs and drawing
 >
-> **Sigma:** Dogs, there's a lot to read there. Which games do you play the most?
+> **Sigma:** Dogs and drawing, there's a lot to read there. Which games do you play the most?
 >
 > **Emma:** minecraft
 >
-> **Sigma:** Got it: Minecraft and dogs. I'm finding your first articles now, and the more you read, the better I'll get at picking. Here's a quick look at how SigmaRead works while you wait.
+> **Sigma:** Got it: Minecraft, dogs and drawing. I'm finding your first articles now, and the more you read, the better I'll get at picking. Here's a quick look at how SigmaRead works while you wait.
 
 **Personality:** older sibling energy (see [Conversation Design](./conversation-design.md)). The first message sets expectations: what SigmaRead is, that the talk afterwards isn't a test, and that Sigma wants three interests. Sigma reacts to each answer with something specific instead of praise, and the wrap-up names the interests back.
 

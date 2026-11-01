@@ -13,9 +13,9 @@ export function grokipediaPageUrl(title: string): string {
   return `https://grokipedia.com/page/${encodeURIComponent(title.trim().replace(/\s+/g, "_"))}`;
 }
 
-/** Lowercase words of 3+ letters, cut to their first 4 letters, so "games" and "Game" match */
-function stems(text: string): Set<string> {
-  return new Set((text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []).map(w => w.slice(0, 4)));
+/** Lowercase words of 2+ letters with a plural "s" dropped: "Dogs" -> "dog", "games" -> "game" */
+function words(text: string): string[] {
+  return (text.toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) ?? []).map(w => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
 }
 
 /**
@@ -23,8 +23,12 @@ function stems(text: string): Set<string> {
  * broad word ("games" -> "Game"); for a named thing it would swap the topic ("SpaceX" -> "Company").
  */
 export function generalFits(general: string, query: string): boolean {
-  const q = stems(query);
-  return [...stems(general)].some(s => q.has(s));
+  const q = words(query);
+  // Same first 4 letters (or the whole word, when shorter): "game"/"game", "dog"/"dog", "ai"/"ai"
+  return words(general).some(g => q.some(w => {
+    const n = Math.min(g.length, w.length, 4);
+    return g.slice(0, n) === w.slice(0, n) && (n >= 3 || g === w);
+  }));
 }
 
 /**
@@ -34,7 +38,7 @@ export function generalFits(general: string, query: string): boolean {
  * Returns null when the reply can't be read, or names only pages that weren't listed and no
  * general page, so the caller keeps the search order. An empty list (with no general page) means none fit.
  */
-export function parseSourcePick(text: string, candidates: SearchResult[], query?: string): SearchResult[] | null {
+export function parseSourcePick(text: string, candidates: SearchResult[], query: string): SearchResult[] | null {
   // The old reply shape, a bare array like [3, 1], still counts as the page list
   const match = text.match(/\{[\s\S]*\}/) ?? text.match(/\[[\d,\s]*\]/);
   if (!match) return null;
@@ -51,7 +55,7 @@ export function parseSourcePick(text: string, candidates: SearchResult[], query?
   const rawGeneral = typeof reply.general === "string" ? reply.general.trim() : "";
   // A real title: short, with at least one letter or digit (not "." or "..")
   const general = rawGeneral.length <= 80 && /[\p{L}\p{N}]/u.test(rawGeneral)
-    && (query === undefined || generalFits(rawGeneral, query)) ? rawGeneral : "";
+    && generalFits(rawGeneral, query) ? rawGeneral : "";
   if (numbers.length > 0 && valid.length === 0 && !general) return null;
 
   const picked = valid.map(n => candidates[n - 1]);
