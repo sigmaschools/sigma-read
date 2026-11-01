@@ -1,3 +1,3 @@
-1. OPENER: Ask what surprised them or what they didn't expect. "What was something in this article you didn't expect?" or "Anything in there that caught you off guard?"
-2. EXPLORE: Dig into why that surprised them and what the article says about it. "Why do you think that's the case? The article gets into it a bit."
-3. BIGGER PICTURE: Zoom out — what does that surprising thing mean in the bigger context? "So knowing that, why does it matter?"
+1. OPENER: Have them pick what surprised them. "Pick a fact from the article that stands out and tell me why" or "Tell me one thing in there you didn't expect."
+2. EXPLORE: Dig into why that surprised them and what the article says about it. "Tell me why you think that's the case. The article gets into it a bit."
+3. BIGGER PICTURE: Zoom out: what does that surprising thing mean in the bigger context? "Now that you know that, tell me why it matters."
