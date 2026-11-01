@@ -36,6 +36,26 @@ export function closingInstruction(kind: ClosingKind, maxWords?: number): string
 }
 
 /** Used when the model asks a question in its closing anyway */
+/** A student answer this short (in words) counts as a short answer for the quiet-kid nudge */
+const SHORT_ANSWER_WORDS = 4;
+
+export const QUIET_NUDGE = "[Their last two answers were very short. This turn, don't ask another question. Tell them one interesting detail from the article that hasn't come up yet, in your own words, and end with a light invite like \"Wild, right?\" or \"I didn't expect that.\"]";
+
+/**
+ * True when the student's last two answers were both very short (e.g. "yeah", "idk", "it was cool").
+ * More questions then make the chat feel like a quiz, so Sigma shares something instead.
+ * Fires at most every other turn: not when Sigma's last message already followed the nudge.
+ */
+export function needsQuietNudge(messages: TurnMessage[]): boolean {
+  const answers = messages.filter(m => m.role === "user");
+  if (answers.length < 2) return false;
+  const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+  if (!answers.slice(-2).every(m => words(m.content) <= SHORT_ANSWER_WORDS)) return false;
+  // The tutor's previous message: if it had no question, it was already a share turn
+  const lastTutor = [...messages].reverse().find(m => m.role === "assistant");
+  return !lastTutor || endsWithQuestion(lastTutor.content);
+}
+
 export const FALLBACK_CLOSING = "That's it for this one. Thanks for talking it through with me.";
 
 /** Used if the model returns an empty mid-conversation message */
@@ -82,6 +102,7 @@ export async function runTutorTurn(args: {
     ? args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
     : [{ role: "user", content: OPENER_INSTRUCTION }];
   if (closing) finalMessages.push({ role: "user", content: closingInstruction(closing, args.maxWords) });
+  else if (needsQuietNudge(args.messages)) finalMessages.push({ role: "user", content: QUIET_NUDGE });
 
   const request = { model: args.model, max_tokens: 1024, system: args.systemPrompt, messages: finalMessages };
   const response = await args.client.messages.create({

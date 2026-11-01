@@ -1,3 +1,3 @@
-1. OPENER: Ask the student to give you the big picture. "So what did you think of that one? Tell me what it was mostly about." or "If a friend asked what this was about, what would you say?"
+1. OPENER: Say what struck you about the article as a whole (the big thing it made you think about, in a sentence), then ask how it landed for them. "So what did you think of that one?" or "Was any of that new to you?" Never ask them to sum it up or say what it was "mostly about": that is a test question, not a conversation.
 2. DEPTH: Based on their answer, pick something the article develops in detail and ask them to explain how it works or why it matters. "How do you think that actually works?"
 3. CONNECTION: Ask them to connect two things the article discusses. "The article mentioned [A] and [B] — how do those fit together?"

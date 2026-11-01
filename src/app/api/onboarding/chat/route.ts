@@ -13,11 +13,7 @@ import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
-
-/** Sigma's first message in the interest chat (the owner's own copy; quoted in interest-interview.md too, keep in sync) */
-function interviewOpener(name: string): string {
-  return `Hi ${name}, I'm Sigma. SigmaRead is an app that helps you become a stronger reader by giving you articles matched to your interests. To get started, tell me three things you're interested in — they can be hobbies, topics, sports, whatever you like.`;
-}
+import { interviewOpener, interviewWrapUp } from "@/lib/onboarding-copy";
 
 /** The interest chat ends after this many student answers, profile or not */
 const MAX_STUDENT_ANSWERS = 3;
@@ -118,5 +114,6 @@ export async function POST(req: NextRequest) {
   await markStarterPending(session.userId);
   after(() => prepareStarterArticles(session.userId, anthropic));
 
-  return NextResponse.json({ message: visibleText, profileComplete: true, profile });
+  // Fixed wrap-up: it names what Sigma heard and says what happens next, in a length a kid reads
+  return NextResponse.json({ message: interviewWrapUp(profile.interests), profileComplete: true, profile });
 }
