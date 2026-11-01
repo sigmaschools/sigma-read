@@ -35,5 +35,6 @@ export async function GET() {
     onboardingComplete: student.onboardingComplete,
     readingLevel: student.readingLevel,
     interestProfile: student.interestProfile,
+    starterArticlesStatus: student.starterArticlesStatus,
   });
 }

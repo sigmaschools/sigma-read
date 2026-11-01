@@ -55,6 +55,8 @@ export const students = pgTable("students", {
   interestProfile: jsonb("interest_profile"),
   adjacentInterests: jsonb("adjacent_interests").$type<string[]>(), // pre-computed horizon interests
   onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
+  // First-login articles: "pending" while they're found or written, "done" after; null for students onboarded before this existed
+  starterArticlesStatus: varchar("starter_articles_status", { length: 20 }),
   dailyArticleCap: integer("daily_article_cap").default(5),
   weeklySessionTarget: integer("weekly_session_target"), // null = auto-calculate from dailyArticleCap × 5
   totalSessionsCompleted: integer("total_sessions_completed").default(0),

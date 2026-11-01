@@ -1055,3 +1055,46 @@ async function runSteps(result: BatchResult) {
   console.log(`\n✅ Batch complete! ${baseArticles.length} source-backed articles × ${levelsNeeded.size} levels\n`);
 }
 
+
+// ─── One interest article on demand (new students' first articles) ───────────
+
+/**
+ * Writes one source-backed article about `interest` the same way the batch does: source,
+ * rewrite at the base level, tag, then adapt to `level`. Both versions go into the shared cache,
+ * so later students can be served them too. Returns the cache id at `level`, or null if no
+ * source was found or a step failed.
+ */
+export async function writeInterestArticle(interest: string, level: number): Promise<number | null> {
+  const today = new Date().toISOString().split("T")[0];
+  const [sourced] = await sourceContent([{ query: interest, type: "interest", searchQuery: interest }], new Set());
+  if (!sourced) return null;
+
+  const article = await rewriteFromSource(sourced);
+  if (!article?.bodyText) return null;
+  const blocked = await sql`SELECT 1 FROM blocked_topics WHERE LOWER(topic) = ${article.topic.toLowerCase()} LIMIT 1`;
+  if (blocked.length > 0) return null;
+
+  const [base] = await sql`
+    INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url)
+    VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl})
+    RETURNING id
+  `;
+  await quietly(tagCacheArticle(base.id, [interest, article.topic], { client: anthropic }), "article tagging");
+  await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${interest})`;
+  // Tomorrow's batch rotates to the student's other interests first
+  await sql`
+    INSERT INTO interest_rotation (interest, last_featured_at, student_ids, updated_at)
+    VALUES (${interest.toLowerCase()}, CURRENT_DATE, NULL, NOW())
+    ON CONFLICT (interest) DO UPDATE SET last_featured_at = EXCLUDED.last_featured_at, updated_at = NOW()
+  `;
+  if (level === BASE_LEVEL) return base.id as number;
+
+  const adapted = await adaptArticleToLevel(article.title, article.bodyText, level);
+  if (!adapted?.bodyText) return null;
+  const [row] = await sql`
+    INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date)
+    VALUES (${adapted.title}, ${article.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(article.sources)}, ${adapted.estimatedReadTime}, ${article.category}, ${base.id}, ${today})
+    RETURNING id
+  `;
+  return row.id as number;
+}

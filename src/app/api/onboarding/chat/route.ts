@@ -1,16 +1,21 @@
 export const dynamic = "force-dynamic";
-import { NextRequest, NextResponse } from "next/server";
+// The starter articles keep running after the response (see after() below); writing one takes a minute or two
+export const maxDuration = 300;
+import { NextRequest, NextResponse, after } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { MODELS } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
 import { INTEREST_INTERVIEW, READING_LEVEL_ASSESSMENT } from "@/lib/prompts";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
-import { getWelcomeArticle } from "@/lib/welcome-article";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
+import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
+
+/** The interest chat ends after this many student answers, profile or not */
+const MAX_STUDENT_ANSWERS = 3;
 
 const anthropic = new Anthropic();
 
@@ -24,8 +29,13 @@ export async function POST(req: NextRequest) {
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
   const studentName = student?.name || "there";
 
+  // The page opens the chat with a "Hi" the student never typed, so it isn't an answer
+  const answers = Math.max(0, messages.filter((m: { role: string }) => m.role === "user").length - 1);
+  const lastAnswer = phase === "interest" && answers >= MAX_STUDENT_ANSWERS
+    ? `\n\nThis was the student's last answer. Output the closing sentence and the [PROFILE] now, with whatever interests you have.`
+    : "";
   const systemPrompt = (phase === "interest" ? INTEREST_INTERVIEW : READING_LEVEL_ASSESSMENT)
-    + `\n\nThe student's name is ${studentName}.`;
+    + `\n\nThe student's name is ${studentName}.` + lastAnswer;
 
   let response;
   try {
@@ -66,40 +76,19 @@ export async function POST(req: NextRequest) {
         .where(eq(schema.students.id, session.userId));
       await quietly(recordDeclaredInterests(session.userId, profile.interests, "onboarding", { client: anthropic }), "onboarding interests");
 
-      // Insert welcome tutorial article only if one doesn't already exist
-      // (prevents duplicates on account reset + re-onboarding).
-      const welcome = getWelcomeArticle(level);
-      const existing = await db
-        .select({ id: schema.articles.id })
-        .from(schema.articles)
-        .where(
-          and(
-            eq(schema.articles.studentId, session.userId),
-            eq(schema.articles.category, "tutorial")
-          )
-        )
-        .limit(1);
-
-      if (existing.length === 0) {
-        await db.insert(schema.articles).values({
-          studentId: session.userId,
-          title: welcome.title,
-          topic: welcome.topic,
-          bodyText: welcome.bodyText,
-          readingLevel: level,
-          sources: [],
-          estimatedReadTime: welcome.estimatedReadTime,
-          category: welcome.category,
-        });
-      }
+      // Find or write their first articles while the tutorial cards play
+      await markStarterPending(session.userId);
+      after(() => prepareStarterArticles(session.userId, anthropic));
 
       return NextResponse.json({
         message: assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim(),
         profileComplete: true,
         profile,
       });
-    } catch {
-      // Parse failed, continue conversation
+    } catch (e) {
+      // Parse failed: continue the conversation, without showing the student the broken profile
+      console.error("onboarding chat: profile parse failed", e);
+      return NextResponse.json({ message: assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim() || "Tell me one more thing you like." });
     }
   }
 
