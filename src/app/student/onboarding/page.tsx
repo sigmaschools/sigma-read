@@ -60,7 +60,7 @@ function OnboardingPage() {
         body: JSON.stringify({ messages: convo, phase: "interest" }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.message) {
+      if (!res.ok || !(data?.message || data?.profileComplete)) {
         setError(data?.error || "Something went wrong. Please try again.");
         return null;
       }
@@ -115,7 +115,7 @@ function OnboardingPage() {
       return;
     }
 
-    setMessages([...newMessages, { role: "assistant", content: data.message }]);
+    setMessages(data.message ? [...newMessages, { role: "assistant", content: data.message }] : newMessages);
 
     if (data.profileComplete) {
       setTimeout(() => router.push("/student"), 6000);
