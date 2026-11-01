@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, needsQuietNudge, endsWithClosedQuestion, rewriteReason, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, needsQuietNudge, endsWithClosedQuestion, rewriteReason, questionInARow, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -53,7 +53,14 @@ async function main() {
     assert.equal(endsWithClosedQuestion("If you had to pick, a house or a boat?"), true);
     assert.equal(rewriteReason("Why do you think that is?", 30, false, "Tell me what stood out."), null);
     // Mostly directives: a question is fine now and then, never two in a row (or as the opener)
-    assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, "Cool. What stood out to you?")!.kind.includes("in a row"));
+    assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, "Cool. What stood out to you?")!.kind.includes("directive was expected"));
+    // Bare follow-up questions are questions, not invites
+    assert.ok(questionInARow("Hmm. Why?", "What stood out to you?"));
+    assert.ok(questionInARow("Ok. Is that right?", "What stood out to you?"));
+    assert.equal(questionInARow("They taste with their arms. Pretty wild, right?", "What stood out to you?"), false);
+    assert.equal(questionInARow("They taste with their arms. Would you have guessed that?", "What stood out?"), false);
+    assert.equal(questionInARow("Why do you think so?", "Tell me what stood out."), false);
+    assert.ok(questionInARow("Why do you think so?", "Was that the scariest part? Why?"));
     assert.ok(rewriteReason("Neat. Why do you think that is?", 30, false, null)!.instruction("x").includes("directive"));
     assert.equal(rewriteReason("Neat. Why do you think that is?", 30, false, "Fish hooks from shells. Wild, right?"), null);
     assert.equal(rewriteReason("Fish hooks from shells. Wild, right?", 30, false, "What stood out to you?"), null);
