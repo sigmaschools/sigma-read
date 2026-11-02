@@ -18,7 +18,9 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || (session.role !== "guide" && session.role !== "admin")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, username, password, gradeLevel, age, guideId: bodyGuideId } = await req.json();
+  const { name, username: rawUsername, password, gradeLevel, age, guideId: bodyGuideId } = await req.json();
+  // Login lowercases what the student types, so store usernames the same way
+  const username = typeof rawUsername === "string" ? rawUsername.trim().toLowerCase() : "";
   if (!name || !username || !password) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
   // Admin must provide guideId; guide uses own userId
