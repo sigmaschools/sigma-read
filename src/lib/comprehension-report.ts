@@ -8,6 +8,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { db, schema } from "@/lib/db";
+import { eq } from "drizzle-orm";
 import { tracked } from "@/lib/ai-usage";
 import { comprehensionReportPrompt } from "@/lib/prompts";
 import { MODELS } from "@/lib/models";
@@ -95,7 +96,7 @@ async function saveReport(args: ReportArgs) {
   const exchangeCount = studentMessages.length;
 
   const score = clampScore(report.score);
-  await db.insert(schema.comprehensionReports).values({
+  const [saved] = await db.insert(schema.comprehensionReports).values({
     conversationId: args.conversationId,
     score,
     rating: ratingForScore(score),
@@ -115,7 +116,9 @@ async function saveReport(args: ReportArgs) {
     inChatScore: args.inChatScore,
     model: MODELS.heavy,
     promptVersion: REPORT_PROMPT_VERSION,
-  });
+    levelBefore: args.level,
+    levelAfter: args.level,
+  }).returning({ id: schema.comprehensionReports.id });
 
   // A long, strong discussion is a sign the topic landed
   if (score >= STRONG_ENGAGEMENT.score && exchangeCount >= STRONG_ENGAGEMENT.exchanges && !args.forcedClose) {
@@ -128,6 +131,11 @@ async function saveReport(args: ReportArgs) {
     const progressionResult = await evaluateProgression(args.studentId);
     if (progressionResult.action !== "none") {
       await applyProgressionResult(args.studentId, progressionResult);
+      if (progressionResult.newLevel && progressionResult.newLevel !== args.level) {
+        await db.update(schema.comprehensionReports)
+          .set({ levelAfter: progressionResult.newLevel })
+          .where(eq(schema.comprehensionReports.id, saved.id));
+      }
       console.log(`Level progression [${args.studentName}]: ${progressionResult.action}`,
         progressionResult.newLevel ? `→ L${progressionResult.newLevel}` : "",
         progressionResult.alertMessage || "");
