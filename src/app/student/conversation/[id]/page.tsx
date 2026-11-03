@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { CompassReport, LEVEL_CHANGED_EVENT } from "@/components/CompassReport";
 
 interface Message {
   role: "user" | "assistant";
@@ -28,6 +29,8 @@ export default function ConversationPage() {
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [coachingFeedback, setCoachingFeedback] = useState<string | null>(null);
   const [feedbackSecondsLeft, setFeedbackSecondsLeft] = useState<number | null>(null);
+  // Compass reads this hidden block when the discussion ends (app contract 2.2)
+  const [compassReport, setCompassReport] = useState<object | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -72,6 +75,7 @@ export default function ConversationPage() {
           if (data.progressScore !== undefined) setProgressScore(data.progressScore);
           if (data.complete) {
             setComplete(true);
+            if (data.compassReport) setCompassReport(data.compassReport);
             // Check if coaching feedback already persisted — no timer on resume
             const coachingMsg = data.existingMessages.find((m: Message & { type?: string }) => m.type === "coaching");
             if (coachingMsg) setCoachingFeedback(coachingMsg.content);
@@ -126,6 +130,9 @@ export default function ConversationPage() {
       if (data.progressScore !== undefined) setProgressScore(data.progressScore);
       if (data.complete) {
         setComplete(true);
+        if (data.compassReport) setCompassReport(data.compassReport);
+        // Level progression ran with the report, so the level block may need to change
+        window.dispatchEvent(new Event(LEVEL_CHANGED_EVENT));
         if (data.coachingFeedback) {
           setCoachingFeedback(data.coachingFeedback);
           setFeedbackSecondsLeft(10);
@@ -139,11 +146,13 @@ export default function ConversationPage() {
 
   async function handleSelfAssess(value: string) {
     setSelfAssessment(value);
-    await fetch(`/api/conversations/${id}/self-assess`, {
+    const res = await fetch(`/api/conversations/${id}/self-assess`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assessment: value }),
     });
+    const data = await res.json().catch(() => null);
+    if (data?.compassReport) setCompassReport(data.compassReport);
     setTimeout(() => router.push("/student"), 1200);
   }
 
@@ -155,6 +164,7 @@ export default function ConversationPage() {
 
   return (
     <div className="flex flex-col h-screen">
+      <CompassReport report={compassReport} />
       {/* Full-width header */}
       <header className="px-6 py-3 border-b border-[var(--border)] flex items-center justify-between bg-white">
         <div className="flex items-center gap-3">

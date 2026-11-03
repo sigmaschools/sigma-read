@@ -184,6 +184,9 @@ export const comprehensionReports = pgTable("comprehension_reports", {
   inChatScore: integer("in_chat_score"), // progressScore at completion, for comparing with score
   model: varchar("model", { length: 50 }),
   promptVersion: varchar("prompt_version", { length: 20 }),
+  // Student's reading level (1-6) before and after this discussion's level progression, for Compass
+  levelBefore: integer("level_before"),
+  levelAfter: integer("level_after"),
   // A guide or admin disagreeing with the report ("Disagree" button)
   guideFlag: varchar("guide_flag", { length: 20 }), // score_too_high | score_too_low | other
   guideNote: text("guide_note"),
