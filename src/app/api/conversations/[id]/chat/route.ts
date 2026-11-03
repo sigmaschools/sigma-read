@@ -11,7 +11,7 @@ import { getStudentConversation } from "@/lib/ownership";
 import { runTutorTurn } from "@/lib/conversation-turn";
 import { saveComprehensionReport } from "@/lib/comprehension-report";
 import { stripMarkdown } from "@/lib/plain-text";
-import { getComprehensionCompassReport } from "@/lib/compass-report-data";
+import { safeComprehensionCompassReport } from "@/lib/compass-report-data";
 
 const anthropic = new Anthropic();
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         existingMessages: existing,
         complete: conversation.complete,
         progressScore: conversation.progressScore || 0,
-        compassReport: conversation.complete ? await getComprehensionCompassReport(conversationId) : null,
+        compassReport: conversation.complete ? await safeComprehensionCompassReport(conversationId) : null,
       });
     }
     // No existing messages — fall through to generate opener
@@ -185,7 +185,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // For Compass: the report block on the finished discussion (null for tutorials or a failed report)
-    const compassReport = isTutorial ? null : await getComprehensionCompassReport(conversationId);
+    const compassReport = isTutorial ? null : await safeComprehensionCompassReport(conversationId);
 
     return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore, coachingFeedback, compassReport });
   }
