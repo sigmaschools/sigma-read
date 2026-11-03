@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getStudentConversation } from "@/lib/ownership";
 import { eq } from "drizzle-orm";
-import { getComprehensionCompassReport } from "@/lib/compass-report-data";
+import { safeComprehensionCompassReport } from "@/lib/compass-report-data";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -31,5 +31,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .where(eq(schema.comprehensionReports.id, report.id));
 
   // The comprehension report for Compass, now with the self-rating
-  return NextResponse.json({ ok: true, compassReport: await getComprehensionCompassReport(conversationId) });
+  return NextResponse.json({ ok: true, compassReport: await safeComprehensionCompassReport(conversationId) });
 }

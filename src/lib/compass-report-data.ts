@@ -55,3 +55,13 @@ export async function getComprehensionCompassReport(conversationId: number): Pro
     currentLevel: row.currentLevel ?? 2,
   });
 }
+
+/** Like getComprehensionCompassReport, but never throws: the report is extra data for Compass and must not fail a student's request. */
+export async function safeComprehensionCompassReport(conversationId: number): Promise<ComprehensionCompassReport | null> {
+  try {
+    return await getComprehensionCompassReport(conversationId);
+  } catch (e) {
+    console.error(`Compass report for conversation ${conversationId} failed:`, e);
+    return null;
+  }
+}

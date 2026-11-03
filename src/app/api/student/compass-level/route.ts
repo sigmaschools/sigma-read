@@ -9,5 +9,10 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.role !== "student") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  return NextResponse.json({ report: await getLevelReport(session.userId) });
+  try {
+    return NextResponse.json({ report: await getLevelReport(session.userId) });
+  } catch (e) {
+    console.error("Compass level report failed:", e);
+    return NextResponse.json({ report: null }, { status: 500 });
+  }
 }
