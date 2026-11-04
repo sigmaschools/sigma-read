@@ -74,11 +74,18 @@ export async function POST(req: NextRequest) {
   try {
     assistantText = await reply();
     // At the cap the chat ends once it has enough interests: if Sigma asked another question
-    // anyway, ask once more for the profile (the profile check below holds it open if it's short)
-    // Only on the first turn past the cap, and never forcing a profile the student didn't give
-    if (answers === MAX_STUDENT_ANSWERS && !/\[PROFILE\]/.test(assistantText)) {
-      const retry = await reply([{ role: "user", content: "[If the student has given at least three interests, output your one-sentence closing and the [PROFILE] now, using only interests they said. If not, reply with your last message unchanged.]" }]);
+    // anyway, ask once more for the profile, never forcing one the student didn't give (the
+    // minimum check below holds a short one open). At GIVE_UP_ANSWERS the profile is taken with
+    // whatever they said and topped up below, so the chat can't run forever.
+    const givingUp = phase === "interest" && answers >= GIVE_UP_ANSWERS;
+    if ((answers === MAX_STUDENT_ANSWERS || givingUp) && phase === "interest" && !/\[PROFILE\]/.test(assistantText)) {
+      const ask = givingUp
+        ? "[Output your one-sentence closing and the [PROFILE] now with the interests the student gave, even if fewer than three. Do not ask a question.]"
+        : "[If the student has given at least three interests, output your one-sentence closing and the [PROFILE] now, using only interests they said. If not, reply with your last message unchanged.]";
+      const retry = await reply([{ role: "user", content: ask }]);
       if (/\[PROFILE\]/.test(retry)) assistantText = retry;
+      // Still nothing usable after the give-up point: finish with defaults alone
+      else if (givingUp) assistantText = `${assistantText}\n[PROFILE]\n{"interests": []}`;
     }
   } catch (e) {
     // Without this the route 500s with an empty body and the student sees a blank chat
