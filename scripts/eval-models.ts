@@ -38,7 +38,7 @@ const PRICES: Record<string, [number, number, number]> = {
   "claude-opus-5-5": [4, 20, 0.2],
   "claude-sonnet-5-5": [2, 10, 0.2],
   "claude-sonnet-4-6": [3, 15, 0.3],
-  "claude-haiku-5-5": [0.1, 0.5, 0.01],
+  "claude-haiku-5-5": [0.1, 0.5, 0.01], // cache read assumed at 0.1x input
   "claude-fable-5-1": [10, 50, 0.25],
 };
 
@@ -66,6 +66,15 @@ const intArg = (name: string, fallback: number) => {
 
 const configIds = listArg("configs");
 const configs = CONFIGS.filter(c => configIds ? configIds.includes(c.id) : !c.optional);
+function failOnUnknown(name: string, asked: string[] | null, known: string[]) {
+  const unknown = (asked ?? []).filter(x => !known.includes(x));
+  if (unknown.length) { console.error(`Unknown --${name}: ${unknown.join(", ")}. Known: ${known.join(", ")}`); process.exit(1); }
+}
+failOnUnknown("configs", configIds, CONFIGS.map(c => c.id));
+failOnUnknown("personas", listArg("personas"), PERSONAS.map(p => p.username));
+failOnUnknown("articles", listArg("articles"), EVAL_ARTICLES.map(a => a.id));
+const unpriced = [...new Set(configs.map(c => c.model))].filter(m => !PRICES[m]);
+if (unpriced.length) { console.error(`No price for ${unpriced.join(", ")}: add it to PRICES`); process.exit(1); }
 const DEFAULT_PERSONAS = ["emma", "sofia", "marcus", "dante"];
 const personas = PERSONAS.filter(p => (listArg("personas") ?? DEFAULT_PERSONAS).includes(p.username))
   .filter(p => !EXCLUDED_USERNAMES.includes(p.username));
@@ -154,7 +163,12 @@ Score the TUTOR only (the student is simulated). Be strict and use the whole sca
         output_config: { format: { type: "json_schema", schema: JUDGE_SCHEMA }, effort: "low" },
       } as never) as Anthropic.Message;
       const t = res.content.filter(b => b.type === "text").map(b => b.text).join("");
-      return JSON.parse(t) as Judgement;
+      const j = JSON.parse(t) as Judgement;
+      const clamp = (n: number, max: number) => Math.min(max, Math.max(1, Math.round(Number(n) || 1)));
+      for (const k of ["natural", "responsive", "thinking", "level_fit", "rules"] as const) j[k] = clamp(j[k], 5);
+      j.overall = clamp(j.overall, 10);
+      if (/^\s*none\W*$/i.test(j.worst_moment ?? "")) j.worst_moment = "none";
+      return j;
     } catch (e) {
       console.log(`  judge failed: ${e instanceof Error ? e.message : e}`);
     }
@@ -222,17 +236,33 @@ const pct = (xs: number[], p: number) => { const s = [...xs].sort((a, b) => a - 
 
 function summarize(results: Result[]): string {
   const lines = [`# Tutor model comparison`, "", `${results.length} conversations. Student simulator ${MODELS.standard}; judge ${JUDGE_MODEL} (blind to the model). Same personas, articles and styles for every model.`, ""];
-  lines.push("| Model | Convos | Errors | Overall /10 | Natural | Responsive | Thinking | Level fit | Rules | Rule violations / convo | Fallbacks | Median reply s | p90 reply s | Cost / convo $ |");
-  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  // Cases are paired across models (same persona, article and style), so compare each model with
+  // the first config case by case: mean difference in the judge's overall score and its standard error
+  const base = configs[0]?.id;
+  const caseKey = (r: Result) => `${r.persona}|${r.article}|${r.style}`;
+  const overallBy = (id: string) => {
+    const m = new Map<string, number[]>();
+    results.filter(r => r.config === id && r.judge).forEach(r => m.set(caseKey(r), [...(m.get(caseKey(r)) ?? []), r.judge!.overall]));
+    return m;
+  };
+  const baseBy = base ? overallBy(base) : new Map<string, number[]>();
+  const paired = (id: string) => {
+    const d = [...overallBy(id).entries()].filter(([k]) => baseBy.has(k)).map(([k, v]) => mean(v) - mean(baseBy.get(k)!));
+    if (d.length < 2) return "-";
+    const m = mean(d), sd = Math.sqrt(d.reduce((s, x) => s + (x - m) ** 2, 0) / (d.length - 1));
+    return `${m >= 0 ? "+" : ""}${m.toFixed(2)} ± ${(sd / Math.sqrt(d.length)).toFixed(2)}`;
+  };
+  lines.push(`| Model | Convos | Errors | Judged | Closed | Overall /10 | vs ${base} (±SE) | Natural | Responsive | Thinking | Level fit | Rules | Rule violations / convo | Fallbacks | Median reply s | p90 reply s | Cost / convo $ |`);
+  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const c of configs) {
     const rs = results.filter(r => r.config === c.id);
     const ok = rs.filter(r => !r.error);
     const j = ok.flatMap(r => r.judge ? [r.judge] : []);
     const ms = ok.flatMap(r => r.calls.map(x => x.ms / 1000));
     const f = (n: number, d = 1) => Number.isFinite(n) ? n.toFixed(d) : "-";
-    lines.push(`| ${c.id} | ${ok.length} | ${rs.length - ok.length} | ${f(mean(j.map(x => x.overall)))} | ${f(mean(j.map(x => x.natural)))} | ${f(mean(j.map(x => x.responsive)))} | ${f(mean(j.map(x => x.thinking)))} | ${f(mean(j.map(x => x.level_fit)))} | ${f(mean(j.map(x => x.rules)))} | ${f(mean(ok.map(r => r.violations.length)))} | ${ok.reduce((s, r) => s + r.fallbacks, 0)} | ${f(pct(ms, 0.5))} | ${f(pct(ms, 0.9))} | ${f(mean(ok.map(r => r.costUsd)), 3)} |`);
+    lines.push(`| ${c.id} | ${ok.length} | ${rs.length - ok.length} | ${j.length} | ${ok.length ? Math.round(100 * ok.filter(r => r.closing).length / ok.length) : 0}% | ${f(mean(j.map(x => x.overall)))} | ${c.id === base ? "-" : paired(c.id)} | ${f(mean(j.map(x => x.natural)))} | ${f(mean(j.map(x => x.responsive)))} | ${f(mean(j.map(x => x.thinking)))} | ${f(mean(j.map(x => x.level_fit)))} | ${f(mean(j.map(x => x.rules)))} | ${f(mean(ok.map(r => r.violations.length)))} | ${ok.reduce((s, r) => s + r.fallbacks, 0)} | ${f(pct(ms, 0.5))} | ${f(pct(ms, 0.9))} | ${f(mean(ok.map(r => r.costUsd)), 3)} |`);
   }
-  lines.push("", "Reply time is one tutor API call, measured without streaming (a rewrite retry counts as its own call). Cost covers the tutor calls only.", "");
+  lines.push("", "Reply time is one whole tutor API call, without streaming and including any SDK retries (a rewrite retry counts as its own call): use it to compare models, not as the time to first word a streaming app shows. Cost covers the tutor calls only. A conversation that hit the turn limit without closing counts as not closed.", "");
   lines.push("## Weakest lines the judge picked", "");
   for (const c of configs) {
     lines.push(`### ${c.id}`, "");
