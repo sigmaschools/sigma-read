@@ -85,6 +85,8 @@ export async function runTutorTurn(args: {
   /** Plain or usage-tracked client; only messages.create is used */
   client: { messages: Pick<Anthropic["messages"], "create"> };
   model: string;
+  /** Extra request fields for the model, e.g. requestSettings(model, "tutor") to turn thinking off */
+  settings?: object;
   systemPrompt: string;
   messages: TurnMessage[];
   priorProgress: number;
@@ -106,11 +108,20 @@ export async function runTutorTurn(args: {
   if (nudged) finalMessages.push({ role: "user", content: QUIET_NUDGE });
 
   async function ask(messages: typeof finalMessages) {
-    const request = { model: args.model, max_tokens: 1024, system: args.systemPrompt, messages };
+    // The system prompt (article and rules) is the same every turn: cache it, so turns after the
+    // first read it at a tenth of the input price
+    const request = {
+      ...args.settings,
+      model: args.model,
+      max_tokens: 1024,
+      system: [{ type: "text" as const, text: args.systemPrompt, cache_control: { type: "ephemeral" as const } }],
+      messages,
+    } as Anthropic.MessageCreateParamsNonStreaming;
+    const settingsOutput = ((args.settings as { output_config?: object } | undefined)?.output_config ?? {});
     const response = await args.client.messages.create({
       ...request,
-      output_config: { format: { type: "json_schema", schema: REPLY_SCHEMA } },
-    }).catch(e => {
+      output_config: { ...settingsOutput, format: { type: "json_schema", schema: REPLY_SCHEMA } },
+    } as Anthropic.MessageCreateParamsNonStreaming).catch(e => {
       // If the API ever rejects the schema (e.g. a model without structured outputs), keep the
       // student's chat working: retry as plain text and let parseProgressResponse handle it
       if (e instanceof Anthropic.BadRequestError) {

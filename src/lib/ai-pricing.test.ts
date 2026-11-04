@@ -16,6 +16,8 @@ const PUBLISHED: Record<string, [number, number, number]> = {
   "claude-haiku-4-5": [1, 5, 0.1],
   "claude-opus-5-5": [4, 20, 0.2],
   "claude-sonnet-5-5": [2, 10, 0.2],
+  "claude-haiku-5-5": [0.1, 0.5, 0.01],
+  "claude-fable-5-1": [10, 50, 0.25],
 };
 assert.deepEqual(Object.keys(PRICES).sort(), Object.keys(PUBLISHED).sort());
 for (const [model, [input, output, cacheRead]] of Object.entries(PUBLISHED)) {

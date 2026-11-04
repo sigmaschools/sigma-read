@@ -15,7 +15,7 @@ import { and, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { tracked } from "../ai-usage";
 import { parseJsonResponse } from "../claude-json";
-import { MODELS } from "../models";
+import { MODELS, requestSettings } from "../models";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { computeAffinities, lessWeight, ratingKey, SIGNALS, type Affinity, type Signal, type SignalType } from "./affinity";
 import { checkinDue, checkinTopics } from "./checkin";
@@ -86,7 +86,7 @@ export async function resolveTopics(
   try {
     const slugs = [...labels.keys()];
     const response = await tracked(ai.client, "interest_resolve", ai.studentId).messages.create({
-      model: MODELS.light,
+      model: MODELS.light, ...requestSettings(MODELS.light, "light"),
       max_tokens: 1024,
       messages: [{ role: "user", content: resolvePrompt(unmatched, labels) }],
       output_config: { format: { type: "json_schema", schema: {
@@ -303,7 +303,7 @@ export async function recordChatMentions(args: {
   const own = (await topicsForArticles([args.articleId])).get(args.articleId) ?? [];
   if (own.length === 0) return [];
   const response = await tracked(args.client, "chat_mentions", args.studentId).messages.create({
-    model: MODELS.light,
+    model: MODELS.light, ...requestSettings(MODELS.light, "light"),
     max_tokens: 512,
     messages: [{ role: "user", content: chatMentionsPrompt(args.articleTitle, args.articleText, args.messages) }],
     output_config: { format: { type: "json_schema", schema: CHAT_MENTIONS_SCHEMA } },
