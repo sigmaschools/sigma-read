@@ -8,8 +8,10 @@ export function interviewOpener(name: string): string {
 /** The name Sigma calls the student: the first word only ("Maya Lopez" → "Maya"), never the full form-letter name */
 export function firstName(name: string | null | undefined): string {
   const trimmed = (name ?? "").trim();
-  // "Lopez, Maya" is last-name-first
-  const given = trimmed.includes(",") ? trimmed.slice(trimmed.indexOf(",") + 1).trim() : trimmed;
+  // "Lopez, Maya" is last-name-first; "Maya Lopez, Jr." is not
+  const [before, after] = [trimmed.split(",")[0].trim(), trimmed.split(",").slice(1).join(",").trim()];
+  const lastFirst = !/\s/.test(before) && !!after && !/^(jr|sr|ii|iii|iv)\.?$/i.test(after);
+  const given = lastFirst ? after : trimmed;
   return given.split(/\s+/)[0] || "there";
 }
 
