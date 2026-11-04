@@ -21,6 +21,7 @@ assert.equal(firstName(""), "there");
 assert.equal(firstName(null), "there");
 assert.equal(firstName("Lopez, Maya"), "Maya");
 assert.equal(firstName("Maya Lopez, Jr."), "Maya");
+assert.equal(firstName("Maya,"), "Maya");
 // Long lists stay short: up to six named; seven or more name five, then "and N more"
 assert.ok(interviewWrapUp(["a", "b", "c", "d", "e"]).startsWith("A, b, c, d and e, got it!"));
 assert.ok(interviewWrapUp(["a", "b", "c", "d", "e", "f"]).startsWith("A, b, c, d, e and f, got it!"));
@@ -28,7 +29,9 @@ assert.ok(interviewWrapUp(["a", "b", "c", "d", "e", "f", "g"]).startsWith("A, b,
 // [ANSWER] parsing
 const profile = '[PROFILE]\n{"interests": ["dogs"]}';
 assert.equal(extractAnswer(`Dogs it is.\n[ANSWER] I'm an AI, but I love octopuses.\n${profile}`), "I'm an AI, but I love octopuses.");
-assert.equal(extractAnswer(`[ANSWER] I like whales! Do you? ${profile}`), "I like whales!");
+assert.equal(extractAnswer(`[ANSWER] I like whales! Do you? ${profile}`), null);
+assert.equal(extractAnswer(`[ANSWER] I like Mr. Beast videos. ${profile}`), "I like Mr. Beast videos.");
+assert.equal(extractAnswer("[ANSWER] I read 3.5 books a week!"), "I read 3.5 books a week!");
 assert.equal(extractAnswer(`Dogs it is.\n${profile}`), null);
 assert.equal(extractAnswer(`[ANSWER]\n${profile}`), null);
 assert.equal(extractAnswer("[ANSWER] no end punctuation"), null);

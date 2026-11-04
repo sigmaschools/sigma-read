@@ -12,24 +12,24 @@ export function firstName(name: string | null | undefined): string {
   const [before, after] = [trimmed.split(",")[0].trim(), trimmed.split(",").slice(1).join(",").trim()];
   const lastFirst = !/\s/.test(before) && !!after && !/^(jr|sr|ii|iii|iv)\.?$/i.test(after);
   const given = lastFirst ? after : trimmed;
-  return given.split(/\s+/)[0] || "there";
+  return given.split(/\s+/)[0]?.replace(/,+$/, "") || "there";
 }
 
 /** Longest [ANSWER] Sigma may put before the wrap-up; a longer one is dropped, not cut */
 export const MAX_ANSWER_CHARS = 160;
 
 /**
- * Sigma's one-sentence answer to the student's question, from an [ANSWER] line on the profile
- * turn. Only the first sentence is kept; anything without end punctuation, too long, or empty is
- * dropped (the wrap-up still reads fine without it).
+ * Sigma's short answer to the student's question, from an [ANSWER] line on the profile turn.
+ * Anything without end punctuation, with a question, too long, or empty is dropped (the wrap-up
+ * still reads fine without it).
  */
 export function extractAnswer(text: string): string | null {
   const raw = text.match(/\[ANSWER\][ \t]*([^\n]*)/)?.[1] ?? "";
   const line = raw.replace(/\[PROFILE\][\s\S]*/, "").trim();
-  const sentence = line.match(/^[^.!?]*[.!?]/)?.[0]?.trim();
-  // The wrap-up screen has no reply box, only "Next": never end it on a question
-  if (!sentence || sentence.endsWith("?") || sentence.length > MAX_ANSWER_CHARS) return null;
-  return sentence;
+  // Keep the whole line (no cutting at "Mr." or "3.5"). The wrap-up screen has no reply box,
+  // only "Next", so an answer holding a question is dropped.
+  if (!/[.!]["')]?$/.test(line) || line.includes("?") || line.length > MAX_ANSWER_CHARS) return null;
+  return line;
 }
 
 /** Text with any [ANSWER] tag removed (the answer itself stays), for turns that show the model's text */
