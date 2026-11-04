@@ -17,6 +17,8 @@ import {
   checkDownwardTrigger,
   evaluateUpwardProbe,
   evaluateDownwardProbe,
+  placementMove,
+  PLACEMENT_SESSIONS,
 } from "./level-progression-rules";
 
 /**
@@ -81,8 +83,14 @@ export async function evaluateProgression(studentId: number): Promise<LevelEvalR
   const feedMix: FeedMix = (student.feedMix as FeedMix) || DEFAULT_MIX;
   const scores = await getRecentScores(studentId, 8);
 
-  // Grace period: first 3 sessions, no evaluation
-  if (scores.length < 3) return { action: "none" };
+  // Placement window: the starting level is a grade-based guess, so the first few reports can
+  // move it a level at a time straight away; no probing until the window is over
+  if (scores.length <= PLACEMENT_SESSIONS) {
+    const changes = await db.select({ id: schema.levelHistory.id }).from(schema.levelHistory)
+      .where(eq(schema.levelHistory.studentId, studentId));
+    const newLevel = placementMove(scores, level, changes.length);
+    return newLevel ? { action: "level_change", newLevel } : { action: "none" };
+  }
 
   // Cooldown: 3 sessions after level change
   const [lastChange] = await db.select().from(schema.levelHistory)

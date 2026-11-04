@@ -6,5 +6,5 @@ assert.equal(stripMarkdown("***Big*** idea"), "Big idea");
 assert.equal(stripMarkdown("So _that_ is it, snake_case stays"), "So that is it, snake_case stays");
 assert.equal(stripMarkdown("What you did well\n* a point\n- another"), "What you did well\na point\nanother");
 assert.equal(stripMarkdown("Header\n\n- point"), "Header\n\npoint");
-assert.equal(stripMarkdown("Try next time\nAdd one more reason."), "Try next time\nAdd one more reason.");
+assert.equal(stripMarkdown("What you did well\nYou gave a reason."), "What you did well\nYou gave a reason.");
 console.log("✅ stripMarkdown leaves plain text");

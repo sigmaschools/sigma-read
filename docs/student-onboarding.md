@@ -6,7 +6,7 @@
 
 ## Overview
 
-When a new student first logs in, they chat with Sigma about what they like, see three short tutorial cards, and land on three articles about their interests. Target: under 2 minutes, at most 3 typed answers.
+When a new student first logs in, they chat with Sigma about what they like, see three short tutorial cards, and land on three articles about their interests. Target: under 2 minutes, usually at most 3 typed answers.
 
 ---
 
@@ -17,7 +17,7 @@ The chat opens immediately (no screens before it). Prompt: `src/lib/prompts/md/i
 **Flow:**
 1. Sigma says hi and asks what they're into (one or two short sentences).
 2. After each answer Sigma either outputs the profile (three specific interests) or asks ONE short follow-up: which games, anything else, or a few ideas if they don't know.
-3. At most three student answers. After the third, the server tells Sigma to output the profile with whatever it has (`MAX_STUDENT_ANSWERS` in `src/app/api/onboarding/chat/route.ts`).
+3. Usually at most three student answers. After the third, the server tells Sigma to output the profile as soon as it has three interests (`MAX_STUDENT_ANSWERS` in `src/app/api/onboarding/chat/route.ts`). The chat never ends with fewer than three interests (`MIN_INTERESTS`, the owner's rule): a shorter profile, including one cut short by the content filter, is not saved, and Sigma asks for one more with easy ideas to pick from (`moreInterestsPrompt`). So nobody is stuck, a student still short of three after six answers gets kid-friendly defaults (the same ideas as the buttons) to make three (`GIVE_UP_ANSWERS`, `topUpInterests`).
 
 Before the first answer, the page shows tap-to-add topic ideas (Animals, Space, Sports, ...) that fill the text box.
 
@@ -34,7 +34,7 @@ Before the first answer, the page shows tap-to-add topic ideas (Animals, Space, 
 >
 > *(A "Next: see how SigmaRead works" button replaces the input; the cards start when the student taps it.)*
 
-**Personality:** older sibling energy (see [Conversation Design](./conversation-design.md)). The first and last messages are fixed copy in `src/lib/onboarding-copy.ts`: the opener says what SigmaRead is and asks for three interests; the wrap-up names the interests back and says the first articles are on the way. The chat then waits for the student to tap "Next" before the tutorial cards, so the wrap-up can be read. Sigma reacts to each answer in between with something specific instead of praise.
+**Personality:** older sibling energy (see [Conversation Design](./conversation-design.md)). The first and last messages are fixed copy in `src/lib/onboarding-copy.ts`: the opener says what SigmaRead is and asks for three interests; the opener greets the student by first name only; the wrap-up names the interests back (up to six; a longer list names five, then "and N more") and says the first articles are on the way. If the student asked Sigma something on the last turn, Sigma's one-sentence answer (the `[ANSWER]` line) comes just before the wrap-up, and on earlier turns Sigma answers questions in character before going on. The chat then waits for the student to tap "Next" before the tutorial cards, so the wrap-up can be read. Sigma reacts to each answer in between with something specific instead of praise.
 
 **Rules:** one question per message, short sentences, no empty praise, accept whatever the student says, never ask about the same thing twice. Inappropriate interests are silently filtered (see [Content Safety](./content-safety.md)).
 
