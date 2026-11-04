@@ -26,7 +26,10 @@ import { buildStudentSystemPrompt } from "./eval/student-sim";
 import { runTutorTurn, type ClosingKind } from "../src/lib/conversation-turn";
 import { saveComprehensionReport } from "../src/lib/comprehension-report";
 import { comprehensionConversationPrompt, pickConversationStyle, maxWordsForLevel } from "../src/lib/prompts";
-import { MODELS } from "../src/lib/models";
+import { MODELS, requestSettings } from "../src/lib/models";
+
+/** Fixed, so a change of the app's models doesn't also change the simulated students */
+const STUDENT_SIM_MODEL = "claude-sonnet-4-6";
 import { tracked } from "../src/lib/ai-usage";
 import { assertNotProduction } from "./sim-guard";
 
@@ -73,7 +76,7 @@ async function simulateStudentResponse(
 ): Promise<string> {
   const aiMessage = conversationSoFar[conversationSoFar.length - 1].content;
   const response = await anthropic.messages.create({
-    model: MODELS.standard,
+    model: STUDENT_SIM_MODEL,
     max_tokens: 200,
     system: buildStudentSystemPrompt(persona, level),
     messages: [
@@ -127,7 +130,8 @@ async function runSession(
   for (let turn = 0; turn < MAX_TUTOR_TURNS; turn++) {
     const result = await runTutorTurn({
       client: tracked(anthropic, "tutor_turn", studentId),
-      model: MODELS.heavy,
+      model: MODELS.tutor,
+      settings: requestSettings(MODELS.tutor, "tutor"),
       systemPrompt,
       messages,
       priorProgress: progress,

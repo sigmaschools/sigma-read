@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
-import { MODELS } from "@/lib/models";
+import { MODELS, requestSettings } from "@/lib/models";
 import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         try {
           const anthropic = new Anthropic();
           const resp = await tracked(anthropic, "feed_event", session.userId).messages.create({
-            model: MODELS.light,
+            model: MODELS.light, ...requestSettings(MODELS.light, "light"),
             max_tokens: 30,
             messages: [{ role: "user", content: `Convert this student interest into a short topic tag (2-4 words, lowercase). Output ONLY the tag, nothing else.\n\nInput: "${suggestion}"\nTag:` }],
           });

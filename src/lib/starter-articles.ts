@@ -28,14 +28,24 @@ async function markStarterDone(studentId: number) {
   await db.update(schema.students).set({ starterArticlesStatus: "done" }).where(eq(schema.students.id, studentId));
 }
 
+/** Whether the student has this article: the same title, or the same base article at any level */
+async function seenArticle(studentId: number, cacheId: number, title: string): Promise<boolean> {
+  const rows = await db.execute(sql`
+    SELECT 1 FROM student_article_history h
+    LEFT JOIN article_cache hc ON hc.id = h.article_cache_id
+    JOIN article_cache c ON c.id = ${cacheId}
+    WHERE h.student_id = ${studentId}
+      AND (h.article_title = ${title} OR COALESCE(hc.base_article_id, hc.id) = COALESCE(c.base_article_id, c.id))
+    LIMIT 1
+  `);
+  return rows.rows.length > 0;
+}
+
 /** Copies a cache row into the student's feed and history; false if they already have it */
 async function serveCacheRow(studentId: number, cacheId: number): Promise<boolean> {
   const [row] = await db.select().from(schema.articleCache).where(eq(schema.articleCache.id, cacheId)).limit(1);
   if (!row) return false;
-  const [had] = await db.select({ id: schema.studentArticleHistory.id }).from(schema.studentArticleHistory)
-    .where(and(eq(schema.studentArticleHistory.studentId, studentId), eq(schema.studentArticleHistory.articleTitle, row.title)))
-    .limit(1);
-  if (had) return false;
+  if (await seenArticle(studentId, row.id, row.title)) return false;
   await db.insert(schema.articles).values({
     studentId,
     title: row.title,
@@ -60,6 +70,8 @@ async function cachedForTopic(studentId: number, level: number, slug: string, sk
       eq(c.flagged, false),
       sql`EXISTS (SELECT 1 FROM article_topics t WHERE t.article_cache_id = COALESCE(${c.baseArticleId}, ${c.id}) AND t.topic_slug = ${slug})`,
       sql`NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${studentId} AND h.article_title = ${c.title})`,
+      sql`NOT EXISTS (SELECT 1 FROM student_article_history h JOIN article_cache hc ON hc.id = h.article_cache_id
+        WHERE h.student_id = ${studentId} AND COALESCE(hc.base_article_id, hc.id) = COALESCE(${c.baseArticleId}, ${c.id}))`,
     ))
     .orderBy(desc(c.createdAt))
     .limit(skip.length + 1);

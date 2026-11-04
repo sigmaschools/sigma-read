@@ -30,16 +30,25 @@ import { backfillSignals, batchInterestsFor, getAffinities, horizonTopicsFor, qu
 import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
+import { MODELS, requestSettings } from "../models";
+import { BASE_LEVEL, rewriteFromSource as writeBase, adaptArticleToLevel as writeAdaptation, type SourcedTopic } from "./article-writer";
+import { findDuplicate, type ExistingArticle } from "./dedup";
+import { interestCap, pickInterests } from "./plan-interests";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
-const SONNET_MODEL = "claude-sonnet-4-5";
-const HAIKU_MODEL = "claude-haiku-4-5";
 const BUFFER_TARGET = 10; // 2-day buffer in case batch fails
-const BASE_LEVEL = 4;
+/** How far back the duplicate check looks for articles on the same subject */
+const DEDUP_DAYS = 60;
 
 const sql = neon(DATABASE_URL);
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+/** Model and settings for the small steps: picking, filtering, searching, suggesting topics */
+const LIGHT = { model: MODELS.light, ...requestSettings(MODELS.light, "light") };
+
+const rewriteFromSource = (topic: SourcedTopic) => writeBase(tracked(anthropic, "batch_rewrite"), topic);
+const adaptArticleToLevel = (title: string, body: string, level: number) =>
+  writeAdaptation(tracked(anthropic, "batch_adapt"), title, body, level);
 const ADAPT_CONCURRENCY = 3;
 
 export interface BatchOptions {
@@ -84,21 +93,6 @@ interface Student {
   daily_article_cap: number;
 }
 
-interface SourcedTopic {
-  query: string;
-  type: "interest" | "news" | "horizon";
-  sourceUrl: string;
-  sourceText: string;
-}
-
-const levelGuide: Record<number, { lexile: string; grade: string; words: string; vocab: string }> = {
-  1: { lexile: "~400-500", grade: "2-3", words: "100-200", vocab: "Use simple, common words. Short sentences (5-10 words). Define any topic word in the same sentence." },
-  2: { lexile: "~550-650", grade: "3-4", words: "200-300", vocab: "Mostly common words. At most 1-2 topic-specific words per paragraph, explained in context." },
-  3: { lexile: "~700-800", grade: "5-6", words: "300-400", vocab: "At most 2-3 challenging words per paragraph. Each one defined or contextually clear." },
-  4: { lexile: "~850-950", grade: "7", words: "400-500", vocab: "Domain vocabulary with context clues. Avoid stacking multiple technical terms in one sentence." },
-  5: { lexile: "~1000-1100", grade: "8", words: "400-600", vocab: "Domain-specific vocabulary supported by context. Complex sentence structures allowed." },
-  6: { lexile: "~1150+", grade: "8+", words: "500-600", vocab: "Advanced vocabulary acceptable. Assume strong reader who can handle nuance and inference." },
-};
 
 // ─── Step 1: Analyze Students ───────────────────────────────────────────────
 
@@ -217,29 +211,21 @@ async function planDailyArticles(
     r.last_featured_at ? new Date(r.last_featured_at as string) : null,
   ]));
 
-  // Per-student: pick their top-3 least-recently-used interests
-  const pickedInterests = new Set<string>();
-  for (const student of students) {
+  // Per student: their top-3 least-recently-used interests. Articles are shared, so the day's
+  // picks cover as many students as possible with as few articles as possible (plan-interests.ts).
+  const wants = students.map(student => {
     const interests = studentInterests.get(student.id) || [];
     // Sort by last_featured_at ascending (NULL = never = highest priority)
-    const sorted = [...interests].sort((a, b) => {
+    return [...interests].sort((a, b) => {
       const aDate = lastFeaturedMap.get(a);
       const bDate = lastFeaturedMap.get(b);
       const aTime = aDate ? aDate.getTime() : 0;
       const bTime = bDate ? bDate.getTime() : 0;
       return aTime - bTime;
-    });
-    // Pick up to 3 per student
-    let count = 0;
-    for (const interest of sorted) {
-      if (count >= 3) break;
-      if (!pickedInterests.has(interest)) {
-        pickedInterests.add(interest);
-        count++;
-      }
-    }
-  }
-  console.log(`  🎯 Selected interests (per-student rotation): ${[...pickedInterests].join(', ')}`);
+    }).slice(0, 3);
+  });
+  const pickedInterests = new Set(pickInterests(wants, interestCap(students.length)));
+  console.log(`  🎯 Selected interests (${pickedInterests.size} for ${students.length} students, shared): ${[...pickedInterests].join(', ')}`);
 
   // Deduplicate: each interest appears at most once in plans
   for (const interest of pickedInterests) {
@@ -279,7 +265,7 @@ async function planDailyArticles(
 
     try {
       const response = await tracked(anthropic, "batch_adjacent").messages.create({
-        model: HAIKU_MODEL,
+        ...LIGHT,
         max_tokens: 500,
         messages: [{
           role: "user",
@@ -391,7 +377,7 @@ async function onTopicResults(query: string, results: SearchResult[]): Promise<S
   const candidates = results.slice(0, 12);
   try {
     const response = await tracked(anthropic, "batch_source_pick").messages.create({
-      model: HAIKU_MODEL,
+      ...LIGHT,
       max_tokens: 200,
       messages: [{
         role: "user",
@@ -435,7 +421,7 @@ async function webSearch(query: string, recentOnly = false): Promise<{ title: st
   const terms = (site ? site[2] : query) || "latest articles";
   try {
     const response = await tracked(anthropic, "batch_search").messages.create({
-      model: HAIKU_MODEL,
+      ...LIGHT,
       max_tokens: 1024,
       tools: [{
         type: "web_search_20250305",
@@ -547,7 +533,7 @@ async function filterSources<T extends { url: string; text: string }>(
 
   try {
     const response = await tracked(anthropic, "batch_filter").messages.create({
-      model: HAIKU_MODEL,
+      ...LIGHT,
       max_tokens: 500,
       messages: [{
         role: "user",
@@ -584,7 +570,30 @@ Return ONLY a JSON array of indices to KEEP:
   return sources;
 }
 
-async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): Promise<SourcedTopic[]> {
+/**
+ * Source URLs being written right now by another call in this process (new students' first
+ * articles are written in parallel, and two interests can land on the same page).
+ */
+const urlsInFlight = new Set<string>();
+
+/** Base articles written in the last DEDUP_DAYS, newest first, for the duplicate check */
+async function recentBaseArticles(): Promise<ExistingArticle[]> {
+  const rows = await sql`
+    SELECT id, title FROM article_cache
+    WHERE base_article_id IS NULL AND generated_date > CURRENT_DATE - ${DEDUP_DAYS}::int
+    ORDER BY id DESC LIMIT 300
+  `;
+  return rows.map(r => ({ id: r.id as number, title: r.title as string }));
+}
+
+interface SourceOptions {
+  /** Called when a plan's best source would duplicate an article already in the pool */
+  onDuplicate?: (query: string, existingId: number) => void;
+  /** Claim the chosen URLs in urlsInFlight; the caller releases them */
+  claimed?: string[];
+}
+
+async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, opts: SourceOptions = {}): Promise<SourcedTopic[]> {
   searchHealth.ok = 0;
   searchHealth.failed = 0;
   console.log("\n🔍 Sourcing content...\n");
@@ -602,6 +611,28 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
   for (const r of recentUrls) usedUrls.add(r.source_url as string);
   console.log(`  🔒 Pre-seeded ${usedUrls.size} recently-used URLs for exclusion`);
 
+  // Same subject from a different page or interest ("tesla", "electric cars") is a duplicate too.
+  // Sources chosen earlier in this call join the list (negative ids: not in the pool yet).
+  const existing = await recentBaseArticles().catch(e => { console.error("  ⚠️ Recent articles unavailable for the duplicate check:", e); return [] as ExistingArticle[]; });
+  let pending = 0;
+  const dedupClient = tracked(anthropic, "batch_dedup");
+
+  /** Whether to use this page: not used before, not in flight elsewhere, not a duplicate subject */
+  async function accept(plan: ArticlePlan, title: string, url: string, text: string): Promise<boolean> {
+    if (usedUrls.has(url) || urlsInFlight.has(url)) return false;
+    const dup = await findDuplicate(dedupClient, { title, text }, existing);
+    if (dup !== null) {
+      const match = existing.find(e => e.id === dup);
+      console.log(`     ♻️ "${title}" would duplicate "${match?.title}", skipping`);
+      if (dup > 0) opts.onDuplicate?.(plan.query, dup);
+      return false;
+    }
+    usedUrls.add(url);
+    existing.unshift({ id: --pending, title });
+    if (opts.claimed) { urlsInFlight.add(url); opts.claimed.push(url); }
+    return true;
+  }
+
   // ─── Interest & Horizon: Grokipedia ───────────────────────────────────────
 
   const grokPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
@@ -615,12 +646,11 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     let fetched = false;
     for (const result of results.slice(0, 8)) {
       const titleLower = result.title.toLowerCase();
-      if (usedUrls.has(result.url) || recentTopics.has(titleLower)) continue;
+      if (usedUrls.has(result.url) || urlsInFlight.has(result.url) || recentTopics.has(titleLower)) continue;
 
       const text = await fetchGrokipediaArticle(result.url);
-      if (text) {
+      if (text && await accept(plan, result.title, result.url, text)) {
         sourced.push({ query: plan.query, type: plan.type, sourceUrl: result.url, sourceText: text });
-        usedUrls.add(result.url);
         console.log(`     ✅ ${result.title} (${result.url.substring(0, 55)}...)`);
         fetched = true;
         break;
@@ -630,16 +660,15 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
     // If all recent-filtered results failed, try the first result only if URL not already used
     if (!fetched && results.length > 0) {
       const fallback = results[0];
-      if (usedUrls.has(fallback.url)) {
+      if (usedUrls.has(fallback.url) || urlsInFlight.has(fallback.url)) {
         console.log(`     ⚠️ Skipping fallback — URL already used: ${fallback.url.substring(0, 55)}...`);
       } else {
         const text = await fetchGrokipediaArticle(fallback.url);
-        if (text) {
+        if (text && await accept(plan, fallback.title, fallback.url, text)) {
           sourced.push({ query: plan.query, type: plan.type, sourceUrl: fallback.url, sourceText: text });
-          usedUrls.add(fallback.url);
           console.log(`     ✅ ${fallback.title} (${fallback.url.substring(0, 55)}...)`);
           fetched = true;
-        } else {
+        } else if (!text) {
           console.log(`     ⚠️ Could not fetch any Grokipedia article`);
         }
       }
@@ -651,7 +680,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
       const webResults = await webSearch(`${plan.query} article`);
       for (const r of webResults.slice(0, 3)) {
         const text = await fetchSourceText(r.url);
-        if (text) {
+        if (text && await accept(plan, r.title, r.url, text)) {
           sourced.push({ query: plan.query, type: plan.type, sourceUrl: r.url, sourceText: text });
           console.log(`     ✅ Web search fallback: ${r.url.substring(0, 60)}...`);
           break;
@@ -683,7 +712,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
 
     for (const result of results.slice(0, 5)) {
       const text = await fetchSourceText(result.url);
-      if (text) {
+      if (text && await accept(plan, result.title, result.url, text)) {
         newsCandidates.push({ url: result.url, text, query: plan.searchQuery, type: "news", originalQuery: plan.query });
         console.log(`     ✅ Fetched: ${result.url.substring(0, 60)}...`);
         newsSourcedCount++;
@@ -711,141 +740,6 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>): P
   return sourced;
 }
 
-const BANNED_OPENINGS = ["imagine ", "picture this", "picture yourself", "what if ", "have you ever"];
-
-function hasBannedOpening(text: string): boolean {
-  const lower = text.trim().toLowerCase();
-  return BANNED_OPENINGS.some(phrase => lower.startsWith(phrase));
-}
-
-// ─── Step 4: Generate Base Articles (Rewrite from Source) ───────────────────
-
-async function rewriteFromSource(topic: SourcedTopic): Promise<{
-  title: string; topic: string; bodyText: string; sourceUrl: string;
-  sources: string[]; estimatedReadTime: number; category: string;
-} | null> {
-  const guide = levelGuide[BASE_LEVEL];
-
-  // Truncate source text to ~2000 words to keep prompt reasonable
-  const sourceWords = topic.sourceText.split(/\s+/);
-  const truncatedSource = sourceWords.length > 2000
-    ? sourceWords.slice(0, 2000).join(" ") + "..."
-    : topic.sourceText;
-
-  const response = await tracked(anthropic, "batch_rewrite").messages.create({
-    model: SONNET_MODEL,
-    max_tokens: 2000,
-    messages: [{
-      role: "user",
-      content: `Rewrite the following source material as an original nonfiction article for a student.
-
-Reading level: ${BASE_LEVEL} (Lexile ${guide.lexile}, Grade ${guide.grade})
-Article type: ${topic.type}
-Target length: ${guide.words} words
-
-SOURCE MATERIAL:
-${truncatedSource}
-
-VOCABULARY RULES: ${guide.vocab}
-
-Requirements:
-- Rewrite the source material as an ORIGINAL article. Keep all facts accurate. Do not add information not in the source.
-- Do NOT copy sentences verbatim from the source. Use your own words and structure.
-- Calibrate sentence length and complexity to the grade level.
-- Make it genuinely interesting. Concrete details and examples throughout.
-- OPENING STYLE — HARD RULE: Your FIRST WORD must NOT be "Imagine", "Picture", "What", or "Have". These are hard-banned. Before writing the article, silently pick ONE style from this list and write only that style:
-  1. Statistic: Lead with a striking number. E.g., "Every second, 6,000 lightning bolts hit Earth."
-  2. Scene drop: Real moment, third-person present tense. E.g., "A coyote trots down a Chicago sidewalk at 2 a.m."
-  3. Historical moment: Specific time and place. E.g., "On July 20, 1969, two astronauts stepped onto a world no human had touched."
-  4. Bold claim: A surprising fact. E.g., "Coyotes have spread farther than any other predator in North America in the last century."
-  5. Contrast: Two opposing facts. E.g., "The drone weighs less than a smartphone. It can carry 20 pounds for 30 miles."
-  6. Q&A: Ask, then answer immediately. E.g., "How fast is the fastest animal? The peregrine falcon dives at 240 mph."
-  7. Micro-story: One sentence about a real person or event. E.g., "At nine years old, Ai Hinatsuru showed up at a stranger's door demanding to be taught."
-  Do not use style 1 twice in the same batch.
-- Short paragraphs (2-4 sentences each).
-- Age-appropriate for grade ${guide.grade} students.
-- EDITORIAL NEUTRALITY: Report facts, not opinions.
-${topic.type === "news" ? "- Frame around what is happening NOW." : ""}
-${topic.type === "horizon" ? "- Introduce the domain with curiosity — this should feel like a discovery." : ""}
-
-Output format:
-[ARTICLE]
-{
-  "title": "Article title",
-  "topic": "Topic tag (1-3 words)",
-  "body": "The full article text.",
-  "estimated_read_time_minutes": 3
-}
-
-No preamble or commentary outside the JSON.`,
-    }],
-  });
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (parsed.body && hasBannedOpening(parsed.body)) {
-      const preview = parsed.body.trim().split(' ').slice(0, 4).join(' ');
-      console.log(`  ⚠️  Banned opening detected: "${preview}..." — article still used, check prompt`);
-    }
-    return {
-      title: parsed.title,
-      topic: parsed.topic,
-      bodyText: parsed.body,
-      sourceUrl: topic.sourceUrl,
-      sources: [topic.sourceUrl],
-      estimatedReadTime: parsed.estimated_read_time_minutes || 3,
-      category: topic.type === "interest" ? "interest" : topic.type === "news" ? "news" : "general",
-    };
-  } catch { return null; }
-}
-
-// ─── Step 5: Adapt Article to Level ─────────────────────────────────────────
-
-async function adaptArticleToLevel(
-  baseTitle: string, baseBody: string, targetLevel: number
-): Promise<{ title: string; bodyText: string; estimatedReadTime: number } | null> {
-  const guide = levelGuide[targetLevel];
-
-  const response = await tracked(anthropic, "batch_adapt").messages.create({
-    model: SONNET_MODEL,
-    max_tokens: 2000,
-    messages: [{
-      role: "user",
-      content: `Adapt this article to reading level ${targetLevel} (Lexile ${guide.lexile}, Grade ${guide.grade}, ${guide.words} words). Keep same facts, adjust vocabulary/complexity.
-
-${guide.vocab}
-
-Title: ${baseTitle}
----
-${baseBody}
----
-
-Rules:
-- Keep the same title (or simplify for lower levels)
-- Keep all key facts accurate
-- Adjust sentence length and vocabulary to match target grade
-- Short paragraphs (2-4 sentences)
-- OPENING STYLE: Preserve the base article's opening style. If the original opens with a statistic, scene, historical moment, bold claim, contrast, Q&A, or micro-story — keep that approach. If the original starts with "Imagine", "Picture", "What if", or "Have you ever" — replace it with a surprising fact, scene, or historical moment.
-
-Output ONLY JSON:
-{"title": "Article title", "body": "Adapted article text.", "estimated_read_time_minutes": ${targetLevel <= 2 ? 2 : targetLevel <= 4 ? 3 : 4}}`,
-    }],
-  });
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    return { title: parsed.title || baseTitle, bodyText: parsed.body, estimatedReadTime: parsed.estimated_read_time_minutes || 3 };
-  } catch { return null; }
-}
-
 // ─── Step 6: Serve Articles to Students ─────────────────────────────────────
 
 async function serveToStudents(students: Student[]): Promise<number> {
@@ -870,6 +764,9 @@ async function serveToStudents(students: Student[]): Promise<number> {
     const available = await sql`
       SELECT * FROM article_cache ac WHERE reading_level = ${student.reading_level} AND flagged = false
         AND NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ac.title)
+        -- the same article at another level (adapted titles can differ) counts as seen
+        AND NOT EXISTS (SELECT 1 FROM student_article_history h JOIN article_cache hc ON hc.id = h.article_cache_id
+          WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = COALESCE(ac.base_article_id, ac.id))
       ORDER BY created_at DESC LIMIT 50
     `;
     const unseen = available.filter((a: any) => !seen.has(a.title));
@@ -984,7 +881,8 @@ async function runSteps(result: BatchResult) {
   })(), "batch upkeep");
 
   // Check if we already have base articles from a partial run today
-  const TARGET_BASE_ARTICLES = 5; // 5 articles/day = 3 interest, 1 news, 1 horizon
+  // Interest articles (3 for one student, more as students are added) + 1 news + 1 horizon
+  const TARGET_BASE_ARTICLES = interestCap(students.length) + 2;
   const [existingToday] = await sql`
     SELECT COUNT(*) as c FROM article_cache
     WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false
@@ -1109,37 +1007,65 @@ async function runSteps(result: BatchResult) {
  * rewrite at the base level, tag, then adapt to `level`. Both versions go into the shared cache,
  * so later students can be served them too. Returns the cache id at `level`, or null if no
  * source was found or a step failed.
+ *
+ * When the pool already has an article on the same subject (another student's interest, or
+ * another of this student's interests landing on the same page), that article is returned at
+ * `level` instead of writing a near-duplicate; the caller serves it unless the student has seen it.
  */
 export async function writeInterestArticle(interest: string, level: number): Promise<number | null> {
   const today = new Date().toISOString().split("T")[0];
-  const [sourced] = await sourceContent([{ query: interest, type: "interest", searchQuery: interest }], new Set());
-  if (!sourced) return null;
+  let duplicateOf: number | null = null;
+  const claimed: string[] = [];
+  try {
+    const [sourced] = await sourceContent([{ query: interest, type: "interest", searchQuery: interest }], new Set(), {
+      claimed,
+      onDuplicate: (_, id) => { duplicateOf ??= id; },
+    });
+    if (!sourced) {
+      if (duplicateOf === null) return null;
+      console.log(`  ♻️ "${interest}": sharing existing article ${duplicateOf} instead of writing a duplicate`);
+      return await atLevel(duplicateOf, level);
+    }
 
-  const article = await rewriteFromSource(sourced);
-  if (!article?.bodyText) return null;
-  const blocked = await sql`SELECT 1 FROM blocked_topics WHERE LOWER(topic) = ${article.topic.toLowerCase()} LIMIT 1`;
-  if (blocked.length > 0) return null;
+    const article = await rewriteFromSource(sourced);
+    if (!article?.bodyText) return null;
+    const blocked = await sql`SELECT 1 FROM blocked_topics WHERE LOWER(topic) = ${article.topic.toLowerCase()} LIMIT 1`;
+    if (blocked.length > 0) return null;
 
-  const [base] = await sql`
-    INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url)
-    VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl})
-    RETURNING id
+    const [base] = await sql`
+      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url)
+      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl})
+      RETURNING id
+    `;
+    await quietly(tagCacheArticle(base.id, [interest, article.topic], { client: anthropic }), "article tagging");
+    await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${interest})`;
+    // Tomorrow's batch rotates to the student's other interests first
+    await sql`
+      INSERT INTO interest_rotation (interest, last_featured_at, student_ids, updated_at)
+      VALUES (${interest.toLowerCase()}, CURRENT_DATE, NULL, NOW())
+      ON CONFLICT (interest) DO UPDATE SET last_featured_at = EXCLUDED.last_featured_at, updated_at = NOW()
+    `;
+    return await atLevel(base.id as number, level);
+  } finally {
+    for (const url of claimed) urlsInFlight.delete(url);
+  }
+}
+
+/** The pool's version of base article `baseId` at `level`, adapting and storing it if missing */
+async function atLevel(baseId: number, level: number): Promise<number | null> {
+  const [hit] = await sql`
+    SELECT id FROM article_cache
+    WHERE (id = ${baseId} OR base_article_id = ${baseId}) AND reading_level = ${level} AND flagged = false
+    LIMIT 1
   `;
-  await quietly(tagCacheArticle(base.id, [interest, article.topic], { client: anthropic }), "article tagging");
-  await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${interest})`;
-  // Tomorrow's batch rotates to the student's other interests first
-  await sql`
-    INSERT INTO interest_rotation (interest, last_featured_at, student_ids, updated_at)
-    VALUES (${interest.toLowerCase()}, CURRENT_DATE, NULL, NOW())
-    ON CONFLICT (interest) DO UPDATE SET last_featured_at = EXCLUDED.last_featured_at, updated_at = NOW()
-  `;
-  if (level === BASE_LEVEL) return base.id as number;
-
-  const adapted = await adaptArticleToLevel(article.title, article.bodyText, level);
+  if (hit) return hit.id as number;
+  const [base] = await sql`SELECT * FROM article_cache WHERE id = ${baseId} AND flagged = false`;
+  if (!base) return null;
+  const adapted = await adaptArticleToLevel(base.title, base.body_text, level);
   if (!adapted?.bodyText) return null;
   const [row] = await sql`
     INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date)
-    VALUES (${adapted.title}, ${article.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(article.sources)}, ${adapted.estimatedReadTime}, ${article.category}, ${base.id}, ${today})
+    VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources || [])}, ${adapted.estimatedReadTime}, ${base.category}, ${baseId}, ${base.generated_date})
     RETURNING id
   `;
   return row.id as number;

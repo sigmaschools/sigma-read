@@ -49,7 +49,7 @@ docs/              # Product docs, conversation design, testing guides
 
 Additional rules:
 
-- **AI models**: Opus 4.6 for student conversations, Sonnet 4.5 for article generation, Haiku 4.5 for planning/classification/definitions
+- **AI models**: one model per job in `src/lib/models.ts` (`MODELS.tutor`, `report`, `writer`, `standard`, `light`); never hardcode a model id in a route. Build requests with `forJob(job, body)` (or spread `requestSettings(model, job)`) so thinking/effort settings come along. Why each model was chosen, and how to re-test: `docs/ai-models.md`. The eval scripts pin their student simulator to a fixed model, so a model change in the app doesn't change the simulated students
 - **Auth pattern**: Every API route checks `getSession()` first, returns 401 if missing
 - **All API routes**: Must `export const dynamic = "force-dynamic"` when authenticated
 - **Imports**: Use `@/` path alias (maps to `src/`)
@@ -92,7 +92,8 @@ Branch naming: use short descriptive names like `fix/admin-student-access`, `fea
 | `docs/product-boundary.md` | What SigmaRead is and isn't |
 | `docs/conversation-design.md` | AI conversation rules, 6 styles, scoring rubric |
 | `docs/level-progression.md` | Gradual Mix level system |
-| `docs/article-pipeline.md` | Morning batch generation |
+| `docs/article-pipeline.md` | Morning batch generation, article sharing and duplicate checks |
+| `docs/ai-models.md` | Which model does each job, the tests behind it, costs |
 | `docs/content-policy.md` | Three Bucket content framework |
 | `docs/content-safety.md` | 3-layer content filtering |
 | `docs/student-onboarding.md` | Onboarding walkthrough |

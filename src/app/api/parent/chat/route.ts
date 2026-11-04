@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, and, desc } from "drizzle-orm";
-import { MODELS } from "@/lib/models";
+import { MODELS, requestSettings } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
 import { parentChatPrompt } from "@/lib/prompts";
@@ -205,9 +205,10 @@ export async function POST(req: NextRequest) {
   }));
 
   const response = await tracked(anthropic, "parent_chat", studentId).messages.create({
-    model: MODELS.standard,
+    model: MODELS.standard, ...requestSettings(MODELS.standard, "standard"),
     max_tokens: 1024,
-    system: systemPrompt,
+    // Same every turn of the chat: cached, so later turns read it at a tenth of the price
+    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
     messages: contextMessages,
   });
 

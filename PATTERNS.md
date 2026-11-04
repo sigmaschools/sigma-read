@@ -56,26 +56,27 @@ export async function POST(req: NextRequest) {
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
+import { forJob } from "@/lib/models";
+import { tracked } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic(); // Uses ANTHROPIC_API_KEY env var
 
-// For conversations (high quality): model = "claude-opus-4-6"
-// For planning/classification: model = "claude-sonnet-4-5-20250514"
-const response = await anthropic.messages.create({
-  model: "claude-opus-4-6",
+// forJob picks the job's model (src/lib/models.ts) and its thinking/effort settings
+const response = await tracked(anthropic, "definition", studentId).messages.create(forJob("standard", {
   max_tokens: 1024,
-  messages: [...],
-  system: "System prompt here",
-});
+  messages: [{ role: "user" as const, content: "..." }],
+}));
 
-const text = response.content[0].type === "text" ? response.content[0].text : "";
+const block = response.content.find(b => b.type === "text");
+const text = block?.type === "text" ? block.text : "";
 ```
 
 **Rules:**
-- Conversations with students use Opus 4.6
-- Planning, classification, article generation use Sonnet 4.5
+- Pick a job, not a model: `tutor`, `report`, `writer`, `standard` (short chats, definitions) or `light` (classification, tagging). See docs/ai-models.md
+- Wrap the client with `tracked(...)` so the admin cost view sees the call
+- A system prompt reused across turns gets `cache_control: { type: "ephemeral" }`
 - Always set max_tokens explicitly
-- Parse response safely (check content[0].type)
+- Parse response safely (find the text block)
 
 ---
 

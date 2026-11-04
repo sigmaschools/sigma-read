@@ -24,7 +24,9 @@ import { buildStudentSystemPrompt } from "./eval/student-sim";
 import { checkTranscript, wordCount, type Msg, type Violation } from "./eval/checks";
 import { comprehensionConversationPrompt, CONVERSATION_STYLES, maxWordsForLevel } from "../src/lib/prompts";
 import { runTutorTurn, type ClosingKind } from "../src/lib/conversation-turn";
-import { MODELS } from "../src/lib/models";
+
+/** Fixed, so a change of the app's models doesn't also change the simulated students */
+const STUDENT_SIM_MODEL = "claude-sonnet-4-6";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("ANTHROPIC_API_KEY is not set");
@@ -112,7 +114,7 @@ function candidateClient(config: Config, calls: Call[]) {
 async function studentReply(persona: StudentPersona, article: EvalArticle, transcript: Msg[]): Promise<string> {
   const last = transcript[transcript.length - 1].content;
   const res = await anthropic.messages.create({
-    model: MODELS.standard,
+    model: STUDENT_SIM_MODEL,
     max_tokens: 200,
     system: buildStudentSystemPrompt(persona, article.level),
     messages: [{
@@ -235,7 +237,7 @@ const mean = (xs: number[]) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.le
 const pct = (xs: number[], p: number) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : NaN; };
 
 function summarize(results: Result[]): string {
-  const lines = [`# Tutor model comparison`, "", `${results.length} conversations. Student simulator ${MODELS.standard}; judge ${JUDGE_MODEL} (blind to the model). Same personas, articles and styles for every model.`, ""];
+  const lines = [`# Tutor model comparison`, "", `${results.length} conversations. Student simulator ${STUDENT_SIM_MODEL}; judge ${JUDGE_MODEL} (blind to the model). Same personas, articles and styles for every model.`, ""];
   // Cases are paired across models (same persona, article and style), so compare each model with
   // the first config case by case: mean difference in the judge's overall score and its standard error
   const base = configs[0]?.id;
