@@ -69,7 +69,8 @@ export function interviewWrapUp(interests: string[], reply?: string | null): str
 
 /**
  * Asked when the chat would end with fewer than three interests: names what Sigma has, then makes
- * one more easy to give (the screen shows the same ideas as buttons).
+ * one more easy to give. The onboarding page shows its idea buttons when Sigma's message
+ * contains "Pick any that sound good", so keep that phrase.
  */
 export function moreInterestsPrompt(interests: string[]): string {
   const list = capitalizeFirst(joinList(interests));
