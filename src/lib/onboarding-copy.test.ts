@@ -45,6 +45,7 @@ const prompt = readFileSync(new URL("./prompts/md/interest-interview.md", import
 assert.ok(prompt.includes(interviewOpener("[name]")), "interest-interview.md must quote interviewOpener");
 assert.ok(interviewWrapUp(["iPhone", "soccer"]).startsWith("iPhone and soccer, got it!"));
 assert.ok(moreInterestsPrompt(["dogs", "soccer"]).startsWith("Dogs and soccer, good start. What's one more thing you like?"));
+assert.ok(moreInterestsPrompt(["iPhone"]).startsWith("iPhone, good start."));
 assert.ok(moreInterestsPrompt([]).startsWith("What's one more thing you like?"));
 assert.deepEqual(topUpInterests(["Space"], 3), ["Space", "animals", "sports"]);
 assert.deepEqual(topUpInterests(["a", "b", "c"], 3), ["a", "b", "c"]);

@@ -40,6 +40,12 @@ export function stripAnswer(text: string): string {
 /** Most interests named in the wrap-up; a longer list names one fewer and says "and N more" */
 const MAX_NAMED = 6;
 
+/** Capitalize "dogs" but leave mixed-case names like "iPhone" alone */
+function capitalizeFirst(text: string): string {
+  const first = text.split(/\s/)[0];
+  return text && first === first.toLowerCase() ? `${text[0].toUpperCase()}${text.slice(1)}` : text;
+}
+
 /** "a", "a and b", "a, b and c" */
 function joinList(items: string[]): string {
   if (items.length <= 1) return items[0] ?? "";
@@ -55,9 +61,7 @@ function joinList(items: string[]): string {
 export function interviewWrapUp(interests: string[], reply?: string | null): string {
   const named = interests.length > MAX_NAMED ? [...interests.slice(0, MAX_NAMED - 1), `${interests.length - MAX_NAMED + 1} more`] : interests;
   const list = joinList(named);
-  // Capitalize "dogs" but leave mixed-case names like "iPhone" alone
-  const first = list.split(/\s/)[0];
-  const start = list && first === first.toLowerCase() ? `${list[0].toUpperCase()}${list.slice(1)}` : list;
+  const start = capitalizeFirst(list);
   const heard = list ? `${start}, got it! ` : "Got it! ";
   const answer = reply?.trim() ? `${reply.trim()} ` : "";
   return `${answer}${heard}I'm finding your first articles now. While I do, here's a quick look at how SigmaRead works.`;
@@ -68,8 +72,8 @@ export function interviewWrapUp(interests: string[], reply?: string | null): str
  * one more easy to give (the screen shows the same ideas as buttons).
  */
 export function moreInterestsPrompt(interests: string[]): string {
-  const list = joinList(interests);
-  const have = list ? `${list[0].toUpperCase()}${list.slice(1)}, good start. ` : "";
+  const list = capitalizeFirst(joinList(interests));
+  const have = list ? `${list}, good start. ` : "";
   return `${have}What's one more thing you like? Animals, space, sports, video games, how things work? Pick any that sound good.`;
 }
 
