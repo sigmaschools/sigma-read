@@ -28,11 +28,19 @@ const API = "https://generativelanguage.googleapis.com/v1beta/models";
 /** Gemini's thinking tokens count toward maxOutputTokens, so leave this much on top of the reply budget */
 const THINKING_ROOM = 8000;
 
+/** Request fields this adapter translates; anything else (tools, temperature, ...) fails loudly */
+const KNOWN = new Set(["model", "max_tokens", "system", "messages", "output_config", "thinking"]);
+
+/** Per call: how many attempts were retried, and the time of the successful attempt alone */
+export interface GeminiTiming { retries: number; ms: number }
+
 const text = (c: string | TextBlock[]) => typeof c === "string" ? c : c.filter(b => b.type === "text").map(b => b.text).join("\n");
 
-export async function geminiCreate(model: string, thinking: GeminiThinking, body: Body) {
+export async function geminiCreate(model: string, thinking: GeminiThinking, body: Body, timing?: GeminiTiming) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
+  const unknown = Object.keys(body).filter(k => !KNOWN.has(k));
+  if (unknown.length) throw new Error(`gemini-client does not translate: ${unknown.join(", ")}`);
 
   const contents: { role: "user" | "model"; parts: { text: string }[] }[] = [];
   for (const m of body.messages) {
@@ -52,29 +60,45 @@ export async function geminiCreate(model: string, thinking: GeminiThinking, body
     },
   };
 
-  // Retry rate limits and server errors, as the Anthropic SDK does
+  // Retry rate limits, server errors, network errors and timeouts, up to 3 times
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(`${API}/${model}:generateContent`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify(request),
-    });
+    const start = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(`${API}/${model}:generateContent`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify(request),
+        signal: AbortSignal.timeout(120_000),
+      });
+    } catch (e) {
+      if (attempt < 3) { if (timing) timing.retries++; await new Promise(r => setTimeout(r, 2000 * 2 ** attempt)); continue; }
+      throw e;
+    }
     if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+      if (timing) timing.retries++;
       await new Promise(r => setTimeout(r, 2000 * 2 ** attempt));
       continue;
     }
     if (!res.ok) throw new Error(`Gemini ${model} ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json() as {
       candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+      promptFeedback?: { blockReason?: string };
       usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number; cachedContentTokenCount?: number };
     };
+    if (timing) timing.ms = Date.now() - start;
     const c = data.candidates?.[0];
-    const reply = (c?.content?.parts ?? []).filter(p => !p.thought).map(p => p.text ?? "").join("");
+    // A blocked prompt or reply must not pass as an ordinary empty turn
+    if (!c) throw new Error(`Gemini ${model} returned no candidate (block reason: ${data.promptFeedback?.blockReason ?? "none given"})`);
+    const reply = (c.content?.parts ?? []).filter(p => !p.thought).map(p => p.text ?? "").join("");
+    if (c.finishReason && !["STOP", "MAX_TOKENS", "SAFETY"].includes(c.finishReason)) {
+      throw new Error(`Gemini ${model} stopped with ${c.finishReason}`);
+    }
     const u = data.usageMetadata ?? {};
     const cached = u.cachedContentTokenCount ?? 0;
     return {
       content: [{ type: "text" as const, text: reply }],
-      stop_reason: c?.finishReason === "MAX_TOKENS" ? "max_tokens" : c?.finishReason === "SAFETY" ? "refusal" : "end_turn",
+      stop_reason: c.finishReason === "MAX_TOKENS" ? "max_tokens" : c.finishReason === "SAFETY" ? "refusal" : "end_turn",
       usage: {
         input_tokens: (u.promptTokenCount ?? 0) - cached,
         output_tokens: (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0),

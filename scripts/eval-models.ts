@@ -67,7 +67,7 @@ const CONFIGS: Config[] = [
   { id: "gemini-3-8-flash-low", model: "gemini-3.8-flash", gemini: "low", optional: true },
   { id: "gemini-3-8-flash-high", model: "gemini-3.8-flash", gemini: "high", optional: true },
   { id: "gemini-4-argon-low", model: "gemini-4-argon", gemini: "low", optional: true },
-  { id: "gemini-3-1-pro-low", model: "gemini-3.1-pro-preview", gemini: "low", optional: true },
+  { id: "gemini-3-1-pro-low", model: "gemini-3.1-pro-preview", gemini: "low", optional: true }, // untested (not in the 4 Nov run)
 ];
 
 /** A judge that is none of the candidates, so no model grades its own work */
@@ -101,7 +101,7 @@ const runs = intArg("runs", 1);
 const concurrency = intArg("concurrency", 4);
 const MAX_TURNS = 10;
 
-interface Call { ms: number; input: number; output: number; cacheRead: number; cacheWrite: number }
+interface Call { ms: number; input: number; output: number; cacheRead: number; cacheWrite: number; /** Gemini only: retried attempts (ms then times the successful attempt alone) */ retries?: number }
 
 function costOf(model: string, calls: Call[]): number {
   const p = PRICES[model];
@@ -118,11 +118,12 @@ function candidateClient(config: Config, calls: Call[]) {
         if (config.effort) req.output_config = { ...(body.output_config as object ?? {}), effort: config.effort };
         if (config.thinkingOff) req.thinking = { type: "between_tools" };
         const start = Date.now();
+        const timing = { retries: 0, ms: 0 };
         const res = (config.gemini
-          ? await geminiCreate(config.model, config.gemini, req as never)
+          ? await geminiCreate(config.model, config.gemini, req as never, timing)
           : await anthropic.messages.create(req as never)) as Anthropic.Message;
         const u = res.usage;
-        calls.push({ ms: Date.now() - start, input: u.input_tokens, output: u.output_tokens, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0 });
+        calls.push({ ms: config.gemini ? timing.ms : Date.now() - start, ...(config.gemini ? { retries: timing.retries } : {}), input: u.input_tokens, output: u.output_tokens, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0 });
         return res;
       },
     },
@@ -282,6 +283,8 @@ function summarize(results: Result[]): string {
     const f = (n: number, d = 1) => Number.isFinite(n) ? n.toFixed(d) : "-";
     lines.push(`| ${c.id} | ${ok.length} | ${rs.length - ok.length} | ${j.length} | ${ok.length ? Math.round(100 * ok.filter(r => r.closing).length / ok.length) : 0}% | ${f(mean(j.map(x => x.overall)))} | ${c.id === base ? "-" : paired(c.id)} | ${f(mean(j.map(x => x.natural)))} | ${f(mean(j.map(x => x.responsive)))} | ${f(mean(j.map(x => x.thinking)))} | ${f(mean(j.map(x => x.level_fit)))} | ${f(mean(j.map(x => x.rules)))} | ${f(mean(ok.map(r => r.violations.length)))} | ${ok.reduce((s, r) => s + r.fallbacks, 0)} | ${f(pct(ms, 0.5))} | ${f(pct(ms, 0.9))} | ${f(mean(ok.map(r => r.costUsd)), 3)} |`);
   }
+  const retried = configs.filter(c => c.gemini).map(c => `${c.id} ${results.filter(r => r.config === c.id).flatMap(r => r.calls).reduce((s, x) => s + (x.retries ?? 0), 0)}`);
+  if (retried.length) lines.push("", `Gemini retried attempts (not counted in reply time): ${retried.join(", ")}.`);
   lines.push("", "Reply time is one whole tutor API call, without streaming and including any SDK retries (a rewrite retry counts as its own call): use it to compare models, not as the time to first word a streaming app shows. Cost covers the tutor calls only. A conversation that hit the turn limit without closing counts as not closed.", "");
   lines.push("## Weakest lines the judge picked", "");
   for (const c of configs) {
