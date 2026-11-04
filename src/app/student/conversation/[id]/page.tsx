@@ -135,7 +135,7 @@ export default function ConversationPage() {
         window.dispatchEvent(new Event(LEVEL_CHANGED_EVENT));
         if (data.coachingFeedback) {
           setCoachingFeedback(data.coachingFeedback);
-          setFeedbackSecondsLeft(10);
+          setFeedbackSecondsLeft(5);
         }
       }
     } catch (e) {
