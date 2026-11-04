@@ -151,3 +151,40 @@ export function evaluateDownwardProbe(
     newFeedMix: { ...feedMix, probeScores: allProbeScores },
   };
 }
+
+// ─── Early placement ─────────────────────────────────────────────────────────
+
+/** The first sessions after onboarding are the placement window: no probing, only placement moves */
+export const PLACEMENT_SESSIONS = 4;
+/** Most levels placement may move a student in total (each move is one level) */
+export const PLACEMENT_MAX_MOVES = 2;
+/** A placement report this low moves the student down a level (the Frustration zone) */
+export const PLACEMENT_DOWN_BELOW = 50;
+
+/** Score that moves a student up during placement: the Excelling bar for their tier (85 at L1-L2, 90 at L3+) */
+export function placementUpScore(level: number): number {
+  return level <= 2 ? 85 : 90;
+}
+
+/**
+ * Early placement. The starting level comes from grade alone, so during the first
+ * PLACEMENT_SESSIONS reports one clear report at the student's current level moves them a level
+ * straight away (no probe), at most PLACEMENT_MAX_MOVES times. Scores from articles at another
+ * level (before a move) never count.
+ *
+ * @param scores oldest first, as getRecentScores returns them
+ * @param movesSoFar level changes recorded for the student so far
+ * @returns the new level, or null to hold
+ */
+export function placementMove(
+  scores: { score: number; articleLevel: number }[],
+  level: number,
+  movesSoFar: number,
+): number | null {
+  if (scores.length === 0 || scores.length > PLACEMENT_SESSIONS || movesSoFar >= PLACEMENT_MAX_MOVES) return null;
+  const latest = scores[scores.length - 1];
+  if (latest.articleLevel !== level) return null;
+  if (latest.score >= placementUpScore(level) && level < 6) return level + 1;
+  if (latest.score < PLACEMENT_DOWN_BELOW && level > 1) return level - 1;
+  return null;
+}

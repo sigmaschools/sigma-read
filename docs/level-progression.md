@@ -209,7 +209,7 @@ Every student has a **base level** (their official reading level) and a **feed m
 
 3. **L1 floor protection**: Students at L1 cannot go lower. If they have 3 of last 4 sessions below 50 at L1, trigger a guide alert: "[Name] may need additional reading support beyond SigmaRead." Continue serving L1 content.
 
-4. **New student grace period**: First **3 sessions** after onboarding are calibration — no mixing, no level evaluation. Initial placement holds while we gather baseline data.
+4. **New student placement window**: The starting level comes from grade alone (`gradeToReadingLevel`), so the first **4 sessions** after onboarding are placement, with no mixing or probing. During them, one clear report at the student's current level moves them straight away: a score at or above the Excelling bar for their tier (85 at L1-L2, 90 at L3+) moves up one level, and a score below 50 moves down one. At most **2** placement moves, one level each, and only scores from articles at the current level count (`placementMove` in `level-progression-rules.ts`). After the window, the normal triggers apply. (Before 2026-11-04 this was a 3-session grace period with no moves at all, so a misplaced student waited many sessions for the probe cycle.)
 
 5. **Guide override**: Guides can manually set base level at any time. This resets the mix to 3/3 at the new level and restarts the evaluation window.
 
@@ -386,6 +386,7 @@ An optimization **failed** when:
 | Date | Change | Rationale | Outcome |
 |------|--------|-----------|---------|
 | 2026-02-09 | Initial thresholds set | Based on competitive research synthesis | Baseline — awaiting real data |
+| 2026-11-04 | 3-session grace period → 4-session placement window with direct moves (≥85/90 up, <50 down, max 2) | Owner chose faster calibration over a placement read (Compass #108); Compass shows parents the level | Watch post-placement scores: a moved student should land in 65-84 |
 
 ---
 

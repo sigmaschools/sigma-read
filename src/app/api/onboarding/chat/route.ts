@@ -13,10 +13,12 @@ import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
-import { extractAnswer, firstName, interviewOpener, interviewWrapUp, stripAnswer } from "@/lib/onboarding-copy";
+import { extractAnswer, firstName, interviewOpener, interviewWrapUp, moreInterestsPrompt, stripAnswer } from "@/lib/onboarding-copy";
 
-/** The interest chat ends after this many student answers, profile or not */
+/** After this many student answers Sigma wraps up as soon as it has enough interests */
 const MAX_STUDENT_ANSWERS = 3;
+/** The chat never ends with fewer interests than this (owner's rule) */
+const MIN_INTERESTS = 3;
 
 const anthropic = new Anthropic();
 
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
   const answers = Math.max(0, messages.filter((m: { role: string }) => m.role === "user").length - 1);
   const atCap = phase === "interest" && answers >= MAX_STUDENT_ANSWERS;
   const lastAnswer = atCap
-    ? `\n\nThis was the student's last answer. Output the closing sentence and the [PROFILE] now, with whatever interests you have.`
+    ? `\n\nYou've asked your questions. If you have at least three interests, output the closing sentence and the [PROFILE] now. If you have fewer, don't output the profile: make it easy (offer a few ideas they can pick from) and ask for one more.`
     : "";
   // The first message is fixed copy, so every student gets the same clear introduction
   if (phase === "interest" && answers === 0 && !messages.some((m: { role: string }) => m.role === "assistant")) {
@@ -69,7 +71,8 @@ export async function POST(req: NextRequest) {
   let assistantText: string;
   try {
     assistantText = await reply();
-    // At the cap the chat must end: if Sigma asked another question anyway, ask once more for the profile
+    // At the cap the chat ends once it has enough interests: if Sigma asked another question
+    // anyway, ask once more for the profile (the profile check below holds it open if it's short)
     if (atCap && !/\[PROFILE\]/.test(assistantText)) {
       console.error("onboarding chat: no profile at the answer cap, retrying");
       const retry = await reply([{ role: "user", content: "[Output your one-sentence closing and the [PROFILE] now. Do not ask a question.]" }]);
@@ -101,7 +104,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: visibleText || "Tell me one more thing you like." });
   }
 
-  // Map grade level to initial reading level (calibrated from first session)
+  // Never finish with fewer than three interests: keep the chat open and ask for more
+  if (phase === "interest" && profile.interests.length < MIN_INTERESTS) {
+    return NextResponse.json({ message: moreInterestsPrompt(profile.interests) });
+  }
+
+  // Map grade level to initial reading level (placement then moves it, see level-progression.ts)
   const level = gradeToReadingLevel(student.gradeLevel);
   await db.update(schema.students)
     .set({
