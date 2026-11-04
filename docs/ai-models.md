@@ -49,6 +49,19 @@ All three ran 3–4 Nov 2026 with Sigma Read's own prompts and code paths, needi
 
 Haiku invented a fact to correct a child once, which rules it out for the tutor. Costs here are before prompt caching.
 
+#### Gemini as the tutor (4 Nov 2026)
+
+The same test, 96 conversations (the same 24 cases × 4 setups), with Google's current Gemini models running through Sigma Read's own tutor code and prompts (`scripts/eval/gemini-client.ts` translates the request; `--configs=gemini-…`, needs `GEMINI_API_KEY`). Same simulated students, same blind judge.
+
+| Setup | Overall /10 | vs Sonnet 5.5 (paired) | Responsive /5 | Rules /5 | Median reply | p90 reply | Tutor cost / conversation |
+|---|---|---|---|---|---|---|---|
+| **Sonnet 5.5, thinking off** | **6.8** | - | 4.0 | 3.5 | 1.9 s | 2.4 s | $0.030 (cached) |
+| Gemini 3.8 Flash, low thinking | 5.4 | −1.4 ± 0.2 | 3.0 | 2.9 | 2.4 s | 6.8 s | $0.017 |
+| Gemini 3.8 Flash, high thinking | 5.3 | −1.5 ± 0.2 | 2.9 | 2.9 | 8.7 s | 16.1 s | $0.034 |
+| Gemini 4 Argon, low thinking | 5.7 | −1.0 ± 0.2 | 3.3 | 3.0 | 7.2 s | 28.8 s | $0.037 |
+
+Sonnet 5.5 stays the tutor. Every Gemini setup scored lower in every case pairing, and the judge's complaints were consistent: Gemini echoed the student's line and jumped to a new, often off-article prompt instead of following the child's idea, ignored the child's own questions, and twice accepted a wrong idea (once agreeing that blue blood "sounds made up", against the article). Gemini 3.8 Flash is about half the tutor cost but is slower at the tail; Gemini 4 Argon costs more and is much slower. Gemini 3.8 Flash's price doubles on 1 Jan 2027 and Argon's on 1 Dec 2026. The prompts were tuned on Claude models over months of user testing, so some of the gap may be prompt fit rather than model quality; closing it would mean re-tuning the conversation prompts for another model, which this result doesn't justify. Gemini 3.1 Pro (preview) was not run: Argon is the newer flagship, and the preview shares a 250-request daily cap with other work on the same key.
+
 ### 2. Comprehension report (`npm run eval:reports -- <results.jsonl>`)
 
 24 finished conversations from test 1, each reported on by every model with the production prompt and schema. The judge graded each report against the transcript and also wrote its own reference score.

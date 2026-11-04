@@ -6,6 +6,7 @@
  * Usage (needs ANTHROPIC_API_KEY only):
  *   npm run eval:models
  *   npm run eval:models -- --configs=opus-4-6,sonnet-5-5-low --personas=emma,marcus --runs=1
+ *   npm run eval:models -- --configs=sonnet-5-5-nothink,gemini-3-8-flash-low --runs=2   (Gemini needs GEMINI_API_KEY too)
  *
  * Writes eval-results/<time>-models/results.jsonl (one line per conversation, with transcript,
  * per-turn latency, tokens and cost) and summary.md (one row per model: judge scores, rule
@@ -24,6 +25,7 @@ import { buildStudentSystemPrompt } from "./eval/student-sim";
 import { checkTranscript, wordCount, type Msg, type Violation } from "./eval/checks";
 import { comprehensionConversationPrompt, CONVERSATION_STYLES, maxWordsForLevel } from "../src/lib/prompts";
 import { runTutorTurn, type ClosingKind } from "../src/lib/conversation-turn";
+import { geminiCreate, type GeminiThinking } from "./eval/gemini-client";
 
 /** Fixed, so a change of the app's models doesn't also change the simulated students */
 const STUDENT_SIM_MODEL = "claude-sonnet-4-6";
@@ -42,9 +44,18 @@ const PRICES: Record<string, [number, number, number]> = {
   "claude-sonnet-4-6": [3, 15, 0.3],
   "claude-haiku-5-5": [0.1, 0.5, 0.01], // cache read assumed at 0.1x input
   "claude-fable-5-1": [10, 50, 0.25],
+  // Google list prices read 3 Nov 2026 (ai.google.dev/gemini-api/docs/pricing); cache read assumed at 0.1x input
+  "gemini-3.8-flash": [0.75, 3.75, 0.075], // rises to 1.50 / 7.50 on 1 Jan 2027
+  "gemini-4-argon": [2, 10, 0.2], // rises to 4 / 20 on 1 Dec 2026
+  "gemini-3.1-pro-preview": [2, 12, 0.2],
 };
 
-interface Config { id: string; model: string; effort?: "low" | "medium" | "high"; thinkingOff?: boolean; /** Only when named in --configs */ optional?: boolean }
+interface Config {
+  id: string; model: string; effort?: "low" | "medium" | "high"; thinkingOff?: boolean;
+  /** A Gemini model at this thinking level, called through scripts/eval/gemini-client.ts (needs GEMINI_API_KEY) */
+  gemini?: GeminiThinking;
+  /** Only when named in --configs */ optional?: boolean;
+}
 
 const CONFIGS: Config[] = [
   { id: "opus-4-6", model: "claude-opus-4-6" }, // production today
@@ -53,6 +64,10 @@ const CONFIGS: Config[] = [
   { id: "sonnet-5-5-low", model: "claude-sonnet-5-5", effort: "low" },
   { id: "sonnet-5-5-nothink", model: "claude-sonnet-5-5", effort: "high", thinkingOff: true },
   { id: "haiku-5-5-low", model: "claude-haiku-5-5", effort: "low" },
+  { id: "gemini-3-8-flash-low", model: "gemini-3.8-flash", gemini: "low", optional: true },
+  { id: "gemini-3-8-flash-high", model: "gemini-3.8-flash", gemini: "high", optional: true },
+  { id: "gemini-4-argon-low", model: "gemini-4-argon", gemini: "low", optional: true },
+  { id: "gemini-3-1-pro-low", model: "gemini-3.1-pro-preview", gemini: "low", optional: true },
 ];
 
 /** A judge that is none of the candidates, so no model grades its own work */
@@ -77,6 +92,7 @@ failOnUnknown("personas", listArg("personas"), PERSONAS.map(p => p.username));
 failOnUnknown("articles", listArg("articles"), EVAL_ARTICLES.map(a => a.id));
 const unpriced = [...new Set(configs.map(c => c.model))].filter(m => !PRICES[m]);
 if (unpriced.length) { console.error(`No price for ${unpriced.join(", ")}: add it to PRICES`); process.exit(1); }
+if (configs.some(c => c.gemini) && !process.env.GEMINI_API_KEY) { console.error("GEMINI_API_KEY is not set (needed for the Gemini configs)"); process.exit(1); }
 const DEFAULT_PERSONAS = ["emma", "sofia", "marcus", "dante"];
 const personas = PERSONAS.filter(p => (listArg("personas") ?? DEFAULT_PERSONAS).includes(p.username))
   .filter(p => !EXCLUDED_USERNAMES.includes(p.username));
@@ -102,7 +118,9 @@ function candidateClient(config: Config, calls: Call[]) {
         if (config.effort) req.output_config = { ...(body.output_config as object ?? {}), effort: config.effort };
         if (config.thinkingOff) req.thinking = { type: "between_tools" };
         const start = Date.now();
-        const res = await anthropic.messages.create(req as never) as Anthropic.Message;
+        const res = (config.gemini
+          ? await geminiCreate(config.model, config.gemini, req as never)
+          : await anthropic.messages.create(req as never)) as Anthropic.Message;
         const u = res.usage;
         calls.push({ ms: Date.now() - start, input: u.input_tokens, output: u.output_tokens, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0 });
         return res;
