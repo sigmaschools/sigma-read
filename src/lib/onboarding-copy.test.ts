@@ -22,6 +22,7 @@ assert.equal(firstName(null), "there");
 assert.equal(firstName("Lopez, Maya"), "Maya");
 assert.equal(firstName("Maya Lopez, Jr."), "Maya");
 assert.equal(firstName("Maya,"), "Maya");
+assert.equal(firstName("Garcia Lopez, Maria"), "Maria");
 // Long lists stay short: up to six named; seven or more name five, then "and N more"
 assert.ok(interviewWrapUp(["a", "b", "c", "d", "e"]).startsWith("A, b, c, d and e, got it!"));
 assert.ok(interviewWrapUp(["a", "b", "c", "d", "e", "f"]).startsWith("A, b, c, d, e and f, got it!"));
