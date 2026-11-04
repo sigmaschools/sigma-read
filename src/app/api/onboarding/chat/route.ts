@@ -13,7 +13,7 @@ import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
-import { firstName, interviewOpener, interviewWrapUp } from "@/lib/onboarding-copy";
+import { extractAnswer, firstName, interviewOpener, interviewWrapUp, stripAnswer } from "@/lib/onboarding-copy";
 
 /** The interest chat ends after this many student answers, profile or not */
 const MAX_STUDENT_ANSWERS = 3;
@@ -88,10 +88,10 @@ export async function POST(req: NextRequest) {
 
   // Check if interest profile is complete
   const profileMatch = assistantText.match(/\[PROFILE\]\s*(\{[\s\S]*?\})/);
-  // [ANSWER] belongs to the profile turn; never show the tag itself
-  if (!profileMatch) return NextResponse.json({ message: assistantText.replace(/\[ANSWER\]\s*/g, "").trim() });
+  // [ANSWER] belongs to the profile turn's wrap-up; never show the tag itself
+  if (!profileMatch) return NextResponse.json({ message: stripAnswer(assistantText) });
 
-  const visibleText = assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim();
+  const visibleText = stripAnswer(assistantText.replace(/\[PROFILE\][\s\S]*/, ""));
   let profile;
   try {
     profile = normalizeInterestProfile(JSON.parse(profileMatch[1]));
@@ -118,7 +118,6 @@ export async function POST(req: NextRequest) {
 
   // Fixed wrap-up: it names what Sigma heard and says what happens next, in a length a kid reads.
   // If the student asked Sigma something, Sigma's one-sentence [ANSWER] goes first.
-  const answer = assistantText.match(/\[ANSWER\]\s*([^\n[]+)/)?.[1]?.trim() ?? null;
-  const message = phase === "interest" ? interviewWrapUp(profile.interests, answer) : visibleText;
+  const message = phase === "interest" ? interviewWrapUp(profile.interests, extractAnswer(assistantText)) : visibleText;
   return NextResponse.json({ message, profileComplete: true, profile });
 }

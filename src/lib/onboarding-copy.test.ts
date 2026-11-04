@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { firstName, interviewOpener, interviewWrapUp } from "./onboarding-copy";
+import { extractAnswer, firstName, interviewOpener, interviewWrapUp, stripAnswer } from "./onboarding-copy";
 
 assert.ok(interviewOpener("Zack").startsWith("Hi Zack, I'm Sigma. SigmaRead is an app"));
 assert.equal(
@@ -19,6 +19,20 @@ assert.equal(firstName("Maya Lopez"), "Maya");
 assert.equal(firstName("  Zack "), "Zack");
 assert.equal(firstName(""), "there");
 assert.equal(firstName(null), "there");
+assert.equal(firstName("Lopez, Maya"), "Lopez");
+// Long lists stay short: four named, then "and N more"
+assert.ok(interviewWrapUp(["a", "b", "c", "d", "e"]).startsWith("A, b, c, d and e, got it!"));
+assert.ok(interviewWrapUp(["a", "b", "c", "d", "e", "f", "g"]).startsWith("A, b, c, d and 3 more, got it!"));
+// [ANSWER] parsing
+const profile = '[PROFILE]\n{"interests": ["dogs"]}';
+assert.equal(extractAnswer(`Dogs it is.\n[ANSWER] I'm an AI, but I love octopuses.\n${profile}`), "I'm an AI, but I love octopuses.");
+assert.equal(extractAnswer(`[ANSWER] I like whales! Do you? ${profile}`), "I like whales!");
+assert.equal(extractAnswer(`Dogs it is.\n${profile}`), null);
+assert.equal(extractAnswer(`[ANSWER]\n${profile}`), null);
+assert.equal(extractAnswer("[ANSWER] no end punctuation"), null);
+assert.equal(extractAnswer(`[ANSWER] ${"word ".repeat(40)}.`), null);
+assert.equal(stripAnswer("Sharks, there's a lot there.\n[ANSWER] I like sharks too.\nWhat else?"), "Sharks, there's a lot there.\nWhat else?");
+assert.equal(stripAnswer("No tag here."), "No tag here.");
 // The prompt quotes the opener; keep the two in sync
 const prompt = readFileSync(new URL("./prompts/md/interest-interview.md", import.meta.url), "utf8");
 assert.ok(prompt.includes(interviewOpener("[name]")), "interest-interview.md must quote interviewOpener");
