@@ -15,6 +15,15 @@ interface Article {
   createdAt: string;
 }
 
+// The device's time zone, so "today" (goal, cap, favorites) is the student's own day
+function deviceZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+}
+
 function categoryLabel(article: Article) {
   if (article.category === "tutorial") return "Welcome";
   if (article.category === "news") return "News";
@@ -95,7 +104,7 @@ export default function StudentHome() {
     if (me.starterArticlesPending) { router.push("/student/onboarding?cards=1"); return; }
     setUserName(me.name);
 
-    const progRes = await fetch("/api/student/daily-progress");
+    const progRes = await fetch(`/api/student/daily-progress?tz=${encodeURIComponent(deviceZone())}`);
     const prog = await progRes.json();
     if (!prog.error) {
       setCompletedToday(prog.completedToday || []);
@@ -119,7 +128,7 @@ export default function StudentHome() {
     // articles picked from their interests, so only top up if those came up short.
     const isFirstVisit = !prog.error && (prog.totalSessions || 0) === 0;
     if (unread.length < (isFirstVisit ? 3 : 5)) {
-      await fetch("/api/articles/serve-cached", { method: "POST" });
+      await fetch(`/api/articles/serve-cached?tz=${encodeURIComponent(deviceZone())}`, { method: "POST" });
       const refreshRes = await fetch("/api/articles");
       arts = await refreshRes.json();
     }
