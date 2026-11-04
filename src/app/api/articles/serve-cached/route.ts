@@ -6,6 +6,7 @@ import { eq, and, inArray, sql } from "drizzle-orm";
 import { getServingLevels } from "@/lib/level-progression";
 import { getAffinities, topicsForCache } from "@/lib/interest-graph";
 import { pickForFeed } from "@/lib/interest-graph/serving";
+import { startOfLocalDay, requestZone } from "@/lib/local-day";
 
 // Serve pre-cached articles to a student based on their reading level and feed mix.
 // Respects: no repeats (via student_article_history), daily cap, buffer management, gradual mix.
@@ -19,10 +20,9 @@ export async function POST(req: NextRequest) {
   const level = student.readingLevel || 2;
 
   // Check daily cap — how many articles has this student completed today?
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  
-  const [todayCount] = await db.select({ count: sql<number>`count(*)` })
+  const todayStart = startOfLocalDay(requestZone(req));
+
+  const [todayCount] = await db.select({ count: sql<number>`count(distinct ${schema.readingSessions.id})` })
     .from(schema.readingSessions)
     .innerJoin(schema.conversations, and(
       eq(schema.conversations.readingSessionId, schema.readingSessions.id),
