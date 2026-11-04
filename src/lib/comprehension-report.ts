@@ -11,7 +11,7 @@ import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { tracked } from "@/lib/ai-usage";
 import { comprehensionReportPrompt } from "@/lib/prompts";
-import { MODELS } from "@/lib/models";
+import { MODELS, forJob } from "@/lib/models";
 import { REPORT_SCHEMA, REPORT_PROMPT_VERSION, reportConfidence, clampScore, ratingForScore, verifiedEvidence, type ComprehensionReport } from "@/lib/report-schema";
 import { parseJsonResponse } from "@/lib/claude-json";
 import { quietly, recordArticleSignal, recordChatMentions } from "@/lib/interest-graph";
@@ -63,12 +63,12 @@ async function saveReport(args: ReportArgs) {
   let report: ComprehensionReport | null = null;
   for (let attempt = 1; attempt <= 2 && !report; attempt++) {
     try {
-      const reportResponse = await tracked(args.anthropic, "report", args.studentId).messages.create({
-        model: MODELS.heavy,
-        max_tokens: 2048,
-        messages: [{ role: "user", content: comprehensionReportPrompt(args.articleText, args.transcript, args.level) }],
-        output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
-      });
+      // Room for the full report (the schema has several long fields)
+      const reportResponse = await tracked(args.anthropic, "report", args.studentId).messages.create(forJob("report", {
+        max_tokens: 8000,
+        messages: [{ role: "user" as const, content: comprehensionReportPrompt(args.articleText, args.transcript, args.level) }],
+        output_config: { format: { type: "json_schema" as const, schema: REPORT_SCHEMA } },
+      }));
       report = parseJsonResponse<ComprehensionReport>(reportResponse);
       if (!report) {
         console.error(`Report attempt ${attempt} unusable (stop_reason: ${reportResponse.stop_reason})`);
@@ -114,7 +114,7 @@ async function saveReport(args: ReportArgs) {
     confidence: reportConfidence({ forcedClose: args.forcedClose, exchangeCount, studentAvgWords }),
     forcedClose: args.forcedClose,
     inChatScore: args.inChatScore,
-    model: MODELS.heavy,
+    model: MODELS.report,
     promptVersion: REPORT_PROMPT_VERSION,
     levelBefore: args.level,
     levelAfter: args.level,

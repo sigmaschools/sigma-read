@@ -76,17 +76,21 @@ export async function POST(req: NextRequest) {
       eq(c.flagged, false),
       sql`(${c.category} != 'news' OR ${c.generatedDate} IS NULL OR ${c.generatedDate} >= ${sevenDaysAgo.toISOString().split('T')[0]})`,
       sql`NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ${c.title})`,
+      // The same article at another level counts as seen: adapted titles can differ, and serving
+      // falls back to the next level when one runs out
+      sql`NOT EXISTS (SELECT 1 FROM student_article_history h JOIN article_cache hc ON hc.id = h.article_cache_id
+        WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = COALESCE(${c.baseArticleId}, ${c.id}))`,
     );
     const [random, matching] = await Promise.all([
-      db.select({ id: c.id, title: c.title }).from(c).where(where).orderBy(sql`RANDOM()`).limit(60),
-      topTopics.length === 0 ? [] : db.select({ id: c.id, title: c.title }).from(c)
+      db.select({ id: c.id, title: c.title, base: sql<number>`COALESCE(${c.baseArticleId}, ${c.id})` }).from(c).where(where).orderBy(sql`RANDOM()`).limit(60),
+      topTopics.length === 0 ? [] : db.select({ id: c.id, title: c.title, base: sql<number>`COALESCE(${c.baseArticleId}, ${c.id})` }).from(c)
         .where(and(where, sql`EXISTS (SELECT 1 FROM article_topics t WHERE t.article_cache_id = COALESCE(${c.baseArticleId}, ${c.id}) AND t.topic_slug IN ${topTopics})`))
         .orderBy(sql`RANDOM()`).limit(40),
     ]);
     const byId = new Map([...random, ...matching].map(a => [a.id, a]));
     return [...byId.values()].filter(a => !seenTitles.has(a.title) && !currentTitles.has(a.title));
   };
-  const pools = new Map<number, { id: number; title: string }[]>();
+  const pools = new Map<number, { id: number; title: string; base: number }[]>();
   for (const l of new Set(servingLevels)) {
     let pool = await fetchPool(l);
     if (pool.length === 0) pool = await fetchPool(l < 6 ? l + 1 : l - 1);
@@ -97,13 +101,13 @@ export async function POST(req: NextRequest) {
   const cacheTopics = await topicsForCache([...pools.values()].flat().map(a => a.id))
     .catch(e => { console.error("Article topics unavailable, serving unranked:", e); return new Map<number, string[]>(); });
   const avoid = new Set<string>();
-  const picks: { id: number; title: string; serveLevel: number }[] = [];
+  const picks: { id: number; title: string; base: number; serveLevel: number }[] = [];
   servingLevels.forEach((serveLevel, position) => {
     const pool = (pools.get(serveLevel) ?? [])
-      .filter(a => !picks.some(p => p.id === a.id || p.title === a.title))
+      .filter(a => !picks.some(p => p.id === a.id || p.title === a.title || p.base === a.base))
       .map(a => ({ ...a, topics: cacheTopics.get(a.id) ?? [] }));
     const [pick] = pickForFeed(pool, affinityMap, 1, { startPosition: position, avoid });
-    if (pick) picks.push({ id: pick.id, title: pick.title, serveLevel });
+    if (pick) picks.push({ id: pick.id, title: pick.title, base: pick.base, serveLevel });
   });
   const rows = picks.length === 0 ? [] : await db.select().from(c).where(inArray(c.id, picks.map(p => p.id)));
   const toServe = picks.flatMap(p => {
