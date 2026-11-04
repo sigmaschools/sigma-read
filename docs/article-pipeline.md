@@ -63,16 +63,16 @@ Output: a generation plan specifying how many articles to create and at which le
 
 ### Step 3: Base Article Generation
 
-- **Model:** Claude Opus 4.6 (best available for quality)
+- **Model:** `MODELS.writer` in `src/lib/models.ts` (see [ai-models.md](./ai-models.md) for the choice and its test). Prompts live in `src/lib/batch/article-writer.ts`, shared by the batch, new students' first articles and `npm run eval:articles`.
 - **Level:** Generated at L4 (Grade 7) as the base
-- **Count:** 6-10 base articles per day
+- **Count:** interest articles from `plan-interests.ts` (3 for one student; covers every student with as few shared articles as possible, capped at 4 per 10 students, max 30) + 1 news + 1 horizon
 - **Prompt:** Includes editorial neutrality rules, vocabulary constraints, word count targets
 
 ### Step 4: Level Adaptation
 
 Each base article is adapted to all reading levels needed by active students.
 
-- **Model:** Claude Sonnet 4.5 (mechanical rewrite task — cost efficient)
+- **Model:** `MODELS.writer`, same as the base article (each article is written once for every student, so the writer's cost is small next to the conversations)
 - **Process:** Adjust vocabulary, sentence complexity, word count, detail level
 - **Quality:** Same facts, different expression. Title may be simplified for lower levels.
 
@@ -92,8 +92,19 @@ Level specifications:
 For each active student:
 1. Check current unread count
 2. If below 12 (buffer target), serve new articles from cache
-3. Select articles the student has never seen (tracked via `student_article_history`)
+3. Select articles the student has never seen (tracked via `student_article_history`): neither the same title nor the same base article at another level (adapted titles can differ)
 4. Respect daily mix ratios (see Article Mix below)
+
+### Sharing and duplicates
+
+The article pool is shared. One base article, adapted to each level, serves every student who has that interest, so students with the same interest get the same article and it is written once.
+
+Nothing on the same subject is written twice. Before a source is rewritten, `findDuplicate` (`src/lib/batch/dedup.ts`) compares its page title and opening with the base articles of the last 60 days: first a title-overlap check, then a light-model check for "same subject, same angle" (a different angle on a familiar subject is allowed). A duplicate source is skipped, which costs one small call instead of a rewrite. This covers:
+
+- the batch's own picks on the same day (two interests landing on one page, an interest and the news);
+- new students' first articles (`writeInterestArticle`): when the pool already has the subject, the existing article is served at the student's level (adapted if that level is missing) instead of writing another. Their articles are written in parallel, so source URLs being written are claimed in memory and not picked twice. Before this, two interests such as a company and its products could both land on the company's page and produce two near-identical articles in one morning.
+
+Serving never gives a student the same base article twice, at any level.
 
 ---
 
@@ -312,22 +323,7 @@ Student interests are captured during onboarding and stored in `interest_profile
 
 ## Cost Projections
 
-### Per-Day Costs (50 students)
-
-| Component | Model | Calls/Day | Cost/Day |
-|---|---|---|---|
-| News curation | Opus | 1 | ~$0.05 |
-| Base article generation | Opus | 8-10 | ~$0.50 |
-| Level adaptations | Sonnet | 30-40 | ~$0.50 |
-| **Total generation** | | | **~$1.05/day** |
-
-### Monthly (30 days)
-
-- **Generation:** ~$31.50/month ($0.63/student/month)
-- **Conversations:** ~$0.10-0.15/conversation × 3-5/student/day × 35 active students = ~$15-26/day = ~$450-780/month
-- **Total estimated:** ~$500-800/month for 50 students
-
-*Conversations are the primary cost driver, not article generation.*
+Current per-job models, measured costs and the monthly estimate are in [ai-models.md](./ai-models.md). Article writing is shared across students, so its cost grows with the number of distinct interests (capped per day), not with the number of students; conversations and reports grow with reading and remain the main cost.
 
 ---
 
@@ -356,7 +352,7 @@ This ensures no student's first experience is "come back tomorrow."
 
 ## Dependencies
 
-- **Anthropic API** — Claude Opus 4.6 (generation), Claude Sonnet 4.5 (adaptation)
+- **Anthropic API** — models per job in `src/lib/models.ts` ([ai-models.md](./ai-models.md))
 - **Anthropic web search tool** — Supplementary headline sourcing (uses `ANTHROPIC_API_KEY`)
 - **Neon Postgres** — Article cache and student data
 - **Vercel Cron** — Batch job scheduling (see "How the batch is scheduled" below)

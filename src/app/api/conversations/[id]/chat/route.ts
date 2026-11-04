@@ -6,7 +6,7 @@ import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
 import { comprehensionConversationPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt, maxWordsForLevel } from "@/lib/prompts";
-import { MODELS } from "@/lib/models";
+import { MODELS, forJob, requestSettings } from "@/lib/models";
 import { getStudentConversation } from "@/lib/ownership";
 import { runTutorTurn } from "@/lib/conversation-turn";
 import { saveComprehensionReport } from "@/lib/comprehension-report";
@@ -119,7 +119,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const turn = await runTutorTurn({
     client: tracked(anthropic, "tutor_turn", session.userId),
-    model: MODELS.heavy,
+    model: MODELS.tutor,
+    settings: requestSettings(MODELS.tutor, "tutor"),
     systemPrompt,
     messages,
     priorProgress: conversation.progressScore || 0,
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const transcript = messages.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
 
-    // Report (Opus) and coaching (Sonnet) are independent, so run them side by side
+    // Report and coaching tip are independent, so run them side by side
     const [, feedbackResponse] = await Promise.all([
       isTutorial ? Promise.resolve() : saveComprehensionReport({
         anthropic,
@@ -164,19 +165,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         forcedClose: turn.closing === "forced",
         inChatScore: newProgressScore,
       }).catch(e => console.error("Report save failed:", e)),
-      tracked(anthropic, "coaching", session.userId).messages.create({
-        model: MODELS.standard,
+      tracked(anthropic, "coaching", session.userId).messages.create(forJob("standard", {
         max_tokens: 256,
         messages: [{
-          role: "user",
+          role: "user" as const,
           content: coachingFeedbackPrompt(article.bodyText, transcript, student.readingLevel || 2),
         }],
-      }).catch(e => { console.error("Coaching feedback failed:", e); return null; }),
+      })).catch(e => { console.error("Coaching feedback failed:", e); return null; }),
     ]);
     // The card shows plain text: strip any *emphasis* or _emphasis_ the model adds anyway
-    const coachingFeedback = feedbackResponse?.content[0]?.type === "text"
-      ? stripMarkdown(feedbackResponse.content[0].text)
-      : null;
+    const feedbackText = feedbackResponse?.content.find(b => b.type === "text");
+    const coachingFeedback = feedbackText?.type === "text" ? stripMarkdown(feedbackText.text) : null;
 
     // Persist coaching feedback as a message so it appears on resume
     if (coachingFeedback) {

@@ -5,7 +5,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
-import { MODELS } from "@/lib/models";
+import { MODELS, requestSettings } from "@/lib/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
 import { INTEREST_INTERVIEW, READING_LEVEL_ASSESSMENT } from "@/lib/prompts";
@@ -57,9 +57,10 @@ export async function POST(req: NextRequest) {
 
   async function reply(extra: { role: "user"; content: string }[] = []): Promise<string> {
     const response = await tracked(anthropic, "onboarding", session!.userId).messages.create({
-      model: MODELS.standard,
+      model: MODELS.standard, ...requestSettings(MODELS.standard, "standard"),
       max_tokens: 2048,
-      system: systemPrompt,
+      // Same every turn of the chat: cached, so later turns read it at a tenth of the price
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
       messages: [...convo, ...extra],
     });
     return response.content[0]?.type === "text" ? response.content[0].text : "";

@@ -26,7 +26,10 @@ import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConvers
 import { runTutorTurn, type ClosingKind } from "../src/lib/conversation-turn";
 import { REPORT_SCHEMA, type ComprehensionReport } from "../src/lib/report-schema";
 import { parseJsonResponse } from "../src/lib/claude-json";
-import { MODELS } from "../src/lib/models";
+import { MODELS, forJob, requestSettings } from "../src/lib/models";
+
+/** Fixed, so a change of the app's models doesn't also change the simulated students */
+const STUDENT_SIM_MODEL = "claude-sonnet-4-6";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("ANTHROPIC_API_KEY is not set");
@@ -81,7 +84,7 @@ interface Result {
 async function studentReply(persona: StudentPersona, article: EvalArticle, transcript: Msg[]): Promise<string> {
   const last = transcript[transcript.length - 1].content;
   const res = await anthropic.messages.create({
-    model: MODELS.standard,
+    model: STUDENT_SIM_MODEL,
     max_tokens: 200,
     system: buildStudentSystemPrompt(persona, article.level),
     messages: [{
@@ -106,7 +109,7 @@ async function runConversation(persona: StudentPersona, article: EvalArticle): P
   let fallbacks = 0;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const result = await runTutorTurn({ client: anthropic, model: MODELS.heavy, systemPrompt, messages: transcript, priorProgress: progress, maxWords: maxWordsForLevel(article.level) });
+    const result = await runTutorTurn({ client: anthropic, model: MODELS.tutor, settings: requestSettings(MODELS.tutor, "tutor"), systemPrompt, messages: transcript, priorProgress: progress, maxWords: maxWordsForLevel(article.level) });
     if (transcript.length > 0) deltas.push(result.progressDelta);
     progress = result.progressScore;
     if (result.usedFallback) fallbacks++;
@@ -125,12 +128,11 @@ async function runConversation(persona: StudentPersona, article: EvalArticle): P
     // A failed report shouldn't throw away a finished transcript
     try {
       const text = transcript.map(m => `${m.role === "user" ? "Student" : "AI"}: ${m.content}`).join("\n\n");
-      const res = await anthropic.messages.create({
-        model: MODELS.heavy,
-        max_tokens: 2048,
-        messages: [{ role: "user", content: comprehensionReportPrompt(article.bodyText, text, article.level) }],
-        output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
-      });
+      const res = await anthropic.messages.create(forJob("report", {
+        max_tokens: 8000,
+        messages: [{ role: "user" as const, content: comprehensionReportPrompt(article.bodyText, text, article.level) }],
+        output_config: { format: { type: "json_schema" as const, schema: REPORT_SCHEMA } },
+      }));
       const parsed = parseJsonResponse<ComprehensionReport>(res);
       if (parsed) report = { score: parsed.score, rating: parsed.rating, skills: parsed.skills, summary: parsed.summary, nextStep: parsed.nextStep };
     } catch (e) {
@@ -167,7 +169,7 @@ function summarize(results: Result[]): string {
   const ok = results.filter(r => !r.error);
   const lines: string[] = [];
   lines.push(`# Conversation eval: ${label}`, "");
-  lines.push(`${ok.length} conversations (${results.length - ok.length} errors). Tutor ${MODELS.heavy}, student sim ${MODELS.standard}.`, "");
+  lines.push(`${ok.length} conversations (${results.length - ok.length} errors). Tutor ${MODELS.tutor}, student sim ${STUDENT_SIM_MODEL}, report ${MODELS.report}.`, "");
 
   const byRule = new Map<string, number>();
   ok.forEach(r => r.violations.forEach(v => byRule.set(v.rule, (byRule.get(v.rule) || 0) + 1)));
