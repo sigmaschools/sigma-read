@@ -13,12 +13,14 @@ import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
-import { extractAnswer, firstName, interviewOpener, interviewWrapUp, moreInterestsPrompt, stripAnswer } from "@/lib/onboarding-copy";
+import { extractAnswer, firstName, interviewOpener, interviewWrapUp, moreInterestsPrompt, stripAnswer, topUpInterests } from "@/lib/onboarding-copy";
 
 /** After this many student answers Sigma wraps up as soon as it has enough interests */
 const MAX_STUDENT_ANSWERS = 3;
 /** The chat never ends with fewer interests than this (owner's rule) */
 const MIN_INTERESTS = 3;
+/** Past this many answers a short profile is topped up with defaults instead of asking again */
+const GIVE_UP_ANSWERS = 6;
 
 const anthropic = new Anthropic();
 
@@ -73,9 +75,9 @@ export async function POST(req: NextRequest) {
     assistantText = await reply();
     // At the cap the chat ends once it has enough interests: if Sigma asked another question
     // anyway, ask once more for the profile (the profile check below holds it open if it's short)
-    if (atCap && !/\[PROFILE\]/.test(assistantText)) {
-      console.error("onboarding chat: no profile at the answer cap, retrying");
-      const retry = await reply([{ role: "user", content: "[Output your one-sentence closing and the [PROFILE] now. Do not ask a question.]" }]);
+    // Only on the first turn past the cap, and never forcing a profile the student didn't give
+    if (answers === MAX_STUDENT_ANSWERS && !/\[PROFILE\]/.test(assistantText)) {
+      const retry = await reply([{ role: "user", content: "[If the student has given at least three interests, output your one-sentence closing and the [PROFILE] now, using only interests they said. If not, reply with your last message unchanged.]" }]);
       if (/\[PROFILE\]/.test(retry)) assistantText = retry;
     }
   } catch (e) {
@@ -104,9 +106,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: visibleText || "Tell me one more thing you like." });
   }
 
-  // Never finish with fewer than three interests: keep the chat open and ask for more
+  // Never finish with fewer than three interests: keep the chat open and ask for more. A student
+  // who still hasn't named three after GIVE_UP_ANSWERS answers gets kid-friendly defaults to make
+  // three, so nobody is stuck in onboarding.
   if (phase === "interest" && profile.interests.length < MIN_INTERESTS) {
-    return NextResponse.json({ message: moreInterestsPrompt(profile.interests) });
+    if (answers < GIVE_UP_ANSWERS) return NextResponse.json({ message: moreInterestsPrompt(profile.interests) });
+    profile = { interests: topUpInterests(profile.interests, MIN_INTERESTS) };
   }
 
   // Map grade level to initial reading level (placement then moves it, see level-progression.ts)
