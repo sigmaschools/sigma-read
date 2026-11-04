@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { extractAnswer, firstName, interviewOpener, interviewWrapUp, moreInterestsPrompt, stripAnswer } from "./onboarding-copy";
+import { extractAnswer, firstName, interviewOpener, interviewWrapUp, moreInterestsPrompt, stripAnswer, topUpInterests } from "./onboarding-copy";
 
 assert.ok(interviewOpener("Zack").startsWith("Hi Zack, I'm Sigma. SigmaRead is an app"));
 assert.equal(
@@ -44,6 +44,8 @@ assert.equal(stripAnswer("No tag here."), "No tag here.");
 const prompt = readFileSync(new URL("./prompts/md/interest-interview.md", import.meta.url), "utf8");
 assert.ok(prompt.includes(interviewOpener("[name]")), "interest-interview.md must quote interviewOpener");
 assert.ok(interviewWrapUp(["iPhone", "soccer"]).startsWith("iPhone and soccer, got it!"));
-assert.ok(moreInterestsPrompt(["dogs", "soccer"]).startsWith("dogs and soccer, good start. What's one more thing you like?"));
+assert.ok(moreInterestsPrompt(["dogs", "soccer"]).startsWith("Dogs and soccer, good start. What's one more thing you like?"));
 assert.ok(moreInterestsPrompt([]).startsWith("What's one more thing you like?"));
+assert.deepEqual(topUpInterests(["Space"], 3), ["Space", "animals", "sports"]);
+assert.deepEqual(topUpInterests(["a", "b", "c"], 3), ["a", "b", "c"]);
 console.log("onboarding-copy tests passed");

@@ -17,7 +17,7 @@ The chat opens immediately (no screens before it). Prompt: `src/lib/prompts/md/i
 **Flow:**
 1. Sigma says hi and asks what they're into (one or two short sentences).
 2. After each answer Sigma either outputs the profile (three specific interests) or asks ONE short follow-up: which games, anything else, or a few ideas if they don't know.
-3. Usually at most three student answers. After the third, the server tells Sigma to output the profile as soon as it has three interests (`MAX_STUDENT_ANSWERS` in `src/app/api/onboarding/chat/route.ts`). The chat never ends with fewer than three interests (`MIN_INTERESTS`, the owner's rule): a shorter profile, including one cut short by the content filter, is not saved, and Sigma asks for one more with easy ideas to pick from (`moreInterestsPrompt`).
+3. Usually at most three student answers. After the third, the server tells Sigma to output the profile as soon as it has three interests (`MAX_STUDENT_ANSWERS` in `src/app/api/onboarding/chat/route.ts`). The chat never ends with fewer than three interests (`MIN_INTERESTS`, the owner's rule): a shorter profile, including one cut short by the content filter, is not saved, and Sigma asks for one more with easy ideas to pick from (`moreInterestsPrompt`). So nobody is stuck, a student still short of three after six answers gets kid-friendly defaults (the same ideas as the buttons) to make three (`GIVE_UP_ANSWERS`, `topUpInterests`).
 
 Before the first answer, the page shows tap-to-add topic ideas (Animals, Space, Sports, ...) that fill the text box.
 

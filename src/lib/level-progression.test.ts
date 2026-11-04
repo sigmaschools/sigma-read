@@ -125,7 +125,6 @@ import type { FeedMix } from "./level-progression-rules";
   console.log("✅ downward probe advances when trimmedMean >= 70 and base struggling");
 }
 
-console.log("\n🎉 All level-progression tests passed!");
 
 // ─── placementMove ───────────────────────────────────────────────────────────
 {
@@ -143,3 +142,5 @@ console.log("\n🎉 All level-progression tests passed!");
   assert.strictEqual(placementMove(at(1, 10), 1, 0), null, "L1 floor");
   console.log("✅ placementMove");
 }
+
+console.log("\n🎉 All level-progression tests passed!");

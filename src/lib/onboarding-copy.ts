@@ -68,6 +68,21 @@ export function interviewWrapUp(interests: string[], reply?: string | null): str
  * one more easy to give (the screen shows the same ideas as buttons).
  */
 export function moreInterestsPrompt(interests: string[]): string {
-  const have = interests.length ? `${joinList(interests)}, good start. ` : "";
+  const list = joinList(interests);
+  const have = list ? `${list[0].toUpperCase()}${list.slice(1)}, good start. ` : "";
   return `${have}What's one more thing you like? Animals, space, sports, video games, how things work? Pick any that sound good.`;
+}
+
+/** Kid-friendly fallbacks, the same ideas the chat offers as buttons */
+const DEFAULT_INTERESTS = ["animals", "space", "sports", "video games", "how things work"];
+
+/** The student's interests plus defaults they don't already have, up to `min` */
+export function topUpInterests(interests: string[], min: number): string[] {
+  const have = new Set(interests.map(i => i.toLowerCase().trim()));
+  const out = [...interests];
+  for (const d of DEFAULT_INTERESTS) {
+    if (out.length >= min) break;
+    if (!have.has(d)) out.push(d);
+  }
+  return out;
 }
