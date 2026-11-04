@@ -117,7 +117,11 @@ export async function POST(req: NextRequest) {
   // who still hasn't named three after GIVE_UP_ANSWERS answers gets kid-friendly defaults to make
   // three, so nobody is stuck in onboarding.
   if (phase === "interest" && profile.interests.length < MIN_INTERESTS) {
-    if (answers < GIVE_UP_ANSWERS) return NextResponse.json({ message: moreInterestsPrompt(profile.interests) });
+    if (answers < GIVE_UP_ANSWERS) {
+      // Still answer what they asked, then ask for more
+      const answer = extractAnswer(assistantText);
+      return NextResponse.json({ message: `${answer ? `${answer} ` : ""}${moreInterestsPrompt(profile.interests)}` });
+    }
     profile = { interests: topUpInterests(profile.interests, MIN_INTERESTS) };
   }
 
