@@ -13,7 +13,7 @@ import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
-import { interviewOpener, interviewWrapUp } from "@/lib/onboarding-copy";
+import { firstName, interviewOpener, interviewWrapUp } from "@/lib/onboarding-copy";
 
 /** The interest chat ends after this many student answers, profile or not */
 const MAX_STUDENT_ANSWERS = 3;
@@ -26,10 +26,10 @@ export async function POST(req: NextRequest) {
 
   const { messages, phase } = await req.json(); // phase: "interest" | "level"
 
-  // Get student name for personalization
+  // Get student name for personalization: Sigma uses the first name only, like a person would
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
   if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const studentName = student.name || "there";
+  const studentName = firstName(student.name);
 
   // Onboarding happens once (an admin reset clears the flag): never save the profile or start the
   // starter articles again, e.g. on a double submit
@@ -88,7 +88,8 @@ export async function POST(req: NextRequest) {
 
   // Check if interest profile is complete
   const profileMatch = assistantText.match(/\[PROFILE\]\s*(\{[\s\S]*?\})/);
-  if (!profileMatch) return NextResponse.json({ message: assistantText });
+  // [ANSWER] belongs to the profile turn; never show the tag itself
+  if (!profileMatch) return NextResponse.json({ message: assistantText.replace(/\[ANSWER\]\s*/g, "").trim() });
 
   const visibleText = assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim();
   let profile;
@@ -115,7 +116,9 @@ export async function POST(req: NextRequest) {
   await markStarterPending(session.userId);
   after(() => prepareStarterArticles(session.userId, anthropic));
 
-  // Fixed wrap-up: it names what Sigma heard and says what happens next, in a length a kid reads
-  const message = phase === "interest" ? interviewWrapUp(profile.interests) : visibleText;
+  // Fixed wrap-up: it names what Sigma heard and says what happens next, in a length a kid reads.
+  // If the student asked Sigma something, Sigma's one-sentence [ANSWER] goes first.
+  const answer = assistantText.match(/\[ANSWER\]\s*([^\n[]+)/)?.[1]?.trim() ?? null;
+  const message = phase === "interest" ? interviewWrapUp(profile.interests, answer) : visibleText;
   return NextResponse.json({ message, profileComplete: true, profile });
 }

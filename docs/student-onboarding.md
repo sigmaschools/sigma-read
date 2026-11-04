@@ -34,7 +34,7 @@ Before the first answer, the page shows tap-to-add topic ideas (Animals, Space, 
 >
 > *(A "Next: see how SigmaRead works" button replaces the input; the cards start when the student taps it.)*
 
-**Personality:** older sibling energy (see [Conversation Design](./conversation-design.md)). The first and last messages are fixed copy in `src/lib/onboarding-copy.ts`: the opener says what SigmaRead is and asks for three interests; the wrap-up names the interests back and says the first articles are on the way. The chat then waits for the student to tap "Next" before the tutorial cards, so the wrap-up can be read. Sigma reacts to each answer in between with something specific instead of praise.
+**Personality:** older sibling energy (see [Conversation Design](./conversation-design.md)). The first and last messages are fixed copy in `src/lib/onboarding-copy.ts`: the opener says what SigmaRead is and asks for three interests; the opener greets the student by first name only; the wrap-up names every interest back (not just the first three) and says the first articles are on the way. If the student asked Sigma something on the last turn, Sigma's one-sentence answer (the `[ANSWER]` line) comes just before the wrap-up, and on earlier turns Sigma answers questions in character before going on. The chat then waits for the student to tap "Next" before the tutorial cards, so the wrap-up can be read. Sigma reacts to each answer in between with something specific instead of praise.
 
 **Rules:** one question per message, short sentences, no empty praise, accept whatever the student says, never ask about the same thing twice. Inappropriate interests are silently filtered (see [Content Safety](./content-safety.md)).
 
