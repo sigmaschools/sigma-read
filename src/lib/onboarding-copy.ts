@@ -7,7 +7,10 @@ export function interviewOpener(name: string): string {
 
 /** The name Sigma calls the student: the first word only ("Maya Lopez" → "Maya"), never the full form-letter name */
 export function firstName(name: string | null | undefined): string {
-  return (name ?? "").trim().split(/\s+/)[0]?.replace(/,$/, "") || "there";
+  const trimmed = (name ?? "").trim();
+  // "Lopez, Maya" is last-name-first
+  const given = trimmed.includes(",") ? trimmed.slice(trimmed.indexOf(",") + 1).trim() : trimmed;
+  return given.split(/\s+/)[0] || "there";
 }
 
 /** Longest [ANSWER] Sigma may put before the wrap-up; a longer one is dropped, not cut */
@@ -22,17 +25,18 @@ export function extractAnswer(text: string): string | null {
   const raw = text.match(/\[ANSWER\][ \t]*([^\n]*)/)?.[1] ?? "";
   const line = raw.replace(/\[PROFILE\][\s\S]*/, "").trim();
   const sentence = line.match(/^[^.!?]*[.!?]/)?.[0]?.trim();
-  if (!sentence || sentence.length > MAX_ANSWER_CHARS) return null;
+  // The wrap-up screen has no reply box, only "Next": never end it on a question
+  if (!sentence || sentence.endsWith("?") || sentence.length > MAX_ANSWER_CHARS) return null;
   return sentence;
 }
 
-/** Text with any [ANSWER] tag and its line removed, for turns that show the model's text */
+/** Text with any [ANSWER] tag removed (the answer itself stays), for turns that show the model's text */
 export function stripAnswer(text: string): string {
-  return text.replace(/^.*\[ANSWER\].*$\n?/gm, "").trim();
+  return text.replace(/[ \t]*\[ANSWER\][ \t]*/g, " ").replace(/^ | $/gm, "").trim();
 }
 
-/** Most interests named in the wrap-up; past this it says "and N more", so it stays short */
-const MAX_NAMED = 5;
+/** Most interests named in the wrap-up; a longer list names one fewer and says "and N more" */
+const MAX_NAMED = 6;
 
 /** "a", "a and b", "a, b and c" */
 function joinList(items: string[]): string {
