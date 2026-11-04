@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "eval": "tsx --require ./scripts/md-require.cjs scripts/eval-conversations.ts",
+    "eval:models": "tsx --require ./scripts/md-require.cjs scripts/eval-models.ts",
     "test": "find src scripts -name '*.test.ts' -print0 | xargs -0 -n1 tsx"
   },
   "dependencies": {
