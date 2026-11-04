@@ -46,6 +46,7 @@ assert.ok(prompt.includes(interviewOpener("[name]")), "interest-interview.md mus
 assert.ok(interviewWrapUp(["iPhone", "soccer"]).startsWith("iPhone and soccer, got it!"));
 assert.ok(moreInterestsPrompt(["dogs", "soccer"]).startsWith("Dogs and soccer, good start. What's one more thing you like?"));
 assert.ok(moreInterestsPrompt(["iPhone"]).startsWith("iPhone, good start."));
+assert.ok(moreInterestsPrompt([]).includes("Pick any that sound good"), "the page shows idea buttons on this phrase");
 assert.ok(moreInterestsPrompt([]).startsWith("What's one more thing you like?"));
 assert.deepEqual(topUpInterests(["Space"], 3), ["Space", "animals", "sports"]);
 assert.deepEqual(topUpInterests(["a", "b", "c"], 3), ["a", "b", "c"]);
