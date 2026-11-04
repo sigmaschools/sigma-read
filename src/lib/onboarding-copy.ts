@@ -62,3 +62,12 @@ export function interviewWrapUp(interests: string[], reply?: string | null): str
   const answer = reply?.trim() ? `${reply.trim()} ` : "";
   return `${answer}${heard}I'm finding your first articles now. While I do, here's a quick look at how SigmaRead works.`;
 }
+
+/**
+ * Asked when the chat would end with fewer than three interests: names what Sigma has, then makes
+ * one more easy to give (the screen shows the same ideas as buttons).
+ */
+export function moreInterestsPrompt(interests: string[]): string {
+  const have = interests.length ? `${joinList(interests)}, good start. ` : "";
+  return `${have}What's one more thing you like? Animals, space, sports, video games, how things work? Pick any that sound good.`;
+}
