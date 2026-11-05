@@ -36,6 +36,7 @@ import { findDuplicate, type ExistingArticle } from "./dedup";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
 import { recentArticles, recentTopics } from "../recent-reading";
 import { interestCap, pickInterests } from "./plan-interests";
+import { EXPLAINER_DOMAINS, KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, isGrokipediaPagePath, plansToRun, sourceOrder } from "./sources";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -150,6 +151,10 @@ interface ArticlePlan {
   query: string;
   type: "interest" | "news" | "horizon";
   searchQuery: string;
+  /** News only: search just these sites (subdomains included) */
+  domains?: string[];
+  /** News only: skip results whose page date is known and older than this */
+  maxAgeDays?: number;
 }
 
 async function planDailyArticles(
@@ -164,46 +169,13 @@ async function planDailyArticles(
   // 60% interest (3), 20% news (1), 20% horizon (1) — 5 articles/day
   const plans: ArticlePlan[] = [];
 
-  // --- News (2 articles) — two-tier sourcing ---
-  // Tier 1: Kid-friendly news publishers (reliable age-appropriate sources)
-  const kidPublishers = [
-    "site:sciencenewsforstudents.org",
-    "site:tweentribune.com",
-    "site:dogonews.com",
-    "site:youngzine.org",
-    "site:timeforkids.com",
-    "site:newsela.com",
-  ];
-  // Pick 2 random publishers per batch for variety
-  const shuffledPublishers = kidPublishers.sort(() => Math.random() - 0.5).slice(0, 2);
-  for (const site of shuffledPublishers) {
-    plans.push({ query: site, type: "news", searchQuery: `${site} news this week` });
-  }
-
-  // Tier 2 fallback: topic-specific safe-domain queries (used if Tier 1 yields < 2)
-  // These are added as extra candidates — sourceContent will stop once we have enough news
-  const safeNewsPool = [
-    "new scientific discovery this week",
-    "world record sports achievement this week",
-    "new animal species discovered",
-    "NASA space mission news this week",
-    "new technology invention this week",
-    "extreme weather event this week",
-    "young person achievement news this week",
-    "archaeological discovery news",
-    "ocean exploration discovery news",
-    "new dinosaur fossil discovery",
-    "robotics competition news this week",
-    "renewable energy milestone news",
-    "international sports tournament results this week",
-    "national park or wildlife news this week",
-    "medical breakthrough news this week",
-  ];
-  // Shuffle and pick 2 fallback queries
-  const fallbackQueries = safeNewsPool.sort(() => Math.random() - 0.5).slice(0, 2);
-  for (const q of fallbackQueries) {
-    plans.push({ query: q, type: "news", searchQuery: q });
-  }
+  // --- News (1 article) — candidates in order; sourcing stops at the first that passes ---
+  // 1. Kid news sites, this week's stories
+  plans.push({ query: "kids news", type: "news", searchQuery: "news this week", domains: KID_NEWS_DOMAINS, maxAgeDays: 14 });
+  // 2. Two random topics on reliable science/nature news sites (science topics only), then on the open web
+  const topics = [...NEWS_TOPICS].sort(() => Math.random() - 0.5).slice(0, 2);
+  for (const t of topics.filter(t => t.science)) plans.push({ query: t.query, type: "news", searchQuery: `${t.query} news`, domains: NEWS_DOMAINS, maxAgeDays: 7 });
+  for (const t of topics) plans.push({ query: t.query, type: "news", searchQuery: `${t.query} news`, maxAgeDays: 7 });
 
   // --- Interest articles: per-student planning with interest_rotation LRU ---
   // Fetch LRU state from interest_rotation table
@@ -337,7 +309,7 @@ async function grokipediaSearch(query: string): Promise<{ title: string; url: st
     const results: { title: string; url: string }[] = [];
     for (const m of matches) {
       const path = m[1];
-      if (seen.has(path)) continue;
+      if (seen.has(path) || !isGrokipediaPagePath(path)) continue;
       seen.add(path);
       const title = decodeURIComponent(path.replace("/page/", "").replace(/_/g, " "));
       results.push({ title, url: `https://grokipedia.com${path}` });
@@ -418,9 +390,8 @@ Reply with only JSON, e.g. {"pages": [3, 1]} or {"pages": [], "general": "Video 
  * separate search API key. Only the result URLs and titles are used; the page text
  * is fetched and filtered by the same code as before.
  */
-async function webSearch(query: string, recentOnly = false): Promise<{ title: string; url: string }[]> {
-  const site = query.match(/^site:(\S+)\s*(.*)$/);
-  const terms = (site ? site[2] : query) || "latest articles";
+async function webSearch(query: string, opts: { domains?: string[]; maxAgeDays?: number } = {}): Promise<{ title: string; url: string }[]> {
+  const { domains, maxAgeDays } = opts;
   try {
     const response = await tracked(anthropic, "batch_search").messages.create({
       ...LIGHT,
@@ -429,11 +400,11 @@ async function webSearch(query: string, recentOnly = false): Promise<{ title: st
         type: "web_search_20250305",
         name: "web_search",
         max_uses: 1,
-        ...(site ? { allowed_domains: [site[1]] } : {}),
+        ...(domains?.length ? { allowed_domains: domains } : {}),
       }],
       messages: [{
         role: "user",
-        content: `Run one web search for: ${terms}${recentOnly ? ` news this week, ${new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}` : ""}. Reply with just "done".`,
+        content: `Run one web search for: ${query}${maxAgeDays ? `, ${new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}` : ""}. Reply with just "done".`,
       }],
     });
     const results: { title: string; url: string }[] = [];
@@ -447,7 +418,7 @@ async function webSearch(query: string, recentOnly = false): Promise<{ title: st
       searched = true;
       for (const r of block.content) {
         if (isIndexPage(r.url)) continue;
-        if (recentOnly && isOlderThan(r.page_age, 7)) continue;
+        if (maxAgeDays && isOlderThan(r.page_age, maxAgeDays)) continue;
         results.push({ title: r.title || "", url: r.url });
       }
     }
@@ -600,7 +571,6 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
   searchHealth.failed = 0;
   console.log("\n🔍 Sourcing content...\n");
   const sourced: SourcedTopic[] = [];
-  const newsCandidates: { url: string; text: string; query: string; type: "news"; originalQuery: string }[] = [];
 
   // Track recently used URLs to pick different angles
   const usedUrls = new Set<string>();
@@ -635,110 +605,115 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
     return true;
   }
 
-  // ─── Interest & Horizon: Grokipedia ───────────────────────────────────────
+  /** Content filter for pages from the open web and the curated sites (Grokipedia pages skip it) */
+  async function suitable(url: string, text: string): Promise<boolean> {
+    const kept = await filterSources([{ url, text }]);
+    if (kept.length === 0) console.log(`     🚫 Not suitable for students: ${url.substring(0, 60)}`);
+    return kept.length > 0;
+  }
 
-  const grokPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
-  for (const plan of grokPlans) {
+  /** First suitable, unused, non-duplicate page among web search results; null if none */
+  async function firstGoodResult(plan: ArticlePlan, results: SearchResult[], max: number): Promise<{ url: string; text: string } | null> {
+    for (const r of results.slice(0, max)) {
+      if (usedUrls.has(r.url) || urlsInFlight.has(r.url)) continue;
+      const text = await fetchSourceText(r.url);
+      if (!text) continue;
+      if (!(await suitable(r.url, text))) continue;
+      if (await accept(plan, r.title, r.url, text)) return { url: r.url, text };
+    }
+    return null;
+  }
+
+  /** A Grokipedia page for the plan, or null */
+  async function fromGrokipedia(plan: ArticlePlan): Promise<{ url: string; text: string } | null> {
     console.log(`  📖 Grokipedia: "${plan.query}" (${plan.type})`);
-
     const results = await onTopicResults(plan.query, await grokipediaSearch(plan.query));
-    if (results.length === 0) console.log(`     ⚠️ No on-topic Grokipedia results`);
+    if (results.length === 0) { console.log(`     ⚠️ No on-topic Grokipedia results`); return null; }
 
     // Pick a result not recently used for angle variety
-    let fetched = false;
     for (const result of results.slice(0, 8)) {
-      const titleLower = result.title.toLowerCase();
-      if (usedUrls.has(result.url) || urlsInFlight.has(result.url) || recentTopics.has(titleLower)) continue;
-
+      if (usedUrls.has(result.url) || urlsInFlight.has(result.url) || recentTopics.has(result.title.toLowerCase())) continue;
       const text = await fetchGrokipediaArticle(result.url);
       if (text && await accept(plan, result.title, result.url, text)) {
-        sourced.push({ query: plan.query, type: plan.type, sourceUrl: result.url, sourceText: text });
         console.log(`     ✅ ${result.title} (${result.url.substring(0, 55)}...)`);
-        fetched = true;
-        break;
+        return { url: result.url, text };
       }
     }
 
     // If all recent-filtered results failed, try the first result only if URL not already used
-    if (!fetched && results.length > 0) {
-      const fallback = results[0];
-      if (usedUrls.has(fallback.url) || urlsInFlight.has(fallback.url)) {
-        console.log(`     ⚠️ Skipping fallback — URL already used: ${fallback.url.substring(0, 55)}...`);
-      } else {
-        const text = await fetchGrokipediaArticle(fallback.url);
-        if (text && await accept(plan, fallback.title, fallback.url, text)) {
-          sourced.push({ query: plan.query, type: plan.type, sourceUrl: fallback.url, sourceText: text });
-          console.log(`     ✅ ${fallback.title} (${fallback.url.substring(0, 55)}...)`);
-          fetched = true;
-        } else if (!text) {
-          console.log(`     ⚠️ Could not fetch any Grokipedia article`);
-        }
-      }
+    const fallback = results[0];
+    if (usedUrls.has(fallback.url) || urlsInFlight.has(fallback.url)) {
+      console.log(`     ⚠️ Skipping fallback — URL already used: ${fallback.url.substring(0, 55)}...`);
+      return null;
     }
-
-    // Nothing from Grokipedia (no on-topic page, or a named page that doesn't exist): web search
-    if (!fetched) {
-      console.log(`     ⚠️ Trying web search...`);
-      const webResults = await webSearch(`${plan.query} article`);
-      for (const r of webResults.slice(0, 3)) {
-        const text = await fetchSourceText(r.url);
-        if (text && await accept(plan, r.title, r.url, text)) {
-          sourced.push({ query: plan.query, type: plan.type, sourceUrl: r.url, sourceText: text });
-          console.log(`     ✅ Web search fallback: ${r.url.substring(0, 60)}...`);
-          break;
-        }
-      }
+    const text = await fetchGrokipediaArticle(fallback.url);
+    if (!text) { console.log(`     ⚠️ Could not fetch any Grokipedia article`); return null; }
+    if (await accept(plan, fallback.title, fallback.url, text)) {
+      console.log(`     ✅ ${fallback.title} (${fallback.url.substring(0, 55)}...)`);
+      return { url: fallback.url, text };
     }
+    return null;
   }
 
-  // ─── News: web search (kid publishers + topic fallback) ───────────────────
+  /** A page from the kids' science, nature and history sites, or null */
+  async function fromExplainers(plan: ArticlePlan): Promise<{ url: string; text: string } | null> {
+    console.log(`  🔎 Explainer sites: "${plan.query}" (${plan.type})`);
+    // Same on-topic check as Grokipedia ("soccer" on NASA's site is not a soccer article); a
+    // general Grokipedia page it names is left for the Grokipedia step
+    const found = await webSearch(plan.query, { domains: EXPLAINER_DOMAINS });
+    const results = (await onTopicResults(plan.query, found))
+      .filter(r => !r.url.includes("grokipedia.com") && !recentTopics.has(r.title.toLowerCase()));
+    const hit = await firstGoodResult(plan, results, 4);
+    if (hit) console.log(`     ✅ ${hit.url.substring(0, 70)}`);
+    else console.log(`     ⚠️ Nothing usable on the explainer sites`);
+    return hit;
+  }
+
+  // ─── Interest & Horizon: explainer sites and Grokipedia, alternating ──────
+
+  const topicPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
+  const firstSource = Math.floor(Math.random() * 2); // so the horizon slot doesn't always get the same source
+  for (let i = 0; i < topicPlans.length; i++) {
+    const plan = topicPlans[i];
+    let hit: { url: string; text: string } | null = null;
+    for (const kind of sourceOrder(i + firstSource)) {
+      hit = kind === "grokipedia" ? await fromGrokipedia(plan) : await fromExplainers(plan);
+      if (hit) break;
+    }
+
+    // Nothing from either: open web search
+    if (!hit) {
+      console.log(`     ⚠️ Trying open web search...`);
+      hit = await firstGoodResult(plan, await webSearch(`${plan.query} article`), 3);
+      if (hit) console.log(`     ✅ Web search fallback: ${hit.url.substring(0, 60)}...`);
+    }
+    if (hit) sourced.push({ query: plan.query, type: plan.type, sourceUrl: hit.url, sourceText: hit.text });
+  }
+
+  // ─── News: kid news sites, then science news sites, then the open web ─────
+  // Candidates are tried in order until one page passes the content filter.
 
   const newsPlans = plans.filter(p => p.type === "news");
-  const NEWS_TARGET = 1;
-  let newsSourcedCount = 0;
-
-  for (let i = 0; i < newsPlans.length; i++) {
-    if (newsSourcedCount >= NEWS_TARGET) break;
-
-    const plan = newsPlans[i];
-    console.log(`  🔎 Web search: "${plan.searchQuery}" (news)`);
-
-    // Kid publishers ("site:...") are searched without a recency limit
-    const isKidPublisher = plan.searchQuery.startsWith("site:");
-    const results = await webSearch(plan.searchQuery, !isKidPublisher);
-
-    if (results.length === 0) {
-      console.log(`     ⚠️ No results`);
-      continue;
-    }
-
-    for (const result of results.slice(0, 5)) {
-      const text = await fetchSourceText(result.url);
-      if (text && await accept(plan, result.title, result.url, text)) {
-        newsCandidates.push({ url: result.url, text, query: plan.searchQuery, type: "news", originalQuery: plan.query });
-        console.log(`     ✅ Fetched: ${result.url.substring(0, 60)}...`);
-        newsSourcedCount++;
-        break;
-      }
+  for (const plan of newsPlans) {
+    console.log(`  🔎 News: "${plan.searchQuery}"${plan.domains ? ` on ${plan.domains.length} sites` : " (open web)"}`);
+    const results = await webSearch(plan.searchQuery, { domains: plan.domains, maxAgeDays: plan.maxAgeDays });
+    if (results.length === 0) { console.log(`     ⚠️ No results`); continue; }
+    const hit = await firstGoodResult(plan, results, 5);
+    if (hit) {
+      console.log(`     ✅ Fetched: ${hit.url.substring(0, 70)}`);
+      sourced.push({ query: plan.query, type: "news", sourceUrl: hit.url, sourceText: hit.text });
+      break;
     }
   }
 
-  // Content filter only on news (Grokipedia content is inherently appropriate)
-  if (newsCandidates.length > 0) {
-    console.log(`\n🛡️ Filtering ${newsCandidates.length} news sources for age-appropriateness...`);
-    const filtered = await filterSources(newsCandidates);
-    const rejected = newsCandidates.length - filtered.length;
-    if (rejected > 0) console.log(`  🚫 Rejected ${rejected} inappropriate sources`);
-
-    for (const c of filtered) {
-      sourced.push({ query: c.originalQuery, type: c.type, sourceUrl: c.url, sourceText: c.text });
-    }
-  }
-
+  const newsCount = sourced.filter(s => s.type === "news").length;
   if (searchHealth.failed > 0 && searchHealth.ok === 0) {
-    console.error(`  ❌ All ${searchHealth.failed} web searches failed: no news today. Check that web search is enabled for the Anthropic org.`);
+    console.error(`  ❌ All ${searchHealth.failed} web searches failed. Check that web search is enabled for the Anthropic org.`);
+  } else if (newsPlans.length > 0 && newsCount === 0) {
+    console.error(`  ❌ No news article today: no suitable page among ${newsPlans.length} news searches.`);
   }
-  console.log(`\n  ✅ ${sourced.length} sources ready for rewriting (${sourced.filter(s => s.type === "interest" || s.type === "horizon").length} grokipedia, ${sourced.filter(s => s.type === "news").length} news)`);
+  const fromGrok = sourced.filter(s => s.sourceUrl.includes("grokipedia.com")).length;
+  console.log(`\n  ✅ ${sourced.length} sources ready for rewriting (${fromGrok} grokipedia, ${sourced.length - fromGrok - newsCount} other sites, ${newsCount} news)`);
   return sourced;
 }
 
@@ -920,12 +895,12 @@ async function runSteps(result: BatchResult) {
   // Step 2: Plan daily mix
   const plans = await planDailyArticles(interestMap, students, recentTopics, studentInterests);
 
-  // Limit to what we actually need
-  // Preserve category mix when slicing: take all interest/horizon first, then fill with news
-  const interestHorizonPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
-  const newsPlans = plans.filter(p => p.type === "news");
-  const remainingSlots = Math.max(0, articlesNeeded - interestHorizonPlans.length);
-  const plansToSource = [...interestHorizonPlans, ...newsPlans.slice(0, remainingSlots)];
+  // Limit to what we actually need, keeping the news slot unless an earlier run today wrote the news
+  const [newsToday] = await sql`
+    SELECT COUNT(*) as c FROM article_cache
+    WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false AND category = 'news'
+  `;
+  const plansToSource = plansToRun(plans, articlesNeeded, parseInt(newsToday.c as string) === 0);
 
   // Step 3: Source content from the web
   const sourcedTopics = await sourceContent(plansToSource, recentTopics);
