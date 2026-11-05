@@ -3,7 +3,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "./db";
 import { topicsForCache } from "./interest-graph";
-import { MAX_HISTORY, opening, REPEAT_DAYS, TOPIC_SPACING_DAYS, type ArticleGist } from "./repeats";
+import { MAX_HISTORY, excerpt, REPEAT_DAYS, TOPIC_SPACING_DAYS, type ArticleGist } from "./repeats";
 
 /** The student's articles served in the last REPEAT_DAYS (read or not), newest first */
 export async function recentArticles(studentId: number): Promise<ArticleGist[]> {
@@ -15,7 +15,7 @@ export async function recentArticles(studentId: number): Promise<ArticleGist[]> 
     ORDER BY h.served_at DESC
     LIMIT ${MAX_HISTORY}
   `);
-  return (rows.rows as { title: string; body: string | null }[]).map(r => ({ title: r.title, opening: opening(r.body) }));
+  return (rows.rows as { title: string; body: string | null }[]).map(r => ({ title: r.title, excerpt: excerpt(r.body) }));
 }
 
 /** Topics of the articles served to the student in the last TOPIC_SPACING_DAYS */

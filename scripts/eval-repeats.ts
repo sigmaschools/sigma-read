@@ -16,9 +16,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { findRepeats, type ArticleGist, type RepeatCandidate } from "../src/lib/repeats";
+import { excerpt, findRepeats } from "../src/lib/repeats";
 
-interface Case { history: ArticleGist[]; candidates: (RepeatCandidate & { repeat: boolean })[] }
+interface Case { history: { title: string; body: string }[]; candidates: { id: number; title: string; body: string; repeat: boolean }[] }
 
 const cases = JSON.parse(readFileSync(join(__dirname, "eval", "repeat-cases.json"), "utf8")) as Case[];
 const runsArg = process.argv.indexOf("--runs");
@@ -30,7 +30,11 @@ async function main() {
   for (const [i, c] of cases.entries()) {
     const flagged = new Map<number, number>();
     for (let r = 0; r < RUNS; r++) {
-      const found = await findRepeats(anthropic, c.candidates, c.history);
+      const found = await findRepeats(
+        anthropic,
+        c.candidates.map(x => ({ id: x.id, title: x.title, excerpt: excerpt(x.body) })),
+        c.history.map(h => ({ title: h.title, excerpt: excerpt(h.body) })),
+      );
       for (const id of found) flagged.set(id, (flagged.get(id) ?? 0) + 1);
     }
     console.log(`\nCase ${i + 1}: ${c.history.length} articles read, ${c.candidates.length} candidates, ${RUNS} runs`);
