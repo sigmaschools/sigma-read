@@ -11,6 +11,7 @@ assert.equal(isGrokipediaPagePath("/page/Engineering"), true);
 assert.equal(isGrokipediaPagePath("/page/Tesla%2C_Inc."), true);
 assert.equal(isGrokipediaPagePath("/page/Smoking_(cooking)"), true);
 assert.equal(isGrokipediaPagePath("/page/C++"), true);
+assert.equal(isGrokipediaPagePath("/page/Newton's_laws_of_motion"), true);
 assert.equal(isGrokipediaPagePath("/page/' + encodeURIComponent(r.slug) + '"), false);
 
 // The 2026-11-05 batch: 3 interests + 1 horizon + 5 news candidates, target 5. All news

@@ -170,10 +170,10 @@ async function planDailyArticles(
   // --- News (1 article) — candidates in order; sourcing stops at the first that passes ---
   // 1. Kid news sites, this week's stories
   plans.push({ query: "kids news", type: "news", searchQuery: "news this week", domains: KID_NEWS_DOMAINS, maxAgeDays: 14 });
-  // 2. Two random topics on reliable science/nature news sites, then the same topics on the open web
+  // 2. Two random topics on reliable science/nature news sites (science topics only), then on the open web
   const topics = [...NEWS_TOPICS].sort(() => Math.random() - 0.5).slice(0, 2);
-  for (const q of topics) plans.push({ query: q, type: "news", searchQuery: `${q} news`, domains: NEWS_DOMAINS, maxAgeDays: 7 });
-  for (const q of topics) plans.push({ query: q, type: "news", searchQuery: `${q} news`, maxAgeDays: 7 });
+  for (const t of topics.filter(t => t.science)) plans.push({ query: t.query, type: "news", searchQuery: `${t.query} news`, domains: NEWS_DOMAINS, maxAgeDays: 7 });
+  for (const t of topics) plans.push({ query: t.query, type: "news", searchQuery: `${t.query} news`, maxAgeDays: 7 });
 
   // --- Interest articles: per-student planning with interest_rotation LRU ---
   // Fetch LRU state from interest_rotation table

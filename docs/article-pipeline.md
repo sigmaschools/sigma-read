@@ -43,7 +43,7 @@ Every article is rewritten from one real page. Site lists live in `src/lib/batch
 
 **News (1 a day).** Candidates are tried in order until one page passes the content filter and the duplicate check:
 1. Kid news sites, last 14 days (Science News Explores, DOGOnews, News for Kids, Youngzine, TIME for Kids)
-2. Two random kid-safe topics ("new animal species discovered", "NASA space mission", ...) on reliable science and nature news sites (the kid sites plus Smithsonian, NASA, Science News, National Geographic, Live Science, NOAA), last 7 days
+2. Two random kid-safe topics ("new animal species discovered", "NASA space mission", ...); the science ones are searched on reliable science and nature news sites (the kid sites plus Smithsonian, NASA, Science News, National Geographic, Live Science, NOAA), last 7 days
 3. The same two topics on the open web, last 7 days
 
 Age limits use the search result's page date; pages with no date pass, so recency is a preference, not a guarantee.
