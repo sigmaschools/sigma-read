@@ -33,6 +33,8 @@ import { parseSourcePick, type SearchResult } from "./source-pick";
 import { MODELS, requestSettings } from "../models";
 import { BASE_LEVEL, rewriteFromSource as writeBase, adaptArticleToLevel as writeAdaptation, type SourcedTopic } from "./article-writer";
 import { findDuplicate, type ExistingArticle } from "./dedup";
+import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
+import { recentArticles, recentTopics } from "../recent-reading";
 import { interestCap, pickInterests } from "./plan-interests";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
@@ -775,11 +777,24 @@ async function serveToStudents(students: Student[]): Promise<number> {
       getAffinities(student.id).catch(e => { console.error(`  ⚠️ Affinities unavailable for ${student.name}, serving unranked:`, e); return []; }),
       topicsForCache(unseen.map((a: any) => a.id as number)).catch(e => { console.error("  ⚠️ Article topics unavailable, serving unranked:", e); return new Map<number, string[]>(); }),
     ]);
-    const toServe = pickForFeed(
-      unseen.map((a: any) => ({ id: a.id as number, topics: cacheTopics.get(a.id) ?? [], row: a })),
-      new Map(affinities.map(a => [a.topicSlug, a])),
-      needed,
-    ).map(c => c.row);
+    // Topics served in the last few days come last; articles that read like one the student
+    // already has (same story under a new title) are skipped
+    const [recent, recentReads] = await Promise.all([
+      recentTopics(student.id).catch(e => { console.error(`  ⚠️ Recent topics unavailable for ${student.name}:`, e); return new Set<string>(); }),
+      recentArticles(student.id).catch(e => { console.error(`  ⚠️ Recent articles unavailable for ${student.name}:`, e); return [] as ArticleGist[]; }),
+    ]);
+    const candidates = unseen.map((a: any) => ({ id: a.id as number, topics: cacheTopics.get(a.id) ?? [], row: a }));
+    const affinityMap = new Map(affinities.map(a => [a.topicSlug, a]));
+    const repeatClient = tracked(anthropic, "serve_repeats", student.id);
+    const budget = checkBudget(20_000);
+    const picked = await pickWithoutRepeats(
+      excluded => pickForFeed(candidates.filter(c => !excluded.has(c.id)), affinityMap, needed, { avoid: new Set(recent) }),
+      async (unchecked, approved) => {
+        const gist = (c: (typeof candidates)[number]) => ({ id: c.id, title: c.row.title as string, excerpt: excerpt(c.row.body_text) });
+        return findRepeats(repeatClient, unchecked.map(gist), [...recentReads, ...approved.map(gist)], { budget });
+      },
+    );
+    const toServe = picked.map(c => c.row);
 
     for (const a of toServe) {
       await sql`INSERT INTO articles (student_id, title, topic, body_text, reading_level, sources, estimated_read_time, category, source_cache_id)

@@ -7,9 +7,16 @@ import { getServingLevels } from "@/lib/level-progression";
 import { getAffinities, topicsForCache } from "@/lib/interest-graph";
 import { pickForFeed } from "@/lib/interest-graph/serving";
 import { startOfLocalDay, requestZone } from "@/lib/local-day";
+import Anthropic from "@anthropic-ai/sdk";
+import { tracked } from "@/lib/ai-usage";
+import { checkBudget, excerpt, findRepeats, pickWithoutRepeats } from "@/lib/repeats";
+import { recentArticles, recentTopics } from "@/lib/recent-reading";
+
+const anthropic = new Anthropic();
 
 // Serve pre-cached articles to a student based on their reading level and feed mix.
-// Respects: no repeats (via student_article_history), daily cap, buffer management, gradual mix.
+// Respects: no repeats (via student_article_history, plus a check for articles that read like one
+// the student already has), topic spacing across days, daily cap, buffer management, gradual mix.
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "student") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -100,14 +107,39 @@ export async function POST(req: NextRequest) {
   // Every third slot explores; the rhythm restarts with each serving of three
   const cacheTopics = await topicsForCache([...pools.values()].flat().map(a => a.id))
     .catch(e => { console.error("Article topics unavailable, serving unranked:", e); return new Map<number, string[]>(); });
-  const avoid = new Set<string>();
-  const picks: { id: number; title: string; base: number; serveLevel: number }[] = [];
-  servingLevels.forEach((serveLevel, position) => {
-    const pool = (pools.get(serveLevel) ?? [])
-      .filter(a => !picks.some(p => p.id === a.id || p.title === a.title || p.base === a.base))
-      .map(a => ({ ...a, topics: cacheTopics.get(a.id) ?? [] }));
-    const [pick] = pickForFeed(pool, affinityMap, 1, { startPosition: position, avoid });
-    if (pick) picks.push({ id: pick.id, title: pick.title, base: pick.base, serveLevel });
+  // Topics served in the last few days are avoided when there's anything else, so one interest
+  // doesn't fill the feed day after day (three cooking articles in two days)
+  const recentTopicSet = await recentTopics(student.id)
+    .catch(e => { console.error("Recent topics unavailable:", e); return new Set<string>(); });
+  type Pick = { id: number; title: string; base: number; serveLevel: number };
+  const pickRound = (excluded: Set<number>): Pick[] => {
+    const avoid = new Set(recentTopicSet);
+    const picks: Pick[] = [];
+    servingLevels.forEach((serveLevel, position) => {
+      const pool = (pools.get(serveLevel) ?? [])
+        .filter(a => !excluded.has(a.id) && !picks.some(p => p.id === a.id || p.title === a.title || p.base === a.base))
+        .map(a => ({ ...a, topics: cacheTopics.get(a.id) ?? [] }));
+      const [pick] = pickForFeed(pool, affinityMap, 1, { startPosition: position, avoid });
+      if (pick) picks.push({ id: pick.id, title: pick.title, base: pick.base, serveLevel });
+    });
+    return picks;
+  };
+  // An article that reads like one the student already has (same story, new title) is skipped
+  const history = await recentArticles(student.id)
+    .catch(e => { console.error("Recent articles unavailable for the repeat check:", e); return []; });
+  const repeatClient = tracked(anthropic, "serve_repeats", student.id);
+  const budget = checkBudget();
+  const picks = await pickWithoutRepeats(pickRound, async (unchecked, approved) => {
+    if (history.length === 0 && approved.length === 0 && unchecked.length < 2) return new Set<number>();
+    try {
+      const bodies = await db.select({ id: c.id, bodyText: c.bodyText }).from(c)
+        .where(inArray(c.id, [...unchecked, ...approved].map(p => p.id)));
+      const gist = (p: Pick) => ({ id: p.id, title: p.title, excerpt: excerpt(bodies.find(b => b.id === p.id)?.bodyText) });
+      return await findRepeats(repeatClient, unchecked.map(gist), [...history, ...approved.map(gist)], { budget });
+    } catch (e) {
+      console.error("Repeat check unavailable, serving without it:", e);
+      return new Set<number>();
+    }
   });
   const rows = picks.length === 0 ? [] : await db.select().from(c).where(inArray(c.id, picks.map(p => p.id)));
   const toServe = picks.flatMap(p => {
