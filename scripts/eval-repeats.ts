@@ -23,6 +23,7 @@ interface Case { history: { title: string; body: string }[]; candidates: { id: n
 const cases = JSON.parse(readFileSync(join(__dirname, "eval", "repeat-cases.json"), "utf8")) as Case[];
 const runsArg = process.argv.indexOf("--runs");
 const RUNS = runsArg > 0 ? Number(process.argv[runsArg + 1]) : 5;
+const BATCH = 3;
 const anthropic = new Anthropic();
 
 async function main() {
@@ -30,13 +31,16 @@ async function main() {
   for (const [i, c] of cases.entries()) {
     const flagged = new Map<number, number>();
     for (let r = 0; r < RUNS; r++) {
-      const found = await findRepeats(
-        anthropic,
-        c.candidates.map(x => ({ id: x.id, title: x.title, excerpt: excerpt(x.body) })),
-        c.history.map(h => ({ title: h.title, excerpt: excerpt(h.body) })),
-        { strict: true, budget: checkBudget(60_000) },
-      );
-      for (const id of found) flagged.set(id, (flagged.get(id) ?? 0) + 1);
+      // Serving checks up to 3 picks at a time, so the eval does too
+      for (let i = 0; i < c.candidates.length; i += BATCH) {
+        const found = await findRepeats(
+          anthropic,
+          c.candidates.slice(i, i + BATCH).map(x => ({ id: x.id, title: x.title, excerpt: excerpt(x.body) })),
+          c.history.map(h => ({ title: h.title, excerpt: excerpt(h.body) })),
+          { strict: true, budget: checkBudget(60_000) },
+        );
+        for (const id of found) flagged.set(id, (flagged.get(id) ?? 0) + 1);
+      }
     }
     console.log(`\nCase ${i + 1}: ${c.history.length} articles read, ${c.candidates.length} candidates, ${RUNS} runs`);
     for (const cand of c.candidates) {
