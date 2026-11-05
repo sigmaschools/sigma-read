@@ -122,6 +122,8 @@ export async function findRepeats(
     const text = response.content.filter(b => b.type === "text").map(b => (b as Anthropic.TextBlock).text).join("");
     const ids = (JSON.parse(text) as { repeats: number[] }).repeats;
     for (const id of ids) if (rest.some(c => c.id === id)) repeats.add(id);
+    // One line per check, so its judgements can be reviewed in the logs
+    console.log(`Repeat check: ${rest.map(c => `${repeats.has(c.id) ? "REPEAT" : "ok"} "${c.title}"`).join("; ")}`);
   } catch (e) {
     if (opts.strict) throw e;
     budget.failed = true;
