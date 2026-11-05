@@ -45,3 +45,6 @@ next-env.d.ts
 
 # conversation eval output
 /eval-results/
+
+# local Claude Code permissions (per machine)
+.claude/settings.local.json
