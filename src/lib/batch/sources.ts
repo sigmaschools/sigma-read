@@ -40,23 +40,26 @@ export const EXPLAINER_DOMAINS = [
   "history.com",
 ];
 
-/** Topic searches for news when the kid sites have nothing recent. */
-export const NEWS_TOPICS = [
-  "new scientific discovery",
-  "world record sports achievement",
-  "new animal species discovered",
-  "NASA space mission",
-  "new technology invention",
-  "extreme weather event",
-  "young person achievement",
-  "archaeological discovery",
-  "ocean exploration discovery",
-  "new dinosaur fossil discovery",
-  "robotics competition",
-  "renewable energy milestone",
-  "international sports tournament results",
-  "national park or wildlife",
-  "medical breakthrough",
+/**
+ * Topic searches for news when the kid sites have nothing recent. `science` topics suit the
+ * science and nature news sites (NEWS_DOMAINS); the rest are only searched on the open web.
+ */
+export const NEWS_TOPICS: { query: string; science: boolean }[] = [
+  { query: "new scientific discovery", science: true },
+  { query: "world record sports achievement", science: false },
+  { query: "new animal species discovered", science: true },
+  { query: "NASA space mission", science: true },
+  { query: "new technology invention", science: true },
+  { query: "extreme weather event", science: true },
+  { query: "young person achievement", science: false },
+  { query: "archaeological discovery", science: true },
+  { query: "ocean exploration discovery", science: true },
+  { query: "new dinosaur fossil discovery", science: true },
+  { query: "robotics competition", science: false },
+  { query: "renewable energy milestone", science: true },
+  { query: "international sports tournament results", science: false },
+  { query: "national park or wildlife", science: true },
+  { query: "medical breakthrough", science: true },
 ];
 
 export type SourceKind = "grokipedia" | "explainers";
@@ -72,7 +75,8 @@ export function sourceOrder(planIndex: number): SourceKind[] {
 
 /** A Grokipedia `/page/...` link that is a real page, not a script template caught by the link scan */
 export function isGrokipediaPagePath(path: string): boolean {
-  return /^\/page\/[^\s'"<>]+$/.test(path);
+  // Apostrophes stay ("Newton's_laws_of_motion"); the template has spaces
+  return /^\/page\/[^\s"<>]+$/.test(path);
 }
 
 /**
