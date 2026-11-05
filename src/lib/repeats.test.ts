@@ -33,6 +33,10 @@ const spacex = { id: 23, title: "SpaceX: From Near Bankruptcy to Trillion-Dollar
   // Nothing read yet, or nothing to check: no model call
   const none = client('{"repeats":[42]}');
   assert.equal((await findRepeats(none, [smoking], [])).size, 0);
+  // ...but with no history, two candidates are still compared with each other
+  const pair = client('{"repeats":[42]}');
+  assert.deepEqual([...await findRepeats(pair, [weather, smoking], [])], [42]);
+  assert.equal(pair.sent.length, 1);
   assert.equal((await findRepeats(none, [], [cooking])).size, 0);
   assert.equal(none.sent.length, 0);
 

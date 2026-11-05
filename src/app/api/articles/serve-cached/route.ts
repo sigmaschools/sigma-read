@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
   const repeatClient = tracked(anthropic, "serve_repeats", student.id);
   const budget = checkBudget();
   const picks = await pickWithoutRepeats(pickRound, async (unchecked, approved) => {
-    if (history.length === 0 && approved.length === 0) return new Set<number>();
+    if (history.length === 0 && approved.length === 0 && unchecked.length < 2) return new Set<number>();
     try {
       const bodies = await db.select({ id: c.id, bodyText: c.bodyText }).from(c)
         .where(inArray(c.id, [...unchecked, ...approved].map(p => p.id)));

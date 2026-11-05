@@ -32,10 +32,10 @@ async function main() {
     const flagged = new Map<number, number>();
     for (let r = 0; r < RUNS; r++) {
       // Serving checks up to 3 picks at a time, so the eval does too
-      for (let i = 0; i < c.candidates.length; i += BATCH) {
+      for (let start = 0; start < c.candidates.length; start += BATCH) {
         const found = await findRepeats(
           anthropic,
-          c.candidates.slice(i, i + BATCH).map(x => ({ id: x.id, title: x.title, excerpt: excerpt(x.body) })),
+          c.candidates.slice(start, start + BATCH).map(x => ({ id: x.id, title: x.title, excerpt: excerpt(x.body) })),
           c.history.map(h => ({ title: h.title, excerpt: excerpt(h.body) })),
           { strict: true, budget: checkBudget(60_000) },
         );
