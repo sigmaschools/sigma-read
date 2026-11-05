@@ -1,25 +1,26 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { checkinFor } from "@/lib/interest-graph";
+import { startOfLocalDay, requestZone } from "@/lib/local-day";
 
 const DAILY_GOAL = 3;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "student") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
   if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  // The student's own day, not the server's (UTC) one
+  const todayStart = startOfLocalDay(requestZone(req));
 
   // Get articles completed today (with finished conversations)
   const completedToday = await db
-    .select({
+    .selectDistinctOn([schema.readingSessions.completedAt, schema.readingSessions.id], {
       articleTitle: schema.articles.title,
       articleId: schema.articles.id,
       completedAt: schema.readingSessions.completedAt,
@@ -34,10 +35,10 @@ export async function GET() {
       eq(schema.readingSessions.studentId, session.userId),
       gte(schema.readingSessions.completedAt, todayStart),
     ))
-    .orderBy(desc(schema.readingSessions.completedAt));
+    .orderBy(desc(schema.readingSessions.completedAt), schema.readingSessions.id);
 
   // Get total sessions completed (all time)
-  const [totalResult] = await db.select({ count: sql<number>`count(*)` })
+  const [totalResult] = await db.select({ count: sql<number>`count(distinct ${schema.readingSessions.id})` })
     .from(schema.readingSessions)
     .innerJoin(schema.conversations, and(
       eq(schema.conversations.readingSessionId, schema.readingSessions.id),

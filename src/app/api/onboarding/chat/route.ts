@@ -13,10 +13,14 @@ import { normalizeInterestProfile } from "@/lib/normalize-interests";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { quietly, recordDeclaredInterests } from "@/lib/interest-graph";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
-import { interviewOpener, interviewWrapUp } from "@/lib/onboarding-copy";
+import { extractAnswer, firstName, interviewOpener, interviewWrapUp, moreInterestsPrompt, stripAnswer, topUpInterests } from "@/lib/onboarding-copy";
 
-/** The interest chat ends after this many student answers, profile or not */
+/** After this many student answers Sigma wraps up as soon as it has enough interests */
 const MAX_STUDENT_ANSWERS = 3;
+/** The chat never ends with fewer interests than this (owner's rule) */
+const MIN_INTERESTS = 3;
+/** Past this many answers a short profile is topped up with defaults instead of asking again */
+const GIVE_UP_ANSWERS = 6;
 
 const anthropic = new Anthropic();
 
@@ -26,10 +30,10 @@ export async function POST(req: NextRequest) {
 
   const { messages, phase } = await req.json(); // phase: "interest" | "level"
 
-  // Get student name for personalization
+  // Get student name for personalization: Sigma uses the first name only, like a person would
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
   if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const studentName = student.name || "there";
+  const studentName = firstName(student.name);
 
   // Onboarding happens once (an admin reset clears the flag): never save the profile or start the
   // starter articles again, e.g. on a double submit
@@ -41,7 +45,7 @@ export async function POST(req: NextRequest) {
   const answers = Math.max(0, messages.filter((m: { role: string }) => m.role === "user").length - 1);
   const atCap = phase === "interest" && answers >= MAX_STUDENT_ANSWERS;
   const lastAnswer = atCap
-    ? `\n\nThis was the student's last answer. Output the closing sentence and the [PROFILE] now, with whatever interests you have.`
+    ? `\n\nYou've asked your questions. If you have at least three interests, output the closing sentence and the [PROFILE] now. If you have fewer, don't output the profile: make it easy (offer a few ideas they can pick from) and ask for one more.`
     : "";
   // The first message is fixed copy, so every student gets the same clear introduction
   if (phase === "interest" && answers === 0 && !messages.some((m: { role: string }) => m.role === "assistant")) {
@@ -69,11 +73,19 @@ export async function POST(req: NextRequest) {
   let assistantText: string;
   try {
     assistantText = await reply();
-    // At the cap the chat must end: if Sigma asked another question anyway, ask once more for the profile
-    if (atCap && !/\[PROFILE\]/.test(assistantText)) {
-      console.error("onboarding chat: no profile at the answer cap, retrying");
-      const retry = await reply([{ role: "user", content: "[Output your one-sentence closing and the [PROFILE] now. Do not ask a question.]" }]);
+    // At the cap the chat ends once it has enough interests: if Sigma asked another question
+    // anyway, ask once more for the profile, never forcing one the student didn't give (the
+    // minimum check below holds a short one open). At GIVE_UP_ANSWERS the profile is taken with
+    // whatever they said and topped up below, so the chat can't run forever.
+    const givingUp = phase === "interest" && answers >= GIVE_UP_ANSWERS;
+    if ((answers === MAX_STUDENT_ANSWERS || givingUp) && phase === "interest" && !/\[PROFILE\]/.test(assistantText)) {
+      const ask = givingUp
+        ? "[Output your one-sentence closing and the [PROFILE] now with the interests the student gave, even if fewer than three. Do not ask a question.]"
+        : "[If the student has given at least three interests, output your one-sentence closing and the [PROFILE] now, using only interests they said. If not, reply with your last message unchanged.]";
+      const retry = await reply([{ role: "user", content: ask }]);
       if (/\[PROFILE\]/.test(retry)) assistantText = retry;
+      // Still nothing usable after the give-up point: finish with defaults alone
+      else if (givingUp) assistantText = `${assistantText}\n[PROFILE]\n{"interests": []}`;
     }
   } catch (e) {
     // Without this the route 500s with an empty body and the student sees a blank chat
@@ -88,9 +100,10 @@ export async function POST(req: NextRequest) {
 
   // Check if interest profile is complete
   const profileMatch = assistantText.match(/\[PROFILE\]\s*(\{[\s\S]*?\})/);
-  if (!profileMatch) return NextResponse.json({ message: assistantText });
+  // [ANSWER] belongs to the profile turn's wrap-up; never show the tag itself
+  if (!profileMatch) return NextResponse.json({ message: stripAnswer(assistantText) });
 
-  const visibleText = assistantText.replace(/\[PROFILE\][\s\S]*/, "").trim();
+  const visibleText = stripAnswer(assistantText.replace(/\[PROFILE\][\s\S]*/, ""));
   let profile;
   try {
     profile = normalizeInterestProfile(JSON.parse(profileMatch[1]));
@@ -100,7 +113,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: visibleText || "Tell me one more thing you like." });
   }
 
-  // Map grade level to initial reading level (calibrated from first session)
+  // Never finish with fewer than three interests: keep the chat open and ask for more. A student
+  // who still hasn't named three after GIVE_UP_ANSWERS answers gets kid-friendly defaults to make
+  // three, so nobody is stuck in onboarding.
+  if (phase === "interest" && profile.interests.length < MIN_INTERESTS) {
+    if (answers < GIVE_UP_ANSWERS) {
+      // Still answer what they asked, then ask for more
+      const answer = extractAnswer(assistantText);
+      return NextResponse.json({ message: `${answer ? `${answer} ` : ""}${moreInterestsPrompt(profile.interests)}` });
+    }
+    profile = { interests: topUpInterests(profile.interests, MIN_INTERESTS) };
+  }
+
+  // Map grade level to initial reading level (placement then moves it, see level-progression.ts)
   const level = gradeToReadingLevel(student.gradeLevel);
   await db.update(schema.students)
     .set({
@@ -115,7 +140,8 @@ export async function POST(req: NextRequest) {
   await markStarterPending(session.userId);
   after(() => prepareStarterArticles(session.userId, anthropic));
 
-  // Fixed wrap-up: it names what Sigma heard and says what happens next, in a length a kid reads
-  const message = phase === "interest" ? interviewWrapUp(profile.interests) : visibleText;
+  // Fixed wrap-up: it names what Sigma heard and says what happens next, in a length a kid reads.
+  // If the student asked Sigma something, Sigma's one-sentence [ANSWER] goes first.
+  const message = phase === "interest" ? interviewWrapUp(profile.interests, extractAnswer(assistantText)) : visibleText;
   return NextResponse.json({ message, profileComplete: true, profile });
 }

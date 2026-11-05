@@ -15,6 +15,7 @@ const FEATURE_LABELS: Record<string, string> = {
   feed_event: "Interest tags", interest_resolve: "Interest matching", chat_mentions: "Chat interests", article_generate: "On-demand articles", parent_chat: "Parent chat",
   batch_adjacent: "Batch: adjacent interests", batch_filter: "Batch: source filter", batch_source_pick: "Batch: source topic check",
   batch_search: "Batch: web search", batch_rewrite: "Batch: base articles", batch_adapt: "Batch: level adaptations",
+  batch_dedup: "Batch: duplicate check", serve_repeats: "Serving: repeat check",
 };
 
 const usd = (n: number) => n < 10 ? `$${n.toFixed(2)}` : `$${Math.round(n).toLocaleString()}`;
