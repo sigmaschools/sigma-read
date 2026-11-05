@@ -106,6 +106,14 @@ Nothing on the same subject is written twice. Before a source is rewritten, `fin
 
 Serving never gives a student the same base article twice, at any level.
 
+### Per-student repeats and topic spacing
+
+The pool check allows a new angle on a familiar subject, which is right for the pool, but one student can still meet two articles that tell the same story. On 2026-11-05 a student who had read "How Cooking Changed Humanity Forever" was served "The Ancient Art of Smoking Food": both open with early humans and fire, cite the same 780,000-year-old site in Israel and retell the same Egyptian, medieval and Chinese history.
+
+So serving (the feed top-up in `/api/articles/serve-cached` and the morning batch's serve step) also checks its picks against the student's articles from the last 30 days (`src/lib/repeats.ts`): a title-overlap check, then one light-model call on titles and openings asking whether the student would feel it is the same article again (same subject, or the same story under a new name). Repeats are re-picked and never served; a slot can stay empty rather than serve one. If the call fails, only the title check applies. Measure the prompt with `npm run eval:repeats` (fixed cases in `scripts/eval/repeat-cases.json`).
+
+Topics served in the last 2 days are avoided when anything else is left, so one interest doesn't fill the feed day after day (the same student had three cooking articles in two days).
+
 ---
 
 ## Daily Article Mix
