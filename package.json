@@ -10,6 +10,7 @@
     "eval": "tsx --require ./scripts/md-require.cjs scripts/eval-conversations.ts",
     "eval:models": "tsx --require ./scripts/md-require.cjs scripts/eval-models.ts",
     "eval:articles": "tsx scripts/eval-articles.ts",
+    "eval:repeats": "tsx scripts/eval-repeats.ts",
     "eval:reports": "tsx --require ./scripts/md-require.cjs scripts/eval-reports.ts",
     "test": "find src scripts -name '*.test.ts' -print0 | xargs -0 -n1 tsx"
   },
