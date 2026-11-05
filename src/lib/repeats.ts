@@ -19,7 +19,7 @@ import { titleOverlap, SAME_TITLE } from "./batch/dedup";
 
 type Client = { messages: Pick<Anthropic["messages"], "create"> };
 
-export interface ArticleGist { title: string; opening: string }
+export interface ArticleGist { title: string; excerpt: string }
 export interface RepeatCandidate extends ArticleGist { id: number }
 
 /** How far back a student's articles count, and how many of them the check sees */
@@ -28,11 +28,30 @@ export const REPEAT_DAYS = 30;
 export const TOPIC_SPACING_DAYS = 2;
 export const MAX_HISTORY = 40;
 /** Words of each article's opening shown to the model */
-const OPENING_WORDS = 70;
+const OPENING_WORDS = 60;
+/** Sentences with numbers or dates added from the rest of the article, and their length cap */
+const FACT_SENTENCES = 3;
+const FACT_WORDS = 30;
+/** One model call may take this long before serving goes on with the title check alone */
+export const CHECK_TIMEOUT_MS = 6000;
 
-/** The first `words` words of an article body, on one line */
-export function opening(body: string | null | undefined, words = OPENING_WORDS): string {
-  return (body ?? "").split(/\s+/).filter(Boolean).slice(0, words).join(" ");
+const words = (text: string) => text.split(/\s+/).filter(Boolean);
+
+/**
+ * What the model sees of an article: its opening, then the first few sentences from the rest that
+ * carry a number or date ("780,000 years ago", "By 3000 BCE"). Two articles telling the same
+ * story share those facts even when their openings differ.
+ */
+export function excerpt(body: string | null | undefined): string {
+  const all = words(body ?? "");
+  const head = all.slice(0, OPENING_WORDS).join(" ");
+  const rest = all.slice(OPENING_WORDS).join(" ");
+  const facts = (rest.match(/[^.!?]+[.!?]/g) ?? [])
+    .map(s => s.trim())
+    .filter(s => /\d{3,}|\d,\d{3}/.test(s))
+    .slice(0, FACT_SENTENCES)
+    .map(s => words(s).slice(0, FACT_WORDS).join(" "));
+  return facts.length ? `${head} … ${facts.join(" … ")}` : head;
 }
 
 const SCHEMA = {
@@ -45,17 +64,19 @@ const SCHEMA = {
 export function repeatsPrompt(candidates: RepeatCandidate[], history: ArticleGist[]): string {
   return `A children's reading app is choosing articles for one student.
 
-ARTICLES THE STUDENT ALREADY HAS (recent first):
-${history.map(h => `- "${h.title}": ${h.opening}`).join("\n")}
+ARTICLES THE STUDENT ALREADY HAS (recent first; opening, then … dated facts from later on):
+${history.map(h => `- "${h.title}": ${h.excerpt}`).join("\n")}
 
 CANDIDATES:
-${candidates.map(c => `${c.id}. "${c.title}": ${c.opening}`).join("\n")}
+${candidates.map(c => `${c.id}. "${c.title}": ${c.excerpt}`).join("\n")}
 
 Which candidates would this student feel are the same article again, compared with an article they already have or an earlier candidate in this list? That is either:
 - the same specific subject, even with a different title or wording (two overviews of the same company), or
-- the same story told again: the same history, examples or opening scene, so it reads like a rerun even though the subject's name differs (a history of cooking, then a history of smoking food that opens with the same early humans around the same fires).
+- the same story told again: the same history, examples or opening scene, so it reads like a rerun even though the subject's name differs (a history of bread, then a history of ovens that retells the same ancient Egyptian bakeries and the same dates).
 
-A new angle on a subject the student likes is NOT a repeat: octopus camouflage after octopus intelligence, a famous volcano after how eruptions work, blanching after a history of cooking. Only mark a candidate when the student would recognise it.
+If two candidates repeat each other, mark only the later one.
+
+A new angle on a subject the student likes is NOT a repeat: octopus camouflage after octopus intelligence, a famous volcano after how eruptions work, how yeast makes bread rise after a history of bread. Only mark a candidate when the student would recognise it.
 
 Reply with the ids of the repeat candidates, or an empty list.`;
 }
@@ -83,7 +104,7 @@ export async function findRepeats(
       max_tokens: 200,
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
       messages: [{ role: "user", content: repeatsPrompt(rest, history.slice(0, MAX_HISTORY)) }],
-    }) as Anthropic.MessageCreateParamsNonStreaming);
+    }) as Anthropic.MessageCreateParamsNonStreaming, { timeout: CHECK_TIMEOUT_MS, maxRetries: 0 });
     const text = response.content.filter(b => b.type === "text").map(b => (b as Anthropic.TextBlock).text).join("");
     const ids = (JSON.parse(text) as { repeats: number[] }).repeats;
     for (const id of ids) if (rest.some(c => c.id === id)) repeats.add(id);
@@ -95,12 +116,13 @@ export async function findRepeats(
 
 /**
  * Pick articles, check the picks for repeats, and pick again without the repeats, up to `rounds`
- * times. `pick(excluded)` must not return an excluded id. The last round's picks are filtered
+ * times. `pick(excluded)` must not return an excluded id. `check` gets the new picks and the ones
+ * already approved, so a replacement is also compared with the rest of the serving. The last round's picks are filtered
  * without a further pick, so a repeat is never served, but a slot can stay empty.
  */
 export async function pickWithoutRepeats<T extends { id: number }>(
   pick: (excluded: Set<number>) => T[] | Promise<T[]>,
-  check: (picks: T[]) => Promise<Set<number>>,
+  check: (unchecked: T[], approved: T[]) => Promise<Set<number>>,
   rounds = 3,
 ): Promise<T[]> {
   const excluded = new Set<number>();
@@ -110,7 +132,7 @@ export async function pickWithoutRepeats<T extends { id: number }>(
     picks = await pick(excluded);
     const unchecked = picks.filter(p => !approved.has(p.id));
     if (unchecked.length === 0) return picks;
-    const repeats = await check(unchecked);
+    const repeats = await check(unchecked, picks.filter(p => approved.has(p.id)));
     unchecked.forEach(p => repeats.has(p.id) ? excluded.add(p.id) : approved.add(p.id));
     if (repeats.size === 0) return picks;
   }

@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { findRepeats, opening, pickWithoutRepeats, repeatsPrompt } from "./repeats";
+import { excerpt, findRepeats, pickWithoutRepeats, repeatsPrompt } from "./repeats";
 
 type Client = Parameters<typeof findRepeats>[0];
 
@@ -17,15 +17,18 @@ function client(reply: string | Error) {
   } as never as Client & { sent: { messages: { content: string }[] }[] };
 }
 
-const cooking = { title: "How Cooking Changed Humanity Forever", opening: "Around one million years ago, early humans at Wonderwerk Cave in South Africa learned to control fire." };
-const smoking = { id: 42, title: "The Ancient Art of Smoking Food", opening: "Around 780,000 years ago at a site in what is now Israel, early humans hung elephant meat over smoky fires." };
-const weather = { id: 48, title: "The Restless Sky: How Weather Really Works", opening: "Without its blanket of air, Earth's average surface temperature would be about -18°C." };
-const spacex = { id: 23, title: "SpaceX: From Near Bankruptcy to Trillion-Dollar Giant", opening: "On September 28, 2008, a rocket lifted off." };
+const cooking = { title: "How Cooking Changed Humanity Forever", excerpt: "Around one million years ago, early humans at Wonderwerk Cave in South Africa learned to control fire." };
+const smoking = { id: 42, title: "The Ancient Art of Smoking Food", excerpt: "Around 780,000 years ago at a site in what is now Israel, early humans hung elephant meat over smoky fires." };
+const weather = { id: 48, title: "The Restless Sky: How Weather Really Works", excerpt: "Without its blanket of air, Earth's average surface temperature would be about -18°C." };
+const spacex = { id: 23, title: "SpaceX: From Near Bankruptcy to Trillion-Dollar Giant", excerpt: "On September 28, 2008, a rocket lifted off." };
 
 (async () => {
-  // Openings are the first words on one line
-  assert.equal(opening("One two\n\nthree four five", 3), "One two three");
-  assert.equal(opening(null), "");
+  // Excerpts: the opening, then later sentences that carry a number or date
+  const filler = Array.from({ length: 60 }, (_, i) => `w${i}`).join(" ");
+  const body = `${filler}\n\nNo numbers here. Evidence dates back 780,000 years in Israel. Then nothing. By 3000 BCE Egyptians smoked fish.`;
+  assert.equal(excerpt(body), `${filler} … Evidence dates back 780,000 years in Israel. … By 3000 BCE Egyptians smoked fish.`);
+  assert.equal(excerpt("Short one."), "Short one.");
+  assert.equal(excerpt(null), "");
 
   // Nothing read yet, or nothing to check: no model call
   const none = client('{"repeats":[42]}');
@@ -35,7 +38,7 @@ const spacex = { id: 23, title: "SpaceX: From Near Bankruptcy to Trillion-Dollar
 
   // A reworded title of something already read is caught without the model
   const titleOnly = client('{"repeats":[]}');
-  const read = [cooking, { title: "SpaceX: From Bankruptcy to a Trillion-Dollar Giant", opening: "" }];
+  const read = [cooking, { title: "SpaceX: From Bankruptcy to a Trillion-Dollar Giant", excerpt: "" }];
   assert.deepEqual([...await findRepeats(titleOnly, [spacex], read)], [23]);
   assert.equal(titleOnly.sent.length, 0);
 
@@ -61,10 +64,14 @@ const spacex = { id: 23, title: "SpaceX: From Near Bankruptcy to Trillion-Dollar
   const checked: number[][] = [];
   const picks = await pickWithoutRepeats(
     excluded => pool.filter(a => !excluded.has(a.id)).slice(0, 2),
-    async unchecked => { checked.push(unchecked.map(u => u.id)); return new Set(unchecked.filter(u => u.id === 2).map(u => u.id)); },
+    async (unchecked, approved) => {
+      checked.push([...unchecked.map(u => u.id), ...approved.map(a => -a.id)]);
+      return new Set(unchecked.filter(u => u.id === 2).map(u => u.id));
+    },
   );
   assert.deepEqual(picks.map(p => p.id), [1, 3]);
-  assert.deepEqual(checked, [[1, 2], [3]]);
+  // The replacement is checked alongside the pick already approved (negative ids here)
+  assert.deepEqual(checked, [[1, 2], [3, -1]]);
 
   // Out of rounds: the remaining repeats are dropped, never served
   const allRepeats = await pickWithoutRepeats(
