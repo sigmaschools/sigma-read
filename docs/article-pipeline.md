@@ -37,12 +37,18 @@ This document specifies the technical implementation of article generation, sele
 **Code:** `src/lib/batch/morning-batch.ts`, run by Vercel Cron through `/api/cron/morning-batch` (manual runs: `npx tsx scripts/morning-batch.ts`)
 **Runtime:** ~5-10 minutes for 50 students
 
-### Step 1: News Sourcing
+### Step 1: Sourcing
 
-Pull current headlines from kid-friendly news sources:
-- NewsForKids.net, DOGOnews, TimeForKids (web scraping)
-- Web search via the Anthropic API's server-side search tool (supplementary queries for science, sports, animals, space; no separate key)
-- Claude curates the best 8-10 topics from the raw headlines
+Every article is rewritten from one real page. Site lists live in `src/lib/batch/sources.ts`; searches use the Anthropic API's server-side web search tool restricted to those sites (no separate key). Pages from the web pass the content filter before use; Grokipedia pages skip it.
+
+**News (1 a day).** Candidates are tried in order until one page passes the content filter and the duplicate check:
+1. Kid news sites, this week (Science News Explores, DOGOnews, News for Kids, Youngzine, TIME for Kids)
+2. Two random kid-safe topics ("new animal species discovered", "NASA space mission", ...) on reliable science and nature news sites (the kid sites plus Smithsonian, NASA, Science News, National Geographic, Live Science, NOAA), last 7 days
+3. The same two topics on the open web, last 7 days
+
+The news slot is kept even when interest articles fill the day's target. Before 2026-11-06 only one news search ran per day and a rejected page ended it, so no news was written from 2026-11-01 to 2026-11-05 (the one search that day hit a Newsela company blog post). Newsela (paywalled) and TweenTribune (closed) were dropped.
+
+**Interest and horizon.** Plans alternate their first source, so about half come from somewhere other than Grokipedia: kids' explainer sites (Frontiers for Young Minds, Science News Explores, Nat Geo Kids, Ducksters, Wonderopolis, HowStuffWorks, Britannica, Smithsonian, NASA, Live Science, History.com) or Grokipedia, each falling back to the other, then to the open web.
 
 The curation prompt enforces the Three Bucket framework (see Content Policy):
 - 7-8 Bucket 1 (universally safe)
@@ -353,7 +359,7 @@ This ensures no student's first experience is "come back tomorrow."
 ## Dependencies
 
 - **Anthropic API** — models per job in `src/lib/models.ts` ([ai-models.md](./ai-models.md))
-- **Anthropic web search tool** — Supplementary headline sourcing (uses `ANTHROPIC_API_KEY`)
+- **Anthropic web search tool** — Finds news and explainer pages on the sites in `src/lib/batch/sources.ts` (uses `ANTHROPIC_API_KEY`)
 - **Neon Postgres** — Article cache and student data
 - **Vercel Cron** — Batch job scheduling (see "How the batch is scheduled" below)
 
