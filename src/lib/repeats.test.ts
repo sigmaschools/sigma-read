@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { excerpt, findRepeats, pickWithoutRepeats, repeatsPrompt } from "./repeats";
+import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, repeatsPrompt } from "./repeats";
 
 type Client = Parameters<typeof findRepeats>[0];
 
@@ -54,6 +54,20 @@ const spacex = { id: 23, title: "SpaceX: From Near Bankruptcy to Trillion-Dollar
   // A failed model call leaves only the title matches
   const failing = client(new Error("overloaded"));
   assert.deepEqual([...await findRepeats(failing, [smoking, spacex], read)], [23]);
+
+  // One failure spends the serving's budget: later checks make no model call
+  const budget = checkBudget();
+  const flaky = client(new Error("timeout"));
+  await findRepeats(flaky, [smoking], read, { budget });
+  await findRepeats(flaky, [weather], read, { budget });
+  assert.equal(flaky.sent.length, 1);
+  assert.ok(budget.failed);
+  // ...and a spent budget makes none at all
+  const late = client('{"repeats":[42]}');
+  assert.equal((await findRepeats(late, [smoking], read, { budget: checkBudget(0) })).size, 0);
+  assert.equal(late.sent.length, 0);
+  // Strict (the eval) throws instead of passing a failure off as "no repeats"
+  await assert.rejects(findRepeats(client(new Error("401")), [smoking], read, { strict: true }));
 
   // The prompt names both kinds of repeat and the allowed new angle
   const p = repeatsPrompt([smoking], [cooking]);

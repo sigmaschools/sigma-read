@@ -33,7 +33,7 @@ import { parseSourcePick, type SearchResult } from "./source-pick";
 import { MODELS, requestSettings } from "../models";
 import { BASE_LEVEL, rewriteFromSource as writeBase, adaptArticleToLevel as writeAdaptation, type SourcedTopic } from "./article-writer";
 import { findDuplicate, type ExistingArticle } from "./dedup";
-import { excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
+import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
 import { recentArticles, recentTopics } from "../recent-reading";
 import { interestCap, pickInterests } from "./plan-interests";
 
@@ -786,11 +786,12 @@ async function serveToStudents(students: Student[]): Promise<number> {
     const candidates = unseen.map((a: any) => ({ id: a.id as number, topics: cacheTopics.get(a.id) ?? [], row: a }));
     const affinityMap = new Map(affinities.map(a => [a.topicSlug, a]));
     const repeatClient = tracked(anthropic, "serve_repeats", student.id);
+    const budget = checkBudget(20_000);
     const picked = await pickWithoutRepeats(
       excluded => pickForFeed(candidates.filter(c => !excluded.has(c.id)), affinityMap, needed, { avoid: new Set(recent) }),
       async (unchecked, approved) => {
         const gist = (c: (typeof candidates)[number]) => ({ id: c.id, title: c.row.title as string, excerpt: excerpt(c.row.body_text) });
-        return findRepeats(repeatClient, unchecked.map(gist), [...approved.map(gist), ...recentReads]);
+        return findRepeats(repeatClient, unchecked.map(gist), [...recentReads, ...approved.map(gist)], { budget });
       },
     );
     const toServe = picked.map(c => c.row);

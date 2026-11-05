@@ -7,16 +7,16 @@
  *   npm run eval:repeats              # 5 runs
  *   npm run eval:repeats -- --runs 10
  *
- * Needs ANTHROPIC_API_KEY only (no database). The cases are real articles from the live pool
- * (2026-11-05), when a student who had read "How Cooking Changed Humanity Forever" was served
- * "The Ancient Art of Smoking Food" the next day; both open with early humans and fire and tell
- * the same history.
+ * Needs ANTHROPIC_API_KEY only (no database); a failed model call stops the run. Most cases are
+ * real articles from the live pool (2026-11-05), when a student who had read "How Cooking Changed
+ * Humanity Forever" was served "The Ancient Art of Smoking Food" the next day; both tell the same
+ * history. Candidates with ids 9xx were written for this test.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { excerpt, findRepeats } from "../src/lib/repeats";
+import { checkBudget, excerpt, findRepeats } from "../src/lib/repeats";
 
 interface Case { history: { title: string; body: string }[]; candidates: { id: number; title: string; body: string; repeat: boolean }[] }
 
@@ -34,6 +34,7 @@ async function main() {
         anthropic,
         c.candidates.map(x => ({ id: x.id, title: x.title, excerpt: excerpt(x.body) })),
         c.history.map(h => ({ title: h.title, excerpt: excerpt(h.body) })),
+        { strict: true, budget: checkBudget(60_000) },
       );
       for (const id of found) flagged.set(id, (flagged.get(id) ?? 0) + 1);
     }
