@@ -134,17 +134,10 @@ export function comprehensionConversationPrompt(
   articleText: string,
   level: number,
   interestProfile: string,
-  previousArticles?: { title: string; topic: string }[],
   articleLiked?: boolean | null,
   fixedStyle?: string,
   exchangeNumber?: number
 ) {
-  const previousArticlesSection = previousArticles && previousArticles.length > 0
-    ? "\nPrevious articles this student has read recently:\n" +
-      previousArticles.map((a) => `- "${a.title}" (${a.topic})`).join("\n") +
-      "\nIf a natural connection exists between the current article and a previous one, you may reference it. Only if the connection is genuine — don't force it.\n\n"
-    : "";
-
   const likedSection = articleLiked === true
     ? sectionLiked.trimEnd() + "\n\n"
     : articleLiked === false
@@ -167,7 +160,6 @@ export function comprehensionConversationPrompt(
     articleText,
     level,
     interestProfile,
-    previousArticlesSection,
     questionTypeInstructions,
     messageLengthRule: level <= 2 ? `Two short sentences, under ${maxWords} words in total.` : level <= 4 ? `1-2 sentences, under ${maxWords} words.` : `2 sentences max, under ${maxWords} words.`,
     messageLengthThreshold: `${maxWords} words`,

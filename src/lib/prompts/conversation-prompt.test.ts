@@ -10,7 +10,7 @@ async function main() {
   const { comprehensionConversationPrompt, CONVERSATION_STYLES } = require("./index");
   for (const level of [1, 2, 3, 4, 5, 6]) {
     for (const style of [...CONVERSATION_STYLES, undefined, "constructor"]) {
-      const p: string = comprehensionConversationPrompt("Article body.", level, "{}", [{ title: "T", topic: "x" }], true, style, 2);
+      const p: string = comprehensionConversationPrompt("Article body.", level, "{}", true, style, 2);
       assert.ok(!p.includes("{{"), `unfilled placeholder at level ${level}, style ${style}`);
       const name = p.match(/THIS CONVERSATION'S SHAPE: (\w+)/)?.[1];
       assert.ok(name && CONVERSATION_STYLES.includes(name), `no valid style at level ${level}, style ${style}`);

@@ -79,17 +79,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const exchangeNumber = messages.filter(m => m.role === "user").length;
 
-  // Fetch previous articles for cross-article connections (last 5 read articles, excluding current)
-  const previousArticles = await db.select({ title: schema.articles.title, topic: schema.articles.topic })
-    .from(schema.articles)
-    .where(and(
-      eq(schema.articles.studentId, session.userId),
-      eq(schema.articles.read, true),
-      ne(schema.articles.id, article.id)
-    ))
-    .orderBy(desc(schema.articles.createdAt))
-    .limit(5);
-
   // Pick conversation style once per conversation, reuse on subsequent messages.
   // A new one differs from the student's last conversation, so openers don't repeat back to back
   let conversationStyle = conversation.conversationStyle;
@@ -111,7 +100,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         article.bodyText,
         student.readingLevel || 2,
         JSON.stringify(student.interestProfile || {}),
-        previousArticles.length > 0 ? previousArticles : undefined,
         article.liked,
         conversationStyle,
         exchangeNumber
