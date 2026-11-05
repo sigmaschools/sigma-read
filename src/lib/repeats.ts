@@ -100,7 +100,8 @@ export async function findRepeats(
   opts: { budget?: CheckBudget; strict?: boolean } = {},
 ): Promise<Set<number>> {
   const repeats = new Set<number>();
-  if (candidates.length === 0 || history.length === 0) return repeats;
+  // Nothing to compare: no history and a single candidate (two candidates are compared with each other)
+  if (candidates.length === 0 || (history.length === 0 && candidates.length < 2)) return repeats;
 
   for (const c of candidates) {
     if (history.some(h => titleOverlap(c.title, h.title) >= SAME_TITLE)) repeats.add(c.id);
