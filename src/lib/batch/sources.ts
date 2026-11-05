@@ -1,0 +1,76 @@
+// Where the morning batch looks for source pages.
+//
+// Every list here is searched with Anthropic's web search tool restricted to its domains
+// (`allowed_domains` also covers subdomains). Pages must be free to read without a login or
+// script: the batch fetches plain HTML. Paywalled or closed sites were dropped: Newsela
+// (paywall; its search hits were company blog posts), TweenTribune (closed), DK Find Out (closed).
+
+/** Free news sites written for kids. First stop for the daily news article. */
+export const KID_NEWS_DOMAINS = [
+  "snexplores.org", // Science News Explores (was Science News for Students)
+  "dogonews.com",
+  "newsforkids.net",
+  "youngzine.org",
+  "timeforkids.com",
+];
+
+/** Reliable general news on science, nature, space and discovery, for when kid sites have nothing new. */
+export const NEWS_DOMAINS = [
+  ...KID_NEWS_DOMAINS,
+  "smithsonianmag.com",
+  "nasa.gov",
+  "sciencenews.org",
+  "nationalgeographic.com",
+  "livescience.com",
+  "noaa.gov",
+];
+
+/** Explainer and feature sites for interest and horizon articles, as an alternative to Grokipedia. */
+export const EXPLAINER_DOMAINS = [
+  "kids.frontiersin.org", // scientists writing for kids
+  "snexplores.org",
+  "natgeokids.com",
+  "ducksters.com",
+  "wonderopolis.org",
+  "howstuffworks.com",
+  "britannica.com",
+  "smithsonianmag.com",
+  "nasa.gov",
+  "livescience.com",
+  "history.com",
+];
+
+/** Topic searches for news when the kid sites have nothing recent. */
+export const NEWS_TOPICS = [
+  "new scientific discovery",
+  "world record sports achievement",
+  "new animal species discovered",
+  "NASA space mission",
+  "new technology invention",
+  "extreme weather event",
+  "young person achievement",
+  "archaeological discovery",
+  "ocean exploration discovery",
+  "new dinosaur fossil discovery",
+  "robotics competition",
+  "renewable energy milestone",
+  "international sports tournament results",
+  "national park or wildlife",
+  "medical breakthrough",
+];
+
+export type SourceKind = "grokipedia" | "explainers";
+
+/**
+ * Which source an interest or horizon plan tries first. Plans alternate, so about half of each
+ * day's articles come from the explainer sites instead of all from Grokipedia; each falls back
+ * to the other, then to the open web.
+ */
+export function sourceOrder(planIndex: number): SourceKind[] {
+  return planIndex % 2 === 0 ? ["explainers", "grokipedia"] : ["grokipedia", "explainers"];
+}
+
+/** A Grokipedia `/page/...` link that is a real page, not a script template caught by the link scan */
+export function isGrokipediaPagePath(path: string): boolean {
+  return /^\/page\/[^\s'"+<>]+$/.test(path);
+}
