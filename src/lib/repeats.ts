@@ -32,8 +32,14 @@ const OPENING_WORDS = 60;
 /** Sentences with numbers or dates added from the rest of the article, and their length cap */
 const FACT_SENTENCES = 3;
 const FACT_WORDS = 30;
-/** One model call may take this long before serving goes on with the title check alone */
-export const CHECK_TIMEOUT_MS = 6000;
+/** The model calls for one serving may take this long in total; after that, or after a failure, only the title check runs */
+export const CHECK_BUDGET_MS = 6000;
+
+/** Shared by the checks of one serving, so a slow or failing model costs at most one wait */
+export interface CheckBudget { until: number; failed: boolean }
+export function checkBudget(ms = CHECK_BUDGET_MS): CheckBudget {
+  return { until: Date.now() + ms, failed: false };
+}
 
 const words = (text: string) => text.split(/\s+/).filter(Boolean);
 
@@ -82,13 +88,16 @@ Reply with the ids of the repeat candidates, or an empty list.`;
 }
 
 /**
- * Ids of candidates that repeat something in `history`. Title near-matches are caught without a
- * model call; the rest go to one light-model call. If that call fails, only the title matches count.
+ * Ids of candidates that repeat something in `history` (the caller keeps it to MAX_HISTORY).
+ * Title near-matches are caught without a model call; the rest go to one light-model call.
+ * If that call fails or the budget is spent, only the title matches count; `strict` (for the
+ * eval) throws instead, so an unreachable model can't pass for "no repeats".
  */
 export async function findRepeats(
   client: Client,
   candidates: RepeatCandidate[],
   history: ArticleGist[],
+  opts: { budget?: CheckBudget; strict?: boolean } = {},
 ): Promise<Set<number>> {
   const repeats = new Set<number>();
   if (candidates.length === 0 || history.length === 0) return repeats;
@@ -99,16 +108,22 @@ export async function findRepeats(
   const rest = candidates.filter(c => !repeats.has(c.id));
   if (rest.length === 0) return repeats;
 
+  const budget = opts.budget ?? checkBudget();
+  const timeout = budget.until - Date.now();
+  if (budget.failed || timeout <= 0) return repeats;
+
   try {
     const response = await client.messages.create(forJob("light", {
       max_tokens: 200,
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
-      messages: [{ role: "user", content: repeatsPrompt(rest, history.slice(0, MAX_HISTORY)) }],
-    }) as Anthropic.MessageCreateParamsNonStreaming, { timeout: CHECK_TIMEOUT_MS, maxRetries: 0 });
+      messages: [{ role: "user", content: repeatsPrompt(rest, history) }],
+    }) as Anthropic.MessageCreateParamsNonStreaming, { timeout, maxRetries: 0 });
     const text = response.content.filter(b => b.type === "text").map(b => (b as Anthropic.TextBlock).text).join("");
     const ids = (JSON.parse(text) as { repeats: number[] }).repeats;
     for (const id of ids) if (rest.some(c => c.id === id)) repeats.add(id);
   } catch (e) {
+    if (opts.strict) throw e;
+    budget.failed = true;
     console.error("Repeat check failed, using the title check only:", (e as Error).message);
   }
   return repeats;

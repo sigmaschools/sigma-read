@@ -9,7 +9,7 @@ import { pickForFeed } from "@/lib/interest-graph/serving";
 import { startOfLocalDay, requestZone } from "@/lib/local-day";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
-import { excerpt, findRepeats, pickWithoutRepeats } from "@/lib/repeats";
+import { checkBudget, excerpt, findRepeats, pickWithoutRepeats } from "@/lib/repeats";
 import { recentArticles, recentTopics } from "@/lib/recent-reading";
 
 const anthropic = new Anthropic();
@@ -128,12 +128,18 @@ export async function POST(req: NextRequest) {
   const history = await recentArticles(student.id)
     .catch(e => { console.error("Recent articles unavailable for the repeat check:", e); return []; });
   const repeatClient = tracked(anthropic, "serve_repeats", student.id);
+  const budget = checkBudget();
   const picks = await pickWithoutRepeats(pickRound, async (unchecked, approved) => {
     if (history.length === 0 && approved.length === 0) return new Set<number>();
-    const bodies = await db.select({ id: c.id, bodyText: c.bodyText }).from(c)
-      .where(inArray(c.id, [...unchecked, ...approved].map(p => p.id)));
-    const gist = (p: Pick) => ({ id: p.id, title: p.title, excerpt: excerpt(bodies.find(b => b.id === p.id)?.bodyText) });
-    return findRepeats(repeatClient, unchecked.map(gist), [...approved.map(gist), ...history]);
+    try {
+      const bodies = await db.select({ id: c.id, bodyText: c.bodyText }).from(c)
+        .where(inArray(c.id, [...unchecked, ...approved].map(p => p.id)));
+      const gist = (p: Pick) => ({ id: p.id, title: p.title, excerpt: excerpt(bodies.find(b => b.id === p.id)?.bodyText) });
+      return await findRepeats(repeatClient, unchecked.map(gist), [...history, ...approved.map(gist)], { budget });
+    } catch (e) {
+      console.error("Repeat check unavailable, serving without it:", e);
+      return new Set<number>();
+    }
   });
   const rows = picks.length === 0 ? [] : await db.select().from(c).where(inArray(c.id, picks.map(p => p.id)));
   const toServe = picks.flatMap(p => {
