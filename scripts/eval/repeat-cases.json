@@ -1,0 +1,152 @@
+[
+ {
+  "history": [
+   {
+    "title": "The Quick Dip That Changes Everything: The Science of Blanching",
+    "opening": "A chef drops bright green asparagus spears into boiling water for exactly three minutes, then plunges them into ice water. The stalks emerge vibrant, crisp, and ready for cooking later. This simple process, called blanching, has transformed food preparation for centuries. Blanching means briefly cooking fruits, vegetables, or nuts in boiling water or steam, then cooling them rapidly in ice-cold water. The technique might last only 30 seconds for delicate"
+   },
+   {
+    "title": "SpaceX: From Near Bankruptcy to Trillion-Dollar Giant",
+    "opening": "On September 28, 2008, a rocket lifted off from Kwajalein Atoll in the Marshall Islands and successfully reached orbit for the first time. The company that launched it, SpaceX, had just weeks of money left in the bank. That single flight saved the company from collapse and changed the future of space exploration. Elon Musk founded Space Exploration Technologies Corp., known as SpaceX, in 2002 with an ambitious goal: make"
+   },
+   {
+    "title": "How Cooking Changed Humanity Forever",
+    "opening": "Around one million years ago, early humans at Wonderwerk Cave in South Africa learned to control fire. This single achievement would transform our species in ways no other invention has matched. Cooking is the process of preparing food by applying heat or other methods to raw ingredients. This makes food safer to eat, easier to digest, and often more nutritious. Some foods are actually dangerous without cooking—raw kidney beans contain"
+   },
+   {
+    "title": "Tesla: Building the Electric Future",
+    "opening": "On July 1, 2003, two engineers in California started a company that would change the car industry forever. Martin Eberhard and Marc Tarpenning named their new business Tesla, after the famous inventor Nikola Tesla, who worked with electricity over a century ago. The founders wanted to prove electric cars could be fast and exciting, not just slow neighborhood vehicles. They focused on using lithium-ion batteries, which are similar to the"
+   },
+   {
+    "title": "The Company That Made Fire Alarms Smarter",
+    "opening": "In 1952, a father and son opened a small fire alarm business in New Haven, Connecticut. Edward and Herbert Levy started Fire-Lite Alarms as a local service company, installing and fixing fire alarm systems in buildings around their city. They had no idea their company would one day change how fire alarms work across the entire industry. For its first ten years, Fire-Lite focused on installing equipment made by other"
+   },
+   {
+    "title": "Nature's Speed Champions: The Fastest Animals on Earth",
+    "opening": "A peregrine falcon tucks its wings tight against its body and plunges from the sky at over 240 miles per hour. This hunting dive, called a stoop, makes the peregrine the fastest animal on the planet. Different animals dominate speed records in different environments. In the air, on land, and underwater, certain species have evolved remarkable abilities to move at incredible velocities. Scientists measure these speeds carefully, often using GPS"
+   }
+  ],
+  "candidates": [
+   {
+    "id": 17,
+    "title": "The Ancient Art of Smoking Food",
+    "opening": "Around 780,000 years ago at a site in what is now Israel, early humans hung elephant meat over smoky fires. They weren't just cooking dinner—they were inventing one of humanity's oldest food preservation techniques. Smoking food means exposing meats, fish, or vegetables to smoke from burning wood. The smoke does three important things at once: it adds a distinctive flavor, helps cook the food, and protects it from spoiling. This",
+    "repeat": true
+   },
+   {
+    "id": 901,
+    "title": "The Rocket Company That Almost Ran Out of Money",
+    "opening": "In September 2008, a small rocket called Falcon 1 sat on a launch pad on Kwajalein Atoll in the Pacific Ocean. Three launches had already failed. The company, SpaceX, had only enough money left for one more try. If this rocket failed too, the company would close. Elon Musk had started SpaceX in 2002 with a big dream: cheaper rockets that could someday carry people to Mars.",
+    "repeat": true
+   },
+   {
+    "id": 10,
+    "title": "The Science Behind What You Eat",
+    "opening": "Around 150 million children under age five are stunted from not getting enough food, while nearly a billion adults worldwide live with obesity. These opposite problems both come from the same issue: nutrition going wrong. Nutrition is the science of how living things get and use nutrients from their environment. It covers everything from eating food to how your body breaks it down, absorbs it, and eventually gets rid of",
+    "repeat": false
+   },
+   {
+    "id": 16,
+    "title": "Feeding America: How Federal Programs Help Millions",
+    "opening": "On August 8, 1969, the United States government created a new agency to fight hunger. The Food and Nutrition Service, or FNS, brought together scattered food programs into one organized system within the Department of Agriculture. Today, this agency helps one in six Americans put food on their tables. FNS runs sixteen different programs designed to make sure people can afford nutritious meals. The largest is called SNAP, the Supplemental",
+    "repeat": false
+   },
+   {
+    "id": 7,
+    "title": "When Animals Move as One: The Science of Collective Behavior",
+    "opening": "A flock of starlings twists through the evening sky, thousands of birds turning in perfect sync without crashing. No leader calls out directions, yet the entire group moves like a single living creature. This amazing display is called collective animal behavior. It happens when groups of animals—whether flocks of birds, schools of fish, or colonies of ants—coordinate their actions through local interactions instead of following a central leader. Scientists who",
+    "repeat": false
+   },
+   {
+    "id": 2,
+    "title": "The Kingdom of Animals: Earth's Most Diverse Movers",
+    "opening": "Approximately 2 million species of animals have been discovered and named by scientists, yet experts estimate that 7 to 10 million species actually exist on Earth. The vast majority of these creatures are invertebrates, animals without backbones, crawling, swimming, and flying through nearly every environment on the planet. Animals belong to the biological kingdom called Animalia, a category that includes everything from microscopic sea creatures to elephants and whales. All",
+    "repeat": false
+   },
+   {
+    "id": 18,
+    "title": "From Wolf to Companion: The Story of Dogs",
+    "opening": "A tiny Chihuahua weighs less than a newborn human baby. An English Mastiff can tip the scales at over 200 pounds. Yet both are the same species, shaped by thousands of years of human influence. Dogs belong to the scientific species Canis lupus familiaris, which makes them a subspecies of the gray wolf. Scientists estimate that domestication began somewhere between 15,000 and 40,000 years ago, likely in eastern Eurasia. The",
+    "repeat": false
+   },
+   {
+    "id": 29,
+    "title": "The Restless Sky: How Weather Really Works",
+    "opening": "Without its blanket of air, Earth's average surface temperature would be about -18°C (0°F), colder than a kitchen freezer. With that blanket, the average is a comfortable 15°C (59°F). This thin layer of gases keeps us warm, and it is also where all of our weather happens. Weather is the condition of the air at a certain place and time. Scientists describe it using measurements like temperature, wind speed, and",
+    "repeat": false
+   },
+   {
+    "id": 49,
+    "title": "The Book That Opened Up Machines",
+    "opening": "One page explains how a ball-point pen works. A few hundred pages later, another explains a nuclear reactor. Both appear in the same book, and both are written so that a curious kid can follow along. The book is called How Things Work: The Universal Encyclopedia of Machines. It was written for people with no special training who still wanted to know what was happening inside the machines around them.",
+    "repeat": false
+   },
+   {
+    "id": 50,
+    "title": "The Problem Solvers: Inside the World of Engineering",
+    "opening": "Around 2650 BC, in the desert of ancient Egypt, a man named Imhotep took charge of a building project unlike any before it. He oversaw the Step Pyramid of Djoser, a giant tomb made of cut stone. Today, Imhotep is the earliest engineer whose name we know. Engineering is the work of using science and math to make nature's materials and energy useful to people. Engineers don't just ask how",
+    "repeat": false
+   },
+   {
+    "id": 15,
+    "title": "Digging Up the Past: How Archaeologists Uncover Hidden History",
+    "opening": "A king named Nabonidus ruled Babylon from 556 to 539 BCE, and he did something unusual for ancient royalty. He ordered workers to excavate old temple sites to find inscriptions and artifacts left by rulers who came before him. Though his calculations about the age of what he found weren't accurate, he was conducting one of the earliest recorded archaeological digs in history. Archaeology is the scientific study of human",
+    "repeat": false
+   },
+   {
+    "id": 30,
+    "title": "The Busy World of Business",
+    "opening": "Working alone, a pin maker in the 1700s might finish just one pin in a day. Working as part of a team of ten, each worker's share jumped to 4,800 pins. The economist Adam Smith described this pin factory in his 1776 book, The Wealth of Nations. It shows one of the big ideas behind business: people get more done when they work together. So what exactly is a business?",
+    "repeat": false
+   }
+  ]
+ },
+ {
+  "history": [
+   {
+    "title": "Digging Up the Past: How Archaeologists Uncover Hidden History",
+    "opening": "A king named Nabonidus ruled Babylon from 556 to 539 BCE, and he did something unusual for ancient royalty. He ordered workers to excavate old temple sites to find inscriptions and artifacts left by rulers who came before him. Though his calculations about the age of what he found weren't accurate, he was conducting one of the earliest recorded archaeological digs in history. Archaeology is the scientific study of human"
+   },
+   {
+    "title": "History: The Science of Solving the Past",
+    "opening": "On May 29, 1453, the walls of Constantinople finally fell to Ottoman forces after weeks of bombardment. Historians know the exact date, the key decisions made by leaders on both sides, and even the fortuitous events that influenced the outcome because they can trace the evidence through Byzantine and Ottoman records that survived to the present day. History is the scholarly discipline focused on reconstructing past human events through careful"
+   },
+   {
+    "title": "From Wolf to Companion: The Story of Dogs",
+    "opening": "A tiny Chihuahua weighs less than a newborn human baby. An English Mastiff can tip the scales at over 200 pounds. Yet both are the same species, shaped by thousands of years of human influence. Dogs belong to the scientific species Canis lupus familiaris, which makes them a subspecies of the gray wolf. Scientists estimate that domestication began somewhere between 15,000 and 40,000 years ago, likely in eastern Eurasia. The"
+   }
+  ],
+  "candidates": [
+   {
+    "id": 50,
+    "title": "The Problem Solvers: Inside the World of Engineering",
+    "opening": "Around 2650 BC, in the desert of ancient Egypt, a man named Imhotep took charge of a building project unlike any before it. He oversaw the Step Pyramid of Djoser, a giant tomb made of cut stone. Today, Imhotep is the earliest engineer whose name we know. Engineering is the work of using science and math to make nature's materials and energy useful to people. Engineers don't just ask how",
+    "repeat": false
+   },
+   {
+    "id": 902,
+    "title": "How Historians Know What Really Happened",
+    "opening": "When Ottoman cannons finally broke through the walls of Constantinople on May 29, 1453, people on both sides wrote about it. Byzantine letters and Ottoman court records still survive, and historians compare them to work out what happened, and when. History is the study of past human events, pieced together from evidence like old letters, records and objects.",
+    "repeat": true
+   },
+   {
+    "id": 903,
+    "title": "Wolves: Pack Hunters of the North",
+    "opening": "A wolf pack can travel more than 30 miles in a single night while hunting. Gray wolves live in family groups led by a breeding pair, and every member has a job, from the pups' babysitters to the hunters who chase elk across the snow. Wolves once lived across most of the Northern Hemisphere.",
+    "repeat": false
+   },
+   {
+    "id": 2,
+    "title": "The Kingdom of Animals: Earth's Most Diverse Movers",
+    "opening": "Approximately 2 million species of animals have been discovered and named by scientists, yet experts estimate that 7 to 10 million species actually exist on Earth. The vast majority of these creatures are invertebrates, animals without backbones, crawling, swimming, and flying through nearly every environment on the planet. Animals belong to the biological kingdom called Animalia, a category that includes everything from microscopic sea creatures to elephants and whales. All",
+    "repeat": false
+   },
+   {
+    "id": 9,
+    "title": "Nature's Speed Champions: The Fastest Animals on Earth",
+    "opening": "A peregrine falcon tucks its wings tight against its body and plunges from the sky at over 240 miles per hour. This hunting dive, called a stoop, makes the peregrine the fastest animal on the planet. Different animals dominate speed records in different environments. In the air, on land, and underwater, certain species have evolved remarkable abilities to move at incredible velocities. Scientists measure these speeds carefully, often using GPS",
+    "repeat": false
+   }
+  ]
+ }
+]
