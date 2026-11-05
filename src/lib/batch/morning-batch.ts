@@ -34,7 +34,7 @@ import { MODELS, requestSettings } from "../models";
 import { BASE_LEVEL, rewriteFromSource as writeBase, adaptArticleToLevel as writeAdaptation, type SourcedTopic } from "./article-writer";
 import { findDuplicate, type ExistingArticle } from "./dedup";
 import { interestCap, pickInterests } from "./plan-interests";
-import { EXPLAINER_DOMAINS, KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, isGrokipediaPagePath, sourceOrder } from "./sources";
+import { EXPLAINER_DOMAINS, KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, isGrokipediaPagePath, plansToRun, sourceOrder } from "./sources";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -656,7 +656,11 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
   /** A page from the kids' science, nature and history sites, or null */
   async function fromExplainers(plan: ArticlePlan): Promise<{ url: string; text: string } | null> {
     console.log(`  🔎 Explainer sites: "${plan.query}" (${plan.type})`);
-    const results = await webSearch(plan.query, { domains: EXPLAINER_DOMAINS });
+    // Same on-topic check as Grokipedia ("soccer" on NASA's site is not a soccer article); a
+    // general Grokipedia page it names is left for the Grokipedia step
+    const found = await webSearch(plan.query, { domains: EXPLAINER_DOMAINS });
+    const results = (await onTopicResults(plan.query, found))
+      .filter(r => !r.url.includes("grokipedia.com") && !recentTopics.has(r.title.toLowerCase()));
     const hit = await firstGoodResult(plan, results, 4);
     if (hit) console.log(`     ✅ ${hit.url.substring(0, 70)}`);
     else console.log(`     ⚠️ Nothing usable on the explainer sites`);
@@ -666,10 +670,11 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
   // ─── Interest & Horizon: explainer sites and Grokipedia, alternating ──────
 
   const topicPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
+  const firstSource = Math.floor(Math.random() * 2); // so the horizon slot doesn't always get the same source
   for (let i = 0; i < topicPlans.length; i++) {
     const plan = topicPlans[i];
     let hit: { url: string; text: string } | null = null;
-    for (const kind of sourceOrder(i)) {
+    for (const kind of sourceOrder(i + firstSource)) {
       hit = kind === "grokipedia" ? await fromGrokipedia(plan) : await fromExplainers(plan);
       if (hit) break;
     }
@@ -875,18 +880,12 @@ async function runSteps(result: BatchResult) {
   // Step 2: Plan daily mix
   const plans = await planDailyArticles(interestMap, students, recentTopics, studentInterests);
 
-  // Limit to what we actually need. The news plans are fallbacks for one article (sourcing stops
-  // at the first good page), so they all go in, and the news slot is kept unless an earlier run
-  // today already wrote the news article.
+  // Limit to what we actually need, keeping the news slot unless an earlier run today wrote the news
   const [newsToday] = await sql`
     SELECT COUNT(*) as c FROM article_cache
     WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false AND category = 'news'
   `;
-  const needNews = parseInt(newsToday.c as string) === 0;
-  const interestHorizonPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
-  const newsPlans = needNews ? plans.filter(p => p.type === "news") : [];
-  const topicSlots = Math.max(0, articlesNeeded - (needNews ? 1 : 0));
-  const plansToSource = [...interestHorizonPlans.slice(0, topicSlots), ...newsPlans];
+  const plansToSource = plansToRun(plans, articlesNeeded, parseInt(newsToday.c as string) === 0);
 
   // Step 3: Source content from the web
   const sourcedTopics = await sourceContent(plansToSource, recentTopics);

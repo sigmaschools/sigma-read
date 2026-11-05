@@ -42,18 +42,17 @@ This document specifies the technical implementation of article generation, sele
 Every article is rewritten from one real page. Site lists live in `src/lib/batch/sources.ts`; searches use the Anthropic API's server-side web search tool restricted to those sites (no separate key). Pages from the web pass the content filter before use; Grokipedia pages skip it.
 
 **News (1 a day).** Candidates are tried in order until one page passes the content filter and the duplicate check:
-1. Kid news sites, this week (Science News Explores, DOGOnews, News for Kids, Youngzine, TIME for Kids)
+1. Kid news sites, last 14 days (Science News Explores, DOGOnews, News for Kids, Youngzine, TIME for Kids)
 2. Two random kid-safe topics ("new animal species discovered", "NASA space mission", ...) on reliable science and nature news sites (the kid sites plus Smithsonian, NASA, Science News, National Geographic, Live Science, NOAA), last 7 days
 3. The same two topics on the open web, last 7 days
+
+Age limits use the search result's page date; pages with no date pass, so recency is a preference, not a guarantee.
 
 The news slot is kept even when interest articles fill the day's target. Before 2026-11-06 only one news search ran per day and a rejected page ended it, so no news was written from 2026-11-01 to 2026-11-05 (the one search that day hit a Newsela company blog post). Newsela (paywalled) and TweenTribune (closed) were dropped.
 
 **Interest and horizon.** Plans alternate their first source, so about half come from somewhere other than Grokipedia: kids' explainer sites (Frontiers for Young Minds, Science News Explores, Nat Geo Kids, Ducksters, Wonderopolis, HowStuffWorks, Britannica, Smithsonian, NASA, Live Science, History.com) or Grokipedia, each falling back to the other, then to the open web.
 
-The curation prompt enforces the Three Bucket framework (see Content Policy):
-- 7-8 Bucket 1 (universally safe)
-- 1-2 Bucket 2 (civic literacy, only if genuinely significant)
-- 0 Bucket 3 (polarizing — excluded)
+The content filter (`filterSources` in `morning-batch.ts`) rejects pages that are mainly about the blocklist topics in [content-safety.md](./content-safety.md), and pages that aren't articles (homepages, company blogs, product pages).
 
 ### Step 2: Topic Planning
 

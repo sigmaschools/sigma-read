@@ -72,5 +72,20 @@ export function sourceOrder(planIndex: number): SourceKind[] {
 
 /** A Grokipedia `/page/...` link that is a real page, not a script template caught by the link scan */
 export function isGrokipediaPagePath(path: string): boolean {
-  return /^\/page\/[^\s'"+<>]+$/.test(path);
+  return /^\/page\/[^\s'"<>]+$/.test(path);
+}
+
+/**
+ * The day's plans to source, at most `articlesNeeded` articles. News plans are fallbacks for one
+ * article (sourcing stops at the first good page), so they all go in, and one slot is kept for
+ * news when `needNews` (no news article yet today). Interest and horizon plans fill the rest.
+ * Before this, interests filled the target first and only one news search ran, so a single
+ * rejected page meant no news that day.
+ */
+export function plansToRun<P extends { type: "interest" | "news" | "horizon" }>(plans: P[], articlesNeeded: number, needNews: boolean): P[] {
+  if (articlesNeeded <= 0) return [];
+  const topics = plans.filter(p => p.type !== "news");
+  const news = needNews ? plans.filter(p => p.type === "news") : [];
+  const topicSlots = Math.max(0, articlesNeeded - (news.length > 0 ? 1 : 0));
+  return [...topics.slice(0, topicSlots), ...news];
 }
