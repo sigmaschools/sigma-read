@@ -217,7 +217,7 @@ interface Result {
 }
 
 async function runConversation(config: Config, persona: StudentPersona, article: EvalArticle, style: string): Promise<Result> {
-  const systemPrompt = comprehensionConversationPrompt(article.bodyText, article.level, JSON.stringify({ interests: persona.interests }), undefined, null, style);
+  const systemPrompt = comprehensionConversationPrompt(article.bodyText, article.level, JSON.stringify({ interests: persona.interests }), null, style);
   const calls: Call[] = [];
   const client = candidateClient(config, calls);
   const transcript: Msg[] = [];
