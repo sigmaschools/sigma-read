@@ -211,7 +211,10 @@ function OnboardingPage() {
   const lastAnswer = [...messages].reverse().find(m => m.role === "user")?.content ?? "";
   const stuck = lastAnswer.trim().split(/\s+/).length <= 4
     && /^\s*(idk|i ?d ?k|i don['’]?t know|dunno|not sure|no idea|nothing|none|nope|nah|no|anything|whatever|stuff|um+|hm+)\b/i.test(lastAnswer);
-  const showIdeas = messages.length > 0 && (messages.length === 1 || stuck) && !loading && !chatDone;
+  // ...and whenever Sigma asks for one more interest with ideas (moreInterestsPrompt in onboarding-copy.ts)
+  const lastSigma = [...messages].reverse().find(m => m.role === "assistant")?.content ?? "";
+  const offered = lastSigma.includes("Pick any that sound good");
+  const showIdeas = messages.length > 0 && (messages.length === 1 || stuck || offered) && !loading && !chatDone;
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto">
       <header className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">

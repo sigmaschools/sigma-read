@@ -5,6 +5,7 @@ import {
   checkDownwardTrigger,
   evaluateUpwardProbe,
   evaluateDownwardProbe,
+  placementMove,
 } from "./level-progression-rules";
 import type { FeedMix } from "./level-progression-rules";
 
@@ -122,6 +123,24 @@ import type { FeedMix } from "./level-progression-rules";
   assert.strictEqual(result.action, "level_change", "trimmedMean >= 70 with base struggling should change level");
   assert.strictEqual(result.newLevel, 3);
   console.log("✅ downward probe advances when trimmedMean >= 70 and base struggling");
+}
+
+
+// ─── placementMove ───────────────────────────────────────────────────────────
+{
+  const at = (level: number, ...s: number[]) => s.map(score => ({ score, articleLevel: level }));
+  assert.strictEqual(placementMove(at(3, 92), 3, 0), 4, "one excelling report at L3+ moves up");
+  assert.strictEqual(placementMove(at(2, 86), 2, 0), 3, "L1-L2 bar is 85");
+  assert.strictEqual(placementMove(at(3, 86), 3, 0), null, "86 is below the L3+ bar");
+  assert.strictEqual(placementMove(at(3, 45), 3, 0), 2, "a frustration report moves down");
+  assert.strictEqual(placementMove(at(3, 70), 3, 0), null, "instructional zone holds");
+  assert.strictEqual(placementMove(at(3, 95), 4, 1), null, "a score from before the move doesn't count");
+  assert.strictEqual(placementMove([...at(3, 95), ...at(4, 93)], 4, 1), 5, "second move from a report at the new level");
+  assert.strictEqual(placementMove(at(5, 95), 5, 2), null, "at most two placement moves");
+  assert.strictEqual(placementMove(at(3, 95, 95, 95, 95, 95), 3, 0), null, "only in the first four sessions");
+  assert.strictEqual(placementMove(at(6, 99), 6, 0), null, "L6 ceiling");
+  assert.strictEqual(placementMove(at(1, 10), 1, 0), null, "L1 floor");
+  console.log("✅ placementMove");
 }
 
 console.log("\n🎉 All level-progression tests passed!");
