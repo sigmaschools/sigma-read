@@ -121,7 +121,7 @@ async function runSession(
   // Same prompt, turn logic, closing and report the chat route uses
   const style = pickConversationStyle();
   const systemPrompt = comprehensionConversationPrompt(
-    articleBody, level, JSON.stringify(student.interest_profile || {}), undefined, null, style,
+    articleBody, level, JSON.stringify(student.interest_profile || {}), null, style,
   );
 
   const messages: { role: string; content: string; timestamp: string }[] = [];

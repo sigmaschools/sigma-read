@@ -99,7 +99,7 @@ async function studentReply(persona: StudentPersona, article: EvalArticle, trans
 async function runConversation(persona: StudentPersona, article: EvalArticle): Promise<Result> {
   const style = fixedStyle || pickConversationStyle();
   const systemPrompt = comprehensionConversationPrompt(
-    article.bodyText, article.level, JSON.stringify({ interests: persona.interests }), undefined, null, style,
+    article.bodyText, article.level, JSON.stringify({ interests: persona.interests }), null, style,
   );
 
   const transcript: Msg[] = [];
