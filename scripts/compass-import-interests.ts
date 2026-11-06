@@ -14,12 +14,12 @@ import { neon } from "@neondatabase/serverless";
 import { computeAffinities, type SignalType } from "../src/lib/interest-graph/affinity";
 import { fetchInterests, learnerIdFrom, sendEvidence, toEvidence, type EvidenceEvent } from "../src/lib/interest-graph/compass";
 
-const sql = neon(process.env.DATABASE_URL!);
 const send = process.argv.includes("--send");
 const compareOnly = process.argv.includes("--compare");
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+  const sql = neon(process.env.DATABASE_URL);
   if ((send || compareOnly) && !(process.env.COMPASS_URL && process.env.COMPASS_INTERESTS_KEY)) {
     throw new Error("COMPASS_URL and COMPASS_INTERESTS_KEY are required to send or compare");
   }

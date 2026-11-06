@@ -227,11 +227,12 @@ export async function prefetchInterests(studentIds: number[]): Promise<number> {
     const many = await compass.fetchManyInterests([...new Set(learners.values())]);
     if (!many) return 0;
     const now = Date.now();
+    let read = 0;
     for (const [studentId, learnerId] of learners) {
       const l = many.get(learnerId);
-      if (l) prefetched.set(studentId, { at: now, interests: l.interests });
+      if (l) { prefetched.set(studentId, { at: now, interests: l.interests }); read++; }
     }
-    return prefetched.size;
+    return read;
   } catch (e) {
     console.error("Compass interests: bulk read failed:", e);
     return 0;
@@ -652,12 +653,19 @@ export async function interestSummaryFor(studentId: number, now = new Date()) {
  * removing a topic the student has no history with, or restoring one that isn't removed, does nothing.
  */
 export async function setTopicRemoved(studentId: number, topicSlug: string, removed: boolean, by: { role: string; userId: number }): Promise<boolean> {
-  // For a linked student Compass holds the record: the control goes there, with who did it
+  // For a linked student Compass holds the record: the control goes there, with who did it. If
+  // Compass doesn't confirm it, nothing changes, so the panel never shows a removal that the
+  // feed and the tutor (which read from Compass) wouldn't follow
   const learnerId = await learnerIdFor(studentId);
-  const role = CONTROL_ROLES[by.role];
-  const sent = learnerId && role
-    ? await compass.sendControl(learnerId, topicSlug, removed ? "remove" : "restore", { role, id: String(by.userId) })
-    : null;
+  let sent = false;
+  if (learnerId) {
+    const role = CONTROL_ROLES[by.role];
+    if (!role) return false;
+    sent = !!(await compass.sendControl(learnerId, topicSlug, removed ? "remove" : "restore", { role, id: String(by.userId) }));
+    if (!sent) return false;
+    prefetched.delete(studentId);
+    contexts.delete(studentId);
+  }
 
   // The local copy keeps the same history
   const local = computeAffinities(await getSignals(studentId)).find(a => a.topicSlug === topicSlug);
@@ -668,7 +676,7 @@ export async function setTopicRemoved(studentId: number, topicSlug: string, remo
     }]);
     return true;
   }
-  return !!sent;
+  return sent;
 }
 
 /** SigmaRead's adult roles as Compass names them */
