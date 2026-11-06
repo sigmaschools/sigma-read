@@ -18,6 +18,7 @@
  */
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { after } from "next/server";
 import { and, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { tracked } from "../ai-usage";
@@ -256,11 +257,13 @@ async function compassInterests(studentId: number): Promise<compass.CompassInter
   const learnerId = await learnerIdFor(studentId);
   if (!learnerId) return null;
   const interests = (await compass.fetchInterests(learnerId))?.interests ?? null;
-  // Linked, but Compass knows nothing yet: send the student's history (once per process), so
-  // Compass takes over from the next read; meanwhile the local graph answers
+  // Linked, but Compass knows nothing yet: send the student's history after the response (once
+  // per warm instance; a cold start may send it again, which is harmless as the import is
+  // idempotent), so Compass takes over from a later read. This read answers from the local graph
   if (interests && interests.length === 0 && !importStarted.has(studentId)) {
     importStarted.add(studentId);
-    await quietly(importHistory(studentId, learnerId), "history import");
+    const run = () => quietly(importHistory(studentId, learnerId), "history import");
+    try { after(run); } catch { void run(); } // outside a request (scripts), just start it
   }
   return interests && interests.length > 0 ? interests : null;
 }
@@ -304,14 +307,19 @@ export async function importHistory(studentId: number, learnerId: string): Promi
 export async function syncToCompass(studentIds: number[]): Promise<void> {
   const learners = await learnerIds(studentIds);
   for (const [studentId, learnerId] of learners) {
-    const res = await importHistory(studentId, learnerId);
-    if (!res) { console.error(`🧭 Compass sync: student ${studentId} not sent (Compass unavailable)`); continue; }
-    const local = computeAffinities(await getSignals(studentId)).filter(a => a.status !== "rejected" && a.score > 0).slice(0, 5).map(a => a.topicSlug);
-    const remote = (await compass.fetchInterests(learnerId, 20))?.interests
-      .filter(i => (i.status === "declared" || i.status === "inferred") && i.score > 0).slice(0, 5).map(i => i.topicId);
-    const same = remote && local.length === remote.length && local.every(t => remote.includes(t));
-    console.log(`🧭 Compass sync: student ${studentId}: ${res.added} new of ${res.sent}${res.refused ? `, ${res.refused} refused` : ""}; top five ${same ? "match" : "differ"}: ${local.join(",") || "-"} | ${remote?.join(",") || "-"}`);
+    // One student's failure doesn't stop the rest
+    await quietly(syncOne(studentId, learnerId), `Compass sync for student ${studentId}`);
   }
+}
+
+async function syncOne(studentId: number, learnerId: string): Promise<void> {
+  const res = await importHistory(studentId, learnerId);
+  if (!res) { console.error(`🧭 Compass sync: student ${studentId} not sent (Compass unavailable)`); return; }
+  const local = computeAffinities(await getSignals(studentId)).filter(a => a.status !== "rejected" && a.score > 0).slice(0, 5).map(a => a.topicSlug);
+  const remote = (await compass.fetchInterests(learnerId, 20))?.interests
+    .filter(i => (i.status === "declared" || i.status === "inferred") && i.score > 0).slice(0, 5).map(i => i.topicId);
+  const same = remote && local.length === remote.length && local.every(t => remote.includes(t));
+  console.log(`🧭 Compass sync: student ${studentId}: ${res.added} new of ${res.sent}${res.refused ? `, ${res.refused} refused` : ""}; top five ${same ? "match" : "differ"}: ${local.join(",") || "-"} | ${remote?.join(",") || "-"}`);
 }
 
 function signalRows(inputs: SignalInput[]) {
