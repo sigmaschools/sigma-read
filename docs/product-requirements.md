@@ -175,9 +175,7 @@ ComprehensionReport (id, conversation_id, score, rating, understood, missed, eng
 | Backend | Next.js API Routes (serverless on Vercel) |
 | Database | Neon Postgres (free tier → Pro as needed) |
 | Auth | Custom JWT (username/password, role-based) |
-| AI Conversations | Anthropic Claude Opus 4.6 |
-| AI Reports/Articles | Anthropic Claude Sonnet 4.5 |
-| AI Planning/Definitions | Anthropic Claude Haiku 4.5 |
+| AI | Anthropic Claude, one model per job in `src/lib/models.ts`: Sonnet 5.5 for the tutor conversation and the report, Opus 5.5 for writing articles, Haiku 5.5 for light helpers. Why each: [ai-models.md](./ai-models.md) |
 | Hosting | Vercel (`sigmascore` team, Pro plan) |
 
 ---
@@ -232,7 +230,7 @@ SigmaRead gets to know your kid. No multiple choice. Kids discuss articles with 
 | [Conversation Design](./conversation-design.md) | AI conversation rules, 6 styles, tone, scoring rubric |
 | [Level Progression](./level-progression.md) | Gradual Mix system, competitive research, thresholds |
 | [Article Selection](./article-selection.md) | Cache → buffer → feed pipeline, daily cap, feedback loops |
-| [Article Pipeline](./article-pipeline.md) | Morning batch generation, Opus/Sonnet hybrid |
+| [Article Pipeline](./article-pipeline.md) | Morning batch generation, shared article planning, duplicate checks |
 | [Content Policy](./content-policy.md) | Three Bucket framework, selection principles |
 | [Content Safety](./content-safety.md) | 3-layer silent filtering system |
 | [Student Onboarding](./student-onboarding.md) | Walkthrough, interest interview, initial delivery |

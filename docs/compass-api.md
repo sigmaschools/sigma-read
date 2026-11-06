@@ -1,6 +1,6 @@
 # Compass API (v1)
 
-A read-only REST API under `/api/v1/` for Compass and other service clients. It is separate from the cookie-based routes the app uses: clients authenticate with a key, not as a user.
+A read-only REST API under `/api/v1/` for Compass and other service clients. It is separate from the cookie-based routes the app uses: clients authenticate with a key, not as a user. This is SigmaRead's own API; the other ways SigmaRead meets Compass (in-page reports, the interest graph) are in [compass-integration.md](./compass-integration.md).
 
 ## Keys
 

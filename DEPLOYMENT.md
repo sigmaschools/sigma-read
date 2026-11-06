@@ -25,7 +25,7 @@
 - **Frontend:** Next.js 16 (App Router), TypeScript, Tailwind CSS
 - **Backend:** Next.js API Routes (serverless on Vercel)
 - **Database:** Neon Postgres — project `sigma-reader`, org `org-gentle-bread-62220621`
-- **AI:** Anthropic Claude Sonnet 4.5 (conversations, reports, articles), Haiku 4.5 (planning, definitions, pre-reading)
+- **AI:** Anthropic Claude, one model per job in `src/lib/models.ts`: Sonnet 5.5 (tutor conversation, report, standard jobs), Opus 5.5 (article writing), Haiku 5.5 (light helpers). See `docs/ai-models.md`
 - **Hosting:** Vercel — team `sigmascore` (Pro plan, 60s function timeouts)
 
 ## Environment Variables (Vercel)
@@ -35,7 +35,7 @@
 - `COMPASS_URL`, `COMPASS_INTERESTS_KEY` — optional: Compass server and the app key for its interests API (scopes read, write, controls, import). Server-side only; without them the app uses its own interest graph
 
 ## Repo
-https://github.com/sigmaschools/sigma-reader (main branch)
+https://github.com/sigmaschools/sigma-read (main branch; the Vercel project is still named `sigma-reader`)
 
 Git commits use `wvaughan@gmail.com` (required by Vercel team).
 
