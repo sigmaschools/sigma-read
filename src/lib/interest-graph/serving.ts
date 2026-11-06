@@ -11,6 +11,16 @@ import type { Affinity } from "./affinity";
 
 export interface Candidate { id: number; topics: string[] }
 
+/**
+ * How well a candidate suits the student (−1 to 1), or null when it must not be served. Either
+ * the student's topic affinities (scored here) or a score per candidate from Compass's ranking.
+ */
+export type Scoring = Map<string, Affinity> | ((c: Candidate) => number | null);
+
+function scorerFor(scoring: Scoring): (c: Candidate) => number | null {
+  return typeof scoring === "function" ? scoring : c => candidateScore(c.topics, scoring);
+}
+
 /** Exploration picks come from articles whose best match is below this */
 const EXPLORE_MAX_SCORE = 0.1;
 /** ...and above this, so exploring never means serving something the student dislikes */
@@ -41,13 +51,14 @@ export function candidateScore(topics: string[], affinities: Map<string, Affinit
  */
 export function pickOne<T extends Candidate>(
   pool: T[],
-  affinities: Map<string, Affinity>,
+  scoring: Scoring,
   opts: { explore: boolean; avoid?: Set<string>; rng?: () => number },
 ): T | null {
   const rng = opts.rng ?? Math.random;
   const avoid = opts.avoid ?? new Set<string>();
+  const score = scorerFor(scoring);
   const scored = pool
-    .map(c => ({ c, score: candidateScore(c.topics, affinities) }))
+    .map(c => ({ c, score: score(c) }))
     .filter((s): s is { c: T; score: number } => s.score !== null);
   if (scored.length === 0) return null;
 
@@ -69,7 +80,7 @@ export function pickOne<T extends Candidate>(
 /** Pick up to n articles from one pool; `startPosition` keeps the exploration rhythm across pools */
 export function pickForFeed<T extends Candidate>(
   pool: T[],
-  affinities: Map<string, Affinity>,
+  scoring: Scoring,
   n: number,
   opts: { startPosition?: number; avoid?: Set<string>; rng?: () => number } = {},
 ): T[] {
@@ -77,7 +88,7 @@ export function pickForFeed<T extends Candidate>(
   const avoid = opts.avoid ?? new Set<string>();
   const picked: T[] = [];
   for (let i = 0; i < n; i++) {
-    const choice = pickOne(remaining, affinities, { explore: isExploreSlot((opts.startPosition ?? 0) + i), avoid, rng: opts.rng });
+    const choice = pickOne(remaining, scoring, { explore: isExploreSlot((opts.startPosition ?? 0) + i), avoid, rng: opts.rng });
     if (!choice) break;
     picked.push(choice);
     remaining.splice(remaining.indexOf(choice), 1);

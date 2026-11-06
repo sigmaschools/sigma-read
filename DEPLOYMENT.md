@@ -32,6 +32,7 @@
 - `DATABASE_URL` — Neon Postgres connection string
 - `ANTHROPIC_API_KEY` — Anthropic API key
 - `JWT_SECRET` — JWT signing secret
+- `COMPASS_URL`, `COMPASS_INTERESTS_KEY` — optional: Compass server and the app key for its interests API (scopes read, write, controls, import). Server-side only; without them the app uses its own interest graph
 
 ## Repo
 https://github.com/sigmaschools/sigma-reader (main branch)

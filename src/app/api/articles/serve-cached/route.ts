@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { getServingLevels } from "@/lib/level-progression";
-import { getAffinities, topicsForCache } from "@/lib/interest-graph";
+import { feedScoring, getAffinities, topicsForCache } from "@/lib/interest-graph";
 import { pickForFeed } from "@/lib/interest-graph/serving";
 import { startOfLocalDay, requestZone } from "@/lib/local-day";
 import Anthropic from "@anthropic-ai/sdk";
@@ -111,6 +111,8 @@ export async function POST(req: NextRequest) {
   // doesn't fill the feed day after day (three cooking articles in two days)
   const recentTopicSet = await recentTopics(student.id)
     .catch(e => { console.error("Recent topics unavailable:", e); return new Set<string>(); });
+  // Compass ranks the candidates for a student linked to it; otherwise the affinities score them
+  const scoring = await feedScoring(student.id, [...pools.values()].flat().map(a => ({ id: a.id, topics: cacheTopics.get(a.id) ?? [] })), affinityMap);
   type Pick = { id: number; title: string; base: number; serveLevel: number };
   const pickRound = (excluded: Set<number>): Pick[] => {
     const avoid = new Set(recentTopicSet);
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
       const pool = (pools.get(serveLevel) ?? [])
         .filter(a => !excluded.has(a.id) && !picks.some(p => p.id === a.id || p.title === a.title || p.base === a.base))
         .map(a => ({ ...a, topics: cacheTopics.get(a.id) ?? [] }));
-      const [pick] = pickForFeed(pool, affinityMap, 1, { startPosition: position, avoid });
+      const [pick] = pickForFeed(pool, scoring, 1, { startPosition: position, avoid });
       if (pick) picks.push({ id: pick.id, title: pick.title, base: pick.base, serveLevel });
     });
     return picks;

@@ -5,8 +5,36 @@ Phase 1 of the design in the "Student interest graph" doc, plus chat-mention ext
 horizon topics from the map. Learned topic links come later.
 
 All code goes through `src/lib/interest-graph` (`recordSignals`, `getAffinities`, `getRelated`,
-`resolveTopics` and helpers), never the tables, so the graph can move to Compass later by
-swapping that module's internals.
+`resolveTopics` and helpers), never the tables.
+
+## Compass
+
+Compass keeps one record of each learner's interests for every Compass app (compass-lab
+`compass/APP-CONTRACT.md` section 6, "Interests", section version 1.0; issue #126). SigmaRead
+uses it for a student when `COMPASS_URL` and `COMPASS_INTERESTS_KEY` are set (server-side only)
+and the student's `external_id` holds their Compass learner id. The client is
+`src/lib/interest-graph/compass.ts`.
+
+| SigmaRead | Compass |
+|---|---|
+| `recordSignals`, check-in answers | `POST /interests/evidence`, same type names and source refs (likes and dislikes get `replaceKey` `rating:<article>:<topic>`) |
+| an adult's remove or restore | `POST /learners/{id}/controls` (`remove`/`restore`, guide, guardian or admin, with the user id) |
+| `getAffinities` | `GET /learners/{id}` (removed and rejected both mean "never serve") |
+| feed serving (`feedScoring`) | `POST /learners/{id}/rank`; excluded items are never served. SigmaRead keeps its own every-third-slot exploration and topic variety on top |
+| horizon topics | `GET /learners/{id}/explore` |
+| the tutor's interest line | `GET /learners/{id}/context`, put in the prompt as given (contract 6.6), cached 3 minutes |
+| the adults' panel | `GET /learners/{id}` |
+| morning batch | `POST /interests/learners`, one call for every linked student |
+| history | `scripts/compass-import-interests.ts` (`POST /interests/import`), then a top-five check |
+
+Reads time out after 2 seconds. On any error, timeout or `503`, and for students not linked,
+everything runs on SigmaRead's own graph as before (contract 6.7). Signals are still written
+locally first, so `interest_signals` stays a full copy until the switch has run for a while;
+an event Compass missed is sent again by re-running the import, which is idempotent. A
+student's words are never logged when calling Compass (6.5).
+
+Topic slugs are Compass topic ids (Compass's seed keeps every SigmaRead slug). Article tagging
+and phrase matching still use SigmaRead's own topic map for now.
 
 ## Data
 

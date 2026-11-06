@@ -12,6 +12,7 @@ import { runTutorTurn } from "@/lib/conversation-turn";
 import { saveComprehensionReport } from "@/lib/comprehension-report";
 import { stripMarkdown } from "@/lib/plain-text";
 import { safeComprehensionCompassReport } from "@/lib/compass-report-data";
+import { tutorInterestContext } from "@/lib/interest-graph";
 
 const anthropic = new Anthropic();
 
@@ -92,6 +93,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     conversationStyle = pickConversationStyle(last?.style);
   }
   const isTutorial = article.category === "tutorial";
+  // Compass's interest summary for a student linked to it (used as given, contract 6.6); the
+  // profile as before otherwise, when Compass has nothing yet (linked but not imported), or when
+  // Compass doesn't answer within two seconds
+  const interests = isTutorial ? null : await tutorInterestContext(session.userId)
+    .catch(e => { console.error("Interest summary unavailable:", e); return null; });
 
   // Get AI response — use tutorial prompt for tutorial articles
   const systemPrompt = isTutorial
@@ -99,7 +105,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     : comprehensionConversationPrompt(
         article.bodyText,
         student.readingLevel || 2,
-        JSON.stringify(student.interestProfile || {}),
+        interests || JSON.stringify(student.interestProfile || {}),
         article.liked,
         conversationStyle,
         exchangeNumber
