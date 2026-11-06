@@ -26,7 +26,7 @@ No test framework: `*.test.ts` files are plain `node:assert` scripts. Verify cha
 
 ## Secrets
 
-Never write a password, API key, token or connection string with a password into any file: code, docs, scripts, comments, tests or logs. Docs list usernames and roles only; passwords live in the team's password manager and keys in Vercel's environment variables. Seed scripts read the password they set from `SEED_PASSWORD` (`scripts/seed-password.ts`). CI runs `scripts/check-no-credentials.sh` on every PR and fails on anything that looks like a credential; a deliberate fake in a test ends its line with `credential-check: allow`. A credential that reaches the repo must be changed, not just deleted, because git history and clones keep it.
+Never write a password, API key, token or connection string with a password into any file: code, docs, scripts, comments, tests or logs. Docs list usernames and roles only; passwords live in the team's password manager and keys in Vercel's environment variables. Seed scripts read the password they set from `SEED_PASSWORD` (`scripts/seed-password.ts`). CI runs `scripts/check-no-credentials.sh` on every PR and fails on the usual shapes of a written credential (a Password column, an "email / password" pair, a password literal or one built from a literal, key formats, private keys, database URLs with a password); it cannot catch a password written as plain prose, so the rule still applies; a deliberate fake in a test ends its line with `credential-check: allow`. A credential that reaches the repo must be changed, not just deleted, because git history and clones keep it.
 
 ## Architecture
 
