@@ -104,7 +104,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     : comprehensionConversationPrompt(
         article.bodyText,
         student.readingLevel || 2,
-        interests || JSON.stringify(student.interestProfile || {}),
+        interests !== null ? interests || "none known yet" : JSON.stringify(student.interestProfile || {}),
         article.liked,
         conversationStyle,
         exchangeNumber

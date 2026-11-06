@@ -21,7 +21,8 @@ import { SHOWN_MIN } from "./summary";
 const READ_TIMEOUT_MS = 2_000;
 /** Writes get a little longer; they run after the student's own work is saved */
 const WRITE_TIMEOUT_MS = 3_000;
-/** After a failed call, Compass is skipped for this long, so an outage doesn't slow every request */
+/** After a failed read, reads skip Compass for this long, so an outage doesn't slow every request.
+ * Writes are always attempted, so a slow read never costs a student's like or dislike. */
 const COOLDOWN_MS = 60_000;
 let downUntil = 0;
 /** Compass takes up to 500 events or learners per call */
@@ -85,7 +86,8 @@ export type ControlRole = "guide" | "guardian" | "admin" | "learner";
 // ─── HTTP ─────────────────────────────────────────────────────────────────────
 
 async function call<T>(method: "GET" | "POST", path: string, body?: unknown, timeoutMs = READ_TIMEOUT_MS): Promise<T | null> {
-  if (!compassConfigured() || Date.now() < downUntil) return null;
+  const isRead = timeoutMs === READ_TIMEOUT_MS;
+  if (!compassConfigured() || (isRead && Date.now() < downUntil)) return null;
   const url = process.env.COMPASS_URL!.replace(/\/+$/, "") + "/api/v1/interests" + path;
   try {
     const res = await fetch(url, {
@@ -102,13 +104,13 @@ async function call<T>(method: "GET" | "POST", path: string, body?: unknown, tim
     if (!res.ok) {
       // Path without the query, and the status: never the body, which may hold a learner's words
       console.error(`Compass interests: ${method} ${path.split("?")[0]} answered ${res.status}`);
-      if (res.status >= 500) downUntil = Date.now() + COOLDOWN_MS;
+      if (isRead && res.status >= 500) downUntil = Date.now() + COOLDOWN_MS;
       return null;
     }
     return (await res.json()) as T;
   } catch (e) {
     console.error(`Compass interests: ${method} ${path.split("?")[0]} failed: ${e instanceof Error ? e.name : "error"}`);
-    downUntil = Date.now() + COOLDOWN_MS;
+    if (isRead) downUntil = Date.now() + COOLDOWN_MS;
     return null;
   }
 }
