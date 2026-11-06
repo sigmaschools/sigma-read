@@ -240,6 +240,11 @@ export async function prefetchInterests(studentIds: number[]): Promise<number> {
   }
 }
 
+/** Drop the bulk-read interests (the morning batch calls this when it finishes) */
+export function clearPrefetched() {
+  prefetched.clear();
+}
+
 /**
  * A linked student's interests from Compass, or null (not linked, Compass off or unreachable,
  * or Compass has nothing for them yet: a student linked before their history is imported keeps
@@ -670,9 +675,13 @@ export async function setTopicRemoved(studentId: number, topicSlug: string, remo
     const role = Object.hasOwn(CONTROL_ROLES, by.role) ? CONTROL_ROLES[by.role] : undefined;
     if (!role) return false;
     sent = !!(await compass.sendControl(learnerId, topicSlug, removed ? "remove" : "restore", { role, id: String(by.userId) }));
-    // Only when Compass is the record for this student (it knows their interests) does a missing
-    // confirmation stop the change; before their history is imported, the local graph rules
-    if (!sent && (await compassInterests(studentId)) !== null) return false;
+    // An unconfirmed control stops the change, unless Compass answers that it has no interests
+    // for the student yet (linked, history not imported), when the local graph still rules. A
+    // failed read counts as unconfirmed, so an outage never loses an adult's removal
+    if (!sent) {
+      const known = await compass.fetchInterests(learnerId);
+      if (!known || known.interests.length > 0) return false;
+    }
     prefetched.delete(studentId);
     contexts.delete(studentId);
   }
