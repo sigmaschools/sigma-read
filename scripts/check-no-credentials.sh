@@ -10,7 +10,10 @@
 # the marker  credential-check: allow  and is then skipped.
 set -euo pipefail
 
-cd "$(git rev-parse --show-toplevel)"
+root="$(git rev-parse --show-toplevel)"
+# Skip only this script itself (its patterns would match), wherever it lives in the repository.
+self="$(cd "$(dirname "$0")" && git ls-files --full-name -- "$(basename "$0")")"
+cd "$root"
 
 patterns=(
   # A table with a Password column
@@ -19,7 +22,9 @@ patterns=(
   '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}[[:space:]]+/[[:space:]]+[^[:space:]/]+'
   # password: "secret", pwd = 'secret' in code or config (a quoted literal, not a variable)
   '(^|[[:space:]{,(])["'"'"']?(password|passwd|pwd|pw)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'`][^"'"'"'`[:space:]$]{4,}["'"'"'`]'
-  # A literal handed to a hashing call
+  # A literal handed to a hashing call, alone or joined to a variable. Any quote in the first
+  # argument counts (body["password"] too): it fails closed, and the allow marker covers a real exception.
+  # A password field built from a variable plus a literal, or a template string
   '(bcrypt\.hash|hashPassword|hashSync)\([^,)]*["'"'"'`]'
   '(password|passwd|pwd)["'"'"']?[[:space:]]*[:=][[:space:]]*([A-Za-z_.]+[[:space:]]*\+[[:space:]]*["'"'"'`]|`[^`]*\$\{)'
   # Known key formats
@@ -40,7 +45,7 @@ regex=$(IFS='|'; echo "${patterns[*]}")
 # Lock files and this script are skipped; everything else that git tracks is checked.
 matches=$(git grep -n -I -i -E "$regex" -- . \
   ':!package-lock.json' ':!**/package-lock.json' ':!go.sum' \
-  ':!scripts/check-no-credentials.sh' ':!tools/check-no-credentials.sh' ':!tests/check-no-credentials.sh' \
+  ":!$self" \
   | grep -v -i 'credential-check: allow' \
   | grep -v -E '://[^:/[:space:]]+:[^@[:space:]]+@(localhost|127\.0\.0\.1)[:/]' || true)
 
