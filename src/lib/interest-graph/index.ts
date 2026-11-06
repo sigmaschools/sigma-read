@@ -670,7 +670,9 @@ export async function setTopicRemoved(studentId: number, topicSlug: string, remo
     const role = Object.hasOwn(CONTROL_ROLES, by.role) ? CONTROL_ROLES[by.role] : undefined;
     if (!role) return false;
     sent = !!(await compass.sendControl(learnerId, topicSlug, removed ? "remove" : "restore", { role, id: String(by.userId) }));
-    if (!sent) return false;
+    // Only when Compass is the record for this student (it knows their interests) does a missing
+    // confirmation stop the change; before their history is imported, the local graph rules
+    if (!sent && (await compassInterests(studentId)) !== null) return false;
     prefetched.delete(studentId);
     contexts.delete(studentId);
   }
