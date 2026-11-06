@@ -26,7 +26,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
-import { backfillSignals, batchInterestsFor, feedScoring, getAffinities, horizonTopicsFor, prefetchInterests, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
+import { backfillSignals, batchInterestsFor, clearPrefetched, feedScoring, getAffinities, horizonTopicsFor, prefetchInterests, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
@@ -843,6 +843,9 @@ export async function runMorningBatch(opts: BatchOptions = {}): Promise<BatchRes
     if (!(e instanceof OutOfTime)) throw e;
     console.log(`\n⏱️  Out of time during ${e.message}; the next call resumes from here.\n`);
     result.status = "partial";
+  } finally {
+    // The bulk-read interests are for this run only
+    clearPrefetched();
   }
   return result;
 }
