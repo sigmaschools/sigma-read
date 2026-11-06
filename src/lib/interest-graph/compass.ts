@@ -19,8 +19,11 @@ import type { InterestSummary } from "./summary";
 import { SHOWN_MIN } from "./summary";
 
 const READ_TIMEOUT_MS = 2_000;
-/** Writes may take a little longer; they run after the student's own work is saved */
-const WRITE_TIMEOUT_MS = 5_000;
+/** Writes get a little longer; they run after the student's own work is saved */
+const WRITE_TIMEOUT_MS = 3_000;
+/** After a failed call, Compass is skipped for this long, so an outage doesn't slow every request */
+const COOLDOWN_MS = 60_000;
+let downUntil = 0;
 /** Compass takes up to 500 events or learners per call */
 export const BATCH_MAX = 500;
 
@@ -82,7 +85,7 @@ export type ControlRole = "guide" | "guardian" | "admin" | "learner";
 // ─── HTTP ─────────────────────────────────────────────────────────────────────
 
 async function call<T>(method: "GET" | "POST", path: string, body?: unknown, timeoutMs = READ_TIMEOUT_MS): Promise<T | null> {
-  if (!compassConfigured()) return null;
+  if (!compassConfigured() || Date.now() < downUntil) return null;
   const url = process.env.COMPASS_URL!.replace(/\/+$/, "") + "/api/v1/interests" + path;
   try {
     const res = await fetch(url, {
@@ -99,11 +102,13 @@ async function call<T>(method: "GET" | "POST", path: string, body?: unknown, tim
     if (!res.ok) {
       // Path without the query, and the status: never the body, which may hold a learner's words
       console.error(`Compass interests: ${method} ${path.split("?")[0]} answered ${res.status}`);
+      if (res.status >= 500) downUntil = Date.now() + COOLDOWN_MS;
       return null;
     }
     return (await res.json()) as T;
   } catch (e) {
     console.error(`Compass interests: ${method} ${path.split("?")[0]} failed: ${e instanceof Error ? e.name : "error"}`);
+    downUntil = Date.now() + COOLDOWN_MS;
     return null;
   }
 }
@@ -129,7 +134,7 @@ export async function fetchInterests(learnerId: string, limit = 100): Promise<Le
 }
 
 /** Many learners at once (the morning batch), in batches of 500 */
-export async function fetchManyInterests(learnerIds: string[], limit = 50, timeoutMs = 10_000): Promise<Map<string, LearnerInterests> | null> {
+export async function fetchManyInterests(learnerIds: string[], limit = 100, timeoutMs = 10_000): Promise<Map<string, LearnerInterests> | null> {
   const out = new Map<string, LearnerInterests>();
   for (let i = 0; i < learnerIds.length; i += BATCH_MAX) {
     const res = await call<{ learners: LearnerInterests[] }>("POST", "/learners", { learnerIds: learnerIds.slice(i, i + BATCH_MAX), limit }, timeoutMs);
@@ -194,8 +199,8 @@ export function toEvidence(learnerId: string, s: LocalSignal, opts: { importing?
     if (s.signalType === "chat_mention") event.phraseBy = "model";
   }
   if (s.createdAt) event.occurredAt = s.createdAt.toISOString();
-  // The recorded weight keeps imports exact ("not as much" weights are computed); live events
-  // use the type's registered weight, except the "halve" answer, which Compass computes itself
+  // The recorded weight keeps imports exact ("not as much" weights are computed). Live events
+  // send none: Compass applies the type's registered weight and computes "not as much" itself
   if (opts.importing) event.weight = s.weight;
   const rk = replaceKeyFor(s);
   if (rk) event.replaceKey = rk;
