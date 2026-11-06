@@ -25,12 +25,13 @@ and the student's `external_id` holds their Compass learner id. The client is
 | the tutor's interest line | `GET /learners/{id}/context`, put in the prompt as given (contract 6.6), cached 3 minutes |
 | the adults' panel | `GET /learners/{id}` |
 | morning batch | `POST /interests/learners`, one call for every linked student |
-| history | `scripts/compass-import-interests.ts` (`POST /interests/import`), then a top-five check |
+| history | `importHistory` (`POST /interests/import`): on a linked student's first read that finds nothing in Compass, and again in every morning batch (`syncToCompass`, which logs a "🧭 Compass sync" top-five comparison per student). `scripts/compass-import-interests.ts` does the same by hand |
 
 Reads time out after 2 seconds. On any error, timeout or `503`, and for students not linked,
 everything runs on SigmaRead's own graph as before (contract 6.7). Signals are still written
 locally first, so `interest_signals` stays a full copy until the switch has run for a while;
-an event Compass missed is sent again by re-running the import, which is idempotent. A
+an event Compass missed is sent again by the next morning batch's import, which is idempotent.
+Students are linked by setting `external_id` in a data migration (`drizzle/0014_link_compass_learners.sql`). A
 student's words are never logged when calling Compass (6.5).
 
 Topic slugs are Compass topic ids (Compass's seed keeps every SigmaRead slug). Article tagging
