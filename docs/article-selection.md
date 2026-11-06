@@ -87,6 +87,8 @@ Each student has a daily article cap (default: **5 articles per day**). After co
 
 The daily cap is adjustable per student (`students.daily_article_cap`).
 
+A "day" is the student's own local day: the student page sends the device's time zone (`?tz=` on `/api/student/daily-progress` and `/api/articles/serve-cached`) and `startOfLocalDay` in `src/lib/local-day.ts` starts the count at local midnight, so evening reading no longer counts toward the next day. An unknown or missing zone falls back to midnight UTC. A finished reading counts once, even when its discussion has more than one completed conversation row.
+
 ---
 
 ## Level Progression Integration
