@@ -18,6 +18,8 @@ jobs:
       JWT_SECRET: "ci-test-secret"
     steps:
       - uses: actions/checkout@v4
+      - name: No passwords or credentials in any file, docs included
+        run: bash scripts/check-no-credentials.sh
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}

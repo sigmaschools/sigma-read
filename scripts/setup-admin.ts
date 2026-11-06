@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import bcrypt from "bcryptjs";
+import { seedPassword } from "./seed-password";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -12,7 +13,7 @@ async function setup() {
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
   )`;
   
-  const hash = await bcrypt.hash("sigma2026", 10);
+  const hash = await bcrypt.hash(seedPassword(), 10);
   await sql`INSERT INTO admins (name, email, password_hash) VALUES ('Wayne Vaughan', 'wayne@sigmaschool.us', ${hash}) ON CONFLICT (email) DO NOTHING`;
   console.log("✅ Admin table + Wayne account created");
 }

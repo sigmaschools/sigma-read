@@ -22,6 +22,11 @@ No test framework: `*.test.ts` files are plain `node:assert` scripts. Verify cha
 - `ANTHROPIC_API_KEY` — Anthropic API key
 - `JWT_SECRET` — JWT signing secret
 - `COMPASS_URL`, `COMPASS_INTERESTS_KEY` — optional, Compass interests API (see docs/interest-graph.md)
+- `SEED_PASSWORD` — only when running a seed script: the password the accounts it creates get
+
+## Secrets
+
+Never write a password, API key, token or connection string with a password into any file: code, docs, scripts, comments, tests or logs. Docs list usernames and roles only; passwords live in the team's password manager and keys in Vercel's environment variables. Seed scripts read the password they set from `SEED_PASSWORD` (`scripts/seed-password.ts`). CI runs `scripts/check-no-credentials.sh` on every PR and fails on anything that looks like a credential; a deliberate fake in a test ends its line with `credential-check: allow`. A credential that reaches the repo must be changed, not just deleted, because git history and clones keep it.
 
 ## Architecture
 
