@@ -18,6 +18,7 @@
  */
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { after } from "next/server";
 import { and, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { tracked } from "../ai-usage";
@@ -252,10 +253,73 @@ export function clearPrefetched() {
  */
 async function compassInterests(studentId: number): Promise<compass.CompassInterest[] | null> {
   const hit = prefetched.get(studentId);
-  const interests = hit && Date.now() - hit.at < PREFETCH_TTL_MS
-    ? hit.interests
-    : await learnerIdFor(studentId).then(id => id ? compass.fetchInterests(id).then(r => r?.interests ?? null) : null);
+  if (hit && Date.now() - hit.at < PREFETCH_TTL_MS) return hit.interests.length > 0 ? hit.interests : null;
+  const learnerId = await learnerIdFor(studentId);
+  if (!learnerId) return null;
+  const interests = (await compass.fetchInterests(learnerId))?.interests ?? null;
+  // Linked, but Compass knows nothing yet: send the student's history after the response (once
+  // per warm instance; a cold start may send it again, which is harmless as the import is
+  // idempotent), so Compass takes over from a later read. This read answers from the local graph
+  if (interests && interests.length === 0 && !importStarted.has(studentId)) {
+    importStarted.add(studentId);
+    const run = () => quietly(importHistory(studentId, learnerId), "history import");
+    try { after(run); } catch { void run(); } // outside a request (scripts), just start it
+  }
   return interests && interests.length > 0 ? interests : null;
+}
+
+const importStarted = new Set<number>();
+
+/**
+ * Send a student's whole local log through Compass's import (contract 6.2), which keeps the
+ * recorded times and weights and an adult's earlier removes and restores. Idempotent: events
+ * Compass already has come back as duplicates, so this also re-sends anything a live send missed.
+ */
+export async function importHistory(studentId: number, learnerId: string): Promise<{ sent: number; added: number; refused: number } | null> {
+  const rows = await db.select({
+    topicSlug: schema.interestSignals.topicSlug,
+    phrase: schema.interestSignals.phrase,
+    signalType: schema.interestSignals.signalType,
+    weight: schema.interestSignals.weight,
+    sourceRef: schema.interestSignals.sourceRef,
+    createdAt: schema.interestSignals.createdAt,
+  }).from(schema.interestSignals)
+    .where(eq(schema.interestSignals.studentId, studentId))
+    .orderBy(schema.interestSignals.createdAt);
+  const events = rows.flatMap(r => {
+    const e = compass.toEvidence(learnerId, { ...r, signalType: r.signalType as SignalType, createdAt: r.createdAt ?? undefined }, { importing: true });
+    return e ? [e] : [];
+  });
+  if (events.length === 0) return { sent: 0, added: 0, refused: 0 };
+  const results = await compass.sendEvidence(events, { importing: true });
+  if (!results) return null;
+  const refused = results.filter(r => r.status === "refused");
+  // Reasons only: an event may carry the student's words
+  if (refused.length > 0) console.error(`Compass interests: import refused ${refused.length} of ${events.length}: ${[...new Set(refused.map(r => r.reason))].join("; ")}`);
+  return { sent: events.length, added: results.filter(r => r.status === "new").length, refused: refused.length };
+}
+
+/**
+ * The morning batch's reconciliation: re-import every linked student's log (cheap, idempotent)
+ * and log how each student's top five here compares with Compass's. Topic ids and student ids
+ * only, never names or words.
+ */
+export async function syncToCompass(studentIds: number[]): Promise<void> {
+  const learners = await learnerIds(studentIds);
+  for (const [studentId, learnerId] of learners) {
+    // One student's failure doesn't stop the rest
+    await quietly(syncOne(studentId, learnerId), `Compass sync for student ${studentId}`);
+  }
+}
+
+async function syncOne(studentId: number, learnerId: string): Promise<void> {
+  const res = await importHistory(studentId, learnerId);
+  if (!res) { console.error(`🧭 Compass sync: student ${studentId} not sent (Compass unavailable)`); return; }
+  const local = computeAffinities(await getSignals(studentId)).filter(a => a.status !== "rejected" && a.score > 0).slice(0, 5).map(a => a.topicSlug);
+  const remote = (await compass.fetchInterests(learnerId, 20))?.interests
+    .filter(i => (i.status === "declared" || i.status === "inferred") && i.score > 0).slice(0, 5).map(i => i.topicId);
+  const same = remote && local.length === remote.length && local.every(t => remote.includes(t));
+  console.log(`🧭 Compass sync: student ${studentId}: ${res.added} new of ${res.sent}${res.refused ? `, ${res.refused} refused` : ""}; top five ${same ? "match" : "differ"}: ${local.join(",") || "-"} | ${remote?.join(",") || "-"}`);
 }
 
 function signalRows(inputs: SignalInput[]) {

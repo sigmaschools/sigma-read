@@ -26,7 +26,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
-import { backfillSignals, batchInterestsFor, clearPrefetched, feedScoring, getAffinities, horizonTopicsFor, prefetchInterests, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
+import { backfillSignals, batchInterestsFor, clearPrefetched, feedScoring, getAffinities, horizonTopicsFor, prefetchInterests, quietly, syncToCompass, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
@@ -876,6 +876,7 @@ async function runSteps(result: BatchResult) {
     const tagged = await tagUntaggedCache();
     const signals = await backfillSignals();
     if (tagged || signals) console.log(`🧭 Interest graph: tagged ${tagged} articles, backfilled ${signals} signals`);
+    await syncToCompass(students.map(s => s.id as number));
   })(), "batch upkeep");
 
   // Check if we already have base articles from a partial run today
