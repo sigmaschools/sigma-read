@@ -37,7 +37,7 @@ src/
     auth.ts        # JWT session management (getSession, hashPassword, etc.)
     db/
       index.ts     # Drizzle ORM connection
-      schema.ts    # All 16 tables — the authoritative data model
+      schema.ts    # Every table — the authoritative data model
     prompts.ts     # All AI system prompts (~26KB) — handle with care
     level-progression.ts  # Gradual Mix level system — complex, well-documented
 scripts/           # Utility scripts (cache, seed, simulate)
@@ -99,6 +99,9 @@ Branch naming: use short descriptive names like `fix/admin-student-access`, `fea
 | `docs/content-safety.md` | 3-layer content filtering |
 | `docs/student-onboarding.md` | Onboarding walkthrough |
 | `docs/admin-interface.md` | Admin capabilities |
+| `docs/article-selection.md` | Cache to feed, daily cap, the student's local day |
+| `docs/session-analytics.md` | What is tracked per session, diagnostic queries |
+| `docs/compass-integration.md` | Running inside Compass: in-page reports, the reading day, the interest graph link |
 | `docs/compass-api.md` | Read-only `/api/v1` for Compass: keys, scopes, endpoints |
 | `docs/interest-graph.md` | Topic map, interest signals, decayed affinities |
 | `DEPLOYMENT.md` | Live URLs, test credentials, env vars |

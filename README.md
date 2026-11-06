@@ -24,7 +24,12 @@ npm run dev
 | [`docs/conversation-design.md`](docs/conversation-design.md) | AI conversation rules — 6 styles, tone, message length, scoring rubric |
 | [`docs/level-progression.md`](docs/level-progression.md) | Gradual Mix level system — how students move between reading levels |
 | [`docs/article-selection.md`](docs/article-selection.md) | How articles get from cache to student feed — buffer, daily cap, feedback loops |
-| [`docs/article-pipeline.md`](docs/article-pipeline.md) | Morning batch generation — news sourcing, topic planning, Opus/Sonnet hybrid |
+| [`docs/article-pipeline.md`](docs/article-pipeline.md) | Morning batch generation — news and wider sources, shared topic planning, duplicate checks |
+| [`docs/ai-models.md`](docs/ai-models.md) | Which model does each job, the tests behind each choice, costs |
+| [`docs/interest-graph.md`](docs/interest-graph.md) | Topic map, interest signals, decayed affinities, and the link to Compass's interest graph |
+| **Compass** | |
+| [`docs/compass-integration.md`](docs/compass-integration.md) | How SigmaRead runs inside Compass: in-page reports, the reading day, the interest graph link |
+| [`docs/compass-api.md`](docs/compass-api.md) | SigmaRead's read-only `/api/v1` for Compass and service clients: keys, scopes, endpoints |
 | [`docs/content-policy.md`](docs/content-policy.md) | What we publish and why — Three Bucket framework, selection principles |
 | [`docs/content-safety.md`](docs/content-safety.md) | 3-layer content filtering — onboarding, regex, generation |
 | [`docs/student-onboarding.md`](docs/student-onboarding.md) | Walkthrough + interest interview + initial article delivery |

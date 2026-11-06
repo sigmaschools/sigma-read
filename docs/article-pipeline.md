@@ -12,10 +12,10 @@ This document specifies the technical implementation of article generation, sele
 [Morning Batch Cron - 5 AM CT]
         │
         ▼
-[News Headlines] ──→ [Topic Planning] ──→ [Base Article Generation (Opus)]
+[News Headlines] ──→ [Topic Planning] ──→ [Base Article Generation (writer)]
         │                                           │
         ▼                                           ▼
-[Student Interests]              [Level Adaptation (Sonnet)] ──→ [Article Cache]
+[Student Interests]              [Level Adaptation (writer)] ──→ [Article Cache]
 [Reading History]                        │
 [Domain Balance]                         ▼
                                  [Student Buffers] ──→ [Student Feed]
