@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import * as bcrypt from "bcryptjs";
+import { seedPassword } from "./seed-password";
 import { assertNotProduction } from "./sim-guard";
 import { EVAL_ARTICLES } from "./eval/articles";
 import { getPersona } from "./test-personas";
@@ -89,7 +90,7 @@ const STUDENTS = [
 async function getGuideId(): Promise<number> {
   const [guide] = await sql`SELECT id FROM guides ORDER BY id LIMIT 1`;
   if (guide) return guide.id as number;
-  const hash = await bcrypt.hash("testguide2026", 10);
+  const hash = await bcrypt.hash(seedPassword(), 10);
   const [created] = await sql`INSERT INTO guides (name, email, password_hash)
     VALUES ('Test Guide', 'test-guide@sigmaread.test', ${hash}) RETURNING id`;
   console.log(`Created Test Guide (id ${created.id})`);
@@ -117,7 +118,7 @@ async function main() {
     const interestProfile = persona ? { interests: persona.interests } : s.interests;
 
     // Create student
-    const hash = await bcrypt.hash(s.username + "2026", 10);
+    const hash = await bcrypt.hash(seedPassword(), 10);
     const [student] = await sql.query(
       `INSERT INTO students (name, username, password_hash, guide_id, reading_level, interest_profile, onboarding_complete)
        VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id`,
