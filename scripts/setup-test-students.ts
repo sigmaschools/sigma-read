@@ -23,6 +23,7 @@ const NEW_STUDENTS = [
 ];
 
 async function main() {
+  const password = seedPassword(); // fail before touching the database
   console.log("\n🧹 Test Student Setup\n");
 
   // Delete generic test students
@@ -51,7 +52,7 @@ async function main() {
   }
 
   // Add new students
-  const hash = await bcrypt.hash(seedPassword(), 10);
+  const hash = await bcrypt.hash(password, 10);
   for (const s of NEW_STUDENTS) {
     const existing = await sql`SELECT id FROM students WHERE username = ${s.username}`;
     if (existing.length > 0) {
