@@ -40,7 +40,10 @@ export interface WriterOptions {
   settings?: Record<string, unknown>;
 }
 
-const BANNED_OPENINGS = ["imagine ", "picture this", "picture yourself", "what if ", "have you ever"];
+/** How an article body is written; the reader renders it with src/lib/markdown.ts */
+export const ARTICLE_FORMAT = `- FORMAT: Markdown. Separate paragraphs with a blank line. Subheadings are optional; when you use one, put it on its own line as "## Subheading", never as a bold line like "**Subheading**". Don't repeat the title as a heading. Use **bold** or *italics* sparingly, and no HTML.`;
+
+const BANNED_OPENINGS =["imagine ", "picture this", "picture yourself", "what if ", "have you ever"];
 
 export function hasBannedOpening(text: string): boolean {
   const lower = text.trim().toLowerCase();
@@ -90,6 +93,7 @@ Requirements:
   7. Micro-story: One sentence about a real person or event. E.g., "At nine years old, Ai Hinatsuru showed up at a stranger's door demanding to be taught."
   Do not use style 1 twice in the same batch.
 - Short paragraphs (2-4 sentences each).
+${ARTICLE_FORMAT}
 - Age-appropriate for grade ${guide.grade} students.
 - EDITORIAL NEUTRALITY: Report facts, not opinions.
 ${topic.type === "news" ? "- Frame around what is happening NOW." : ""}
@@ -155,6 +159,7 @@ Rules:
 - Keep all key facts accurate
 - Adjust sentence length and vocabulary to match target grade
 - Short paragraphs (2-4 sentences)
+${ARTICLE_FORMAT}
 - OPENING STYLE: Preserve the base article's opening style. If the original opens with a statistic, scene, historical moment, bold claim, contrast, Q&A, or micro-story — keep that approach. If the original starts with "Imagine", "Picture", "What if", or "Have you ever" — replace it with a surprising fact, scene, or historical moment.
 
 Output ONLY JSON:

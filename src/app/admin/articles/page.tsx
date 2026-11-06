@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { ArticleBody } from "@/components/ArticleBody";
 
 type Tab = "queue" | "library";
 
@@ -500,14 +501,7 @@ export default function AdminArticlesPage() {
                 <h1 className="text-3xl font-semibold tracking-tight mb-2">{preview.title}</h1>
                 <p className="text-sm text-[var(--muted)] mb-8">{preview.topic}</p>
                 <div style={{ fontSize: "18px", lineHeight: "1.75" }}>
-                  {preview.bodyText.split("\n\n").map((para, i) => {
-                    if (para.startsWith("# ") && !para.startsWith("## ")) return null;
-                    if (para.startsWith("## ") || para.startsWith("### ")) {
-                      const content = para.replace(/^#{2,3}\s/, "");
-                      return <h2 key={i} className="font-semibold text-lg mt-6 mb-2">{content}</h2>;
-                    }
-                    return <p key={i} className="mb-5">{para}</p>;
-                  })}
+                  <ArticleBody text={preview.bodyText} />
                 </div>
                 {preview.sources && preview.sources.length > 0 && (
                   <div className="mt-8 pt-4 border-t border-[var(--border)]">
