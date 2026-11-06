@@ -85,8 +85,8 @@ export type ControlRole = "guide" | "guardian" | "admin" | "learner";
 
 // ─── HTTP ─────────────────────────────────────────────────────────────────────
 
-async function call<T>(method: "GET" | "POST", path: string, body?: unknown, timeoutMs = READ_TIMEOUT_MS): Promise<T | null> {
-  const isRead = timeoutMs === READ_TIMEOUT_MS;
+async function call<T>(method: "GET" | "POST", path: string, body?: unknown, timeoutMs = READ_TIMEOUT_MS, kind: "read" | "write" = "read"): Promise<T | null> {
+  const isRead = kind === "read";
   if (!compassConfigured() || (isRead && Date.now() < downUntil)) return null;
   const url = process.env.COMPASS_URL!.replace(/\/+$/, "") + "/api/v1/interests" + path;
   try {
@@ -123,7 +123,7 @@ export async function sendEvidence(events: EvidenceEvent[], opts: { importing?: 
   for (let i = 0; i < events.length; i += BATCH_MAX) {
     const res = await call<{ results: EvidenceOutcome[] }>(
       "POST", opts.importing ? "/import" : "/evidence", { events: events.slice(i, i + BATCH_MAX) },
-      opts.importing ? 30_000 : WRITE_TIMEOUT_MS,
+      opts.importing ? 30_000 : WRITE_TIMEOUT_MS, "write",
     );
     if (!res) return null;
     out.push(...res.results);
@@ -147,12 +147,17 @@ export async function fetchManyInterests(learnerIds: string[], limit = 100, time
 }
 
 export async function rankItems(learnerId: string, items: { id: string; topicIds: string[] }[], opts: { exploreEvery?: number; seed?: number } = {}): Promise<RankedItem[] | null> {
-  if (items.length === 0) return [];
-  const res = await call<{ items: RankedItem[] }>("POST", `/learners/${enc(learnerId)}/rank`, {
-    items: items.slice(0, 1000).map(i => ({ id: i.id, topicIds: i.topicIds.slice(0, 20) })),
-    ...opts,
-  });
-  return res?.items ?? null;
+  // Compass ranks up to 1000 items per call; every candidate gets a score, so none falls back
+  const out: RankedItem[] = [];
+  for (let i = 0; i < items.length; i += 1000) {
+    const res = await call<{ items: RankedItem[] }>("POST", `/learners/${enc(learnerId)}/rank`, {
+      items: items.slice(i, i + 1000).map(it => ({ id: it.id, topicIds: it.topicIds.slice(0, 20) })),
+      ...opts,
+    });
+    if (!res) return null;
+    out.push(...res.items);
+  }
+  return out;
 }
 
 export async function exploreTopics(learnerId: string, limit = 5): Promise<ExploreTopic[] | null> {
@@ -167,7 +172,7 @@ export async function interestContext(learnerId: string, maxChars = 600): Promis
 }
 
 export async function sendControl(learnerId: string, topicId: string, action: ControlAction, actor: { role: ControlRole; id?: string }): Promise<CompassInterest | null> {
-  return call<CompassInterest>("POST", `/learners/${enc(learnerId)}/controls`, { topicId, action, actor }, WRITE_TIMEOUT_MS);
+  return call<CompassInterest>("POST", `/learners/${enc(learnerId)}/controls`, { topicId, action, actor }, WRITE_TIMEOUT_MS, "write");
 }
 
 // ─── Mapping (pure) ───────────────────────────────────────────────────────────
