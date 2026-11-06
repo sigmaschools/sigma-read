@@ -26,7 +26,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
-import { backfillSignals, batchInterestsFor, getAffinities, horizonTopicsFor, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
+import { backfillSignals, batchInterestsFor, feedScoring, getAffinities, horizonTopicsFor, prefetchInterests, quietly, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
@@ -112,6 +112,10 @@ async function analyzeStudents(): Promise<{
   ` as Student[];
 
   const levelsNeeded = new Set(students.map(s => s.reading_level));
+
+  // Students linked to Compass: read all their interests in one call (no-op when Compass is off)
+  const fromCompass = await prefetchInterests(students.map(s => s.id as number));
+  if (fromCompass > 0) console.log(`🧭 Interests for ${fromCompass} students read from Compass`);
 
   // Aggregate interests across students into weighted map + per-student lists
   const interestMap = new Map<string, number[]>();
@@ -760,10 +764,11 @@ async function serveToStudents(students: Student[]): Promise<number> {
     ]);
     const candidates = unseen.map((a: any) => ({ id: a.id as number, topics: cacheTopics.get(a.id) ?? [], row: a }));
     const affinityMap = new Map(affinities.map(a => [a.topicSlug, a]));
+    const scoring = await feedScoring(student.id, candidates, affinityMap);
     const repeatClient = tracked(anthropic, "serve_repeats", student.id);
     const budget = checkBudget(20_000);
     const picked = await pickWithoutRepeats(
-      excluded => pickForFeed(candidates.filter(c => !excluded.has(c.id)), affinityMap, needed, { avoid: new Set(recent) }),
+      excluded => pickForFeed(candidates.filter(c => !excluded.has(c.id)), scoring, needed, { avoid: new Set(recent) }),
       async (unchecked, approved) => {
         const gist = (c: (typeof candidates)[number]) => ({ id: c.id, title: c.row.title as string, excerpt: excerpt(c.row.body_text) });
         return findRepeats(repeatClient, unchecked.map(gist), [...recentReads, ...approved.map(gist)], { budget });
