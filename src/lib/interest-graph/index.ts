@@ -505,7 +505,7 @@ export async function horizonTopicsFor(studentId: number, limit = 6): Promise<st
   const learnerId = await learnerIdFor(studentId);
   if (learnerId) {
     const explored = await compass.exploreTopics(learnerId, limit);
-    if (explored) return explored.map(t => t.label.toLowerCase());
+    if (explored && explored.length > 0) return explored.map(t => t.label.toLowerCase());
   }
   const affinities = await getAffinities(studentId);
   const seeds = horizonSeeds(affinities);
