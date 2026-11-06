@@ -240,13 +240,17 @@ export async function prefetchInterests(studentIds: number[]): Promise<number> {
   }
 }
 
-/** A linked student's interests from Compass, or null (not linked, Compass off or unreachable) */
+/**
+ * A linked student's interests from Compass, or null (not linked, Compass off or unreachable,
+ * or Compass has nothing for them yet: a student linked before their history is imported keeps
+ * the local graph until Compass knows something)
+ */
 async function compassInterests(studentId: number): Promise<compass.CompassInterest[] | null> {
   const hit = prefetched.get(studentId);
-  if (hit && Date.now() - hit.at < PREFETCH_TTL_MS) return hit.interests;
-  const learnerId = await learnerIdFor(studentId);
-  if (!learnerId) return null;
-  return (await compass.fetchInterests(learnerId))?.interests ?? null;
+  const interests = hit && Date.now() - hit.at < PREFETCH_TTL_MS
+    ? hit.interests
+    : await learnerIdFor(studentId).then(id => id ? compass.fetchInterests(id).then(r => r?.interests ?? null) : null);
+  return interests && interests.length > 0 ? interests : null;
 }
 
 function signalRows(inputs: SignalInput[]) {
@@ -289,6 +293,9 @@ export async function feedScoring(studentId: number, candidates: Candidate[], af
     if (!learnerId || candidates.length === 0) return affinities;
     const ranked = await compass.rankItems(learnerId, candidates.map(c => ({ id: String(c.id), topicIds: c.topics })));
     if (!ranked) return affinities;
+    // Nothing scored and nothing excluded: Compass doesn't know the student yet (linked, not
+    // imported), so the local graph ranks
+    if (ranked.every(r => r.score === 0 && !r.excluded)) return affinities;
     const scores = compass.rankScores(ranked);
     return c => {
       const key = String(c.id);
