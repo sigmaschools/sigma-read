@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseMarkdown, parseInline, markdownToPlainText } from "./markdown";
 
 // Inline styles
@@ -43,6 +45,15 @@ assert.deepEqual(parseMarkdown("# Title\n\n## Part one\n\nText.\n\n### Detail\nM
   { type: "heading", level: 3, runs: [{ text: "Detail" }] },
   { type: "paragraph", runs: [{ text: "More." }] },
 ]);
+assert.deepEqual(parseMarkdown("## Learning C#"), [{ type: "heading", level: 2, runs: [{ text: "Learning C#" }] }]);
+assert.deepEqual(parseInline("**a** then_b_c and _d_"), [
+  { text: "a", bold: true }, { text: " then_b_c and " }, { text: "d", italic: true },
+]);
+// Older Safari (before 16.4) can't parse regex lookbehind; keep it out of this module
+{
+  const src = readFileSync(join(process.cwd(), "src/lib/markdown.ts"), "utf8");
+  assert.ok(!/\(\?<[=!]/.test(src), "markdown.ts must not use regex lookbehind");
+}
 assert.deepEqual(parseMarkdown("## *Styled* heading ##"), [
   { type: "heading", level: 2, runs: [{ text: "Styled", italic: true }, { text: " heading" }] },
 ]);

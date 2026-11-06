@@ -31,11 +31,12 @@ const INLINE = new RegExp(
     /`([^`\n]+)`/.source, // 2 code
     /!\[([^\]]*)\]\([^)\s]*\)/.source, // 3 image (dropped)
     /\[([^\]]+)\]\([^)\s]*\)/.source, // 4 link text
-    /\*\*\*(?=\S)([\s\S]+?)(?<=\S)\*\*\*/.source, // 5 bold italic
-    /\*\*(?=\S)([\s\S]+?)(?<=\S)\*\*/.source, // 6 bold
-    /(?<![\w])__(?=\S)([\s\S]+?)(?<=\S)__(?![\w])/.source, // 7 bold
-    /\*(?=[^\s*])([\s\S]+?)(?<=[^\s*])\*/.source, // 8 italic
-    /(?<![\w])_(?=[^\s_])([\s\S]+?)(?<=[^\s_])_(?![\w])/.source, // 9 italic
+    // No lookbehind anywhere: Safari before 16.4 (older school iPads) can't parse it
+    /\*\*\*(\S(?:[\s\S]*?\S)?)\*\*\*/.source, // 5 bold italic
+    /\*\*(\S(?:[\s\S]*?\S)?)\*\*/.source, // 6 bold
+    /__(\S(?:[\s\S]*?\S)?)__(?!\w)/.source, // 7 bold (not inside a word, checked below)
+    /\*([^\s*](?:[\s\S]*?[^\s*])?)\*/.source, // 8 italic
+    /_([^\s_](?:[\s\S]*?[^\s_])?)_(?!\w)/.source, // 9 italic (not inside a word, checked below)
   ].join("|"),
   "g",
 );
@@ -55,6 +56,11 @@ function inline(text: string, style: Style, runs: Run[]) {
   let at = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
+    // Underscores inside a word (snake_case) are not emphasis: step past this one
+    if ((m[7] !== undefined || m[9] !== undefined) && /\w/.test(text[m.index - 1] ?? "")) {
+      re.lastIndex = m.index + 1;
+      continue;
+    }
     push(runs, text.slice(at, m.index), style);
     at = m.index + m[0].length;
     if (m[1] !== undefined) push(runs, m[1], style);
@@ -75,13 +81,14 @@ export function parseInline(text: string): Run[] {
   return runs;
 }
 
-const HEADING = /^(#{1,6})[ \t]+(.*?)[ \t#]*$/;
+// A closing run of # only counts after a space, so "## Learning C#" keeps its #
+const HEADING = /^(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
 const BULLET = /^[ \t]*[-*+][ \t]+(.*)$/;
 const NUMBERED = /^[ \t]*\d+[.)][ \t]+(.*)$/;
 const QUOTE = /^[ \t]*>[ \t]?(.*)$/;
 const RULE = /^[ \t]*([-*_])([ \t]*\1){2,}[ \t]*$/;
 /** A whole line in bold (or bold italic), as models write subheadings */
-const BOLD_LINE = /^(\*\*\*?|__)(?=\S)([^*_\n]+?)(?<=\S)\1:?$/;
+const BOLD_LINE = /^(\*\*\*?|__)([^\s*_](?:[^*_\n]*[^\s*_])?)\1:?$/;
 
 /** Blocks for an article body. A leading # heading (the title again) is dropped. */
 export function parseMarkdown(source: string): Block[] {
