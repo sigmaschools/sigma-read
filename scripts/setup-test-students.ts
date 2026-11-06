@@ -8,6 +8,7 @@
 
 import { neon } from "@neondatabase/serverless";
 import bcrypt from "bcryptjs";
+import { seedPassword } from "./seed-password";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -50,7 +51,7 @@ async function main() {
   }
 
   // Add new students
-  const hash = await bcrypt.hash("***REMOVED***", 10);
+  const hash = await bcrypt.hash(seedPassword(), 10);
   for (const s of NEW_STUDENTS) {
     const existing = await sql`SELECT id FROM students WHERE username = ${s.username}`;
     if (existing.length > 0) {

@@ -1,9 +1,10 @@
 import { db, schema } from "../src/lib/db";
 import bcrypt from "bcryptjs";
+import { seedPassword } from "./seed-password";
 import { eq } from "drizzle-orm";
 
 async function main() {
-  const passwordHash = await bcrypt.hash("***REMOVED***", 10);
+  const passwordHash = await bcrypt.hash(seedPassword(), 10);
 
   // Check if Carolyn's account already exists
   const existing = await db.select().from(schema.guides).where(eq(schema.guides.email, "carolyn@sigmaschool.us")).limit(1);
@@ -55,7 +56,7 @@ async function main() {
     console.log(`Created student ${s.name} (id: ${student.id})`);
   }
 
-  console.log("\nCarolyn can log in with: carolyn@sigmaschool.us / ***REMOVED***");
+  console.log("\nThe account signs in with carolyn@sigmaschool.us and SEED_PASSWORD");
   process.exit(0);
 }
 

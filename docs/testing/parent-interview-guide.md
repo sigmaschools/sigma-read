@@ -2,7 +2,7 @@
 
 **Duration:** 10 minutes max
 **Role:** Guide account (parent viewing student data)
-**Account:** carolyn@sigmaschool.us / ***REMOVED***
+**Account:** carolyn@sigmaschool.us (password in the team password manager)
 
 ## Setup
 Carolyn has 3 students assigned: Emma (active, scores vary), Sofia (active, consistent), and Marcus (struggling).

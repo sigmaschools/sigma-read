@@ -3,23 +3,25 @@
 ## Live URL
 **https://sigma-reader.vercel.app**
 
-## Test Credentials
+## Test Accounts
 
-| Role | Username/Email | Password | Notes |
-|------|---------------|----------|-------|
-| Guide | calie@sigmaschool.us | ***REMOVED*** | Calie Garrett — primary test guide, has 8+ students |
-| Guide | carolyn@sigmaschool.us | ***REMOVED*** | Carolyn Vaughan — parent test account, 3 students |
-| Student | emma | ***REMOVED*** | L3 reader, active test data |
-| Student | sofia | ***REMOVED*** | L2 reader |
-| Student | marcus | ***REMOVED*** | L1 reader |
-| Student | jayden | ***REMOVED*** | L2 reader |
-| Student | aisha | ***REMOVED*** | L2 reader |
-| Student | liam | ***REMOVED*** | L1 reader |
-| Student | zara | ***REMOVED*** | L3 reader |
-| Student | diego | ***REMOVED*** | L2 reader |
-| Student | max | ***REMOVED*** | Max Vaughan — needs onboarding |
-| Student | wayne | ***REMOVED*** | Wayne's test account |
-| Student | teststudent | ***REMOVED*** | Generic test account |
+Passwords are never written in this repository (see "Secrets" in CLAUDE.md). Get them from the team's password manager or ask the admin.
+
+| Role | Username/Email | Notes |
+|------|---------------|-------|
+| Guide | calie@sigmaschool.us | Primary test guide, has 8+ students |
+| Guide | carolyn@sigmaschool.us | Parent test account, 3 students |
+| Student | emma | L3 reader, active test data |
+| Student | sofia | L2 reader |
+| Student | marcus | L1 reader |
+| Student | jayden | L2 reader |
+| Student | aisha | L2 reader |
+| Student | liam | L1 reader |
+| Student | zara | L3 reader |
+| Student | diego | L2 reader |
+| Student | teststudent | Generic test account |
+
+Real learners' accounts are not listed here.
 
 ## Stack
 - **Frontend:** Next.js 16 (App Router), TypeScript, Tailwind CSS
