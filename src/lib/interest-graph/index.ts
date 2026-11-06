@@ -180,6 +180,7 @@ async function sendToCompass(rows: ReturnType<typeof signalRows>): Promise<void>
     });
     if (events.length === 0) return;
     const results = await compass.sendEvidence(events);
+    if (!results) { console.error(`Compass interests: ${events.length} events not sent; re-running the import sends them`); return; }
     const refused = results?.filter(o => o.status === "refused") ?? [];
     // Reasons only: an event may carry the student's words
     if (refused.length > 0) console.error(`Compass interests: ${refused.length} of ${events.length} events refused: ${[...new Set(refused.map(o => o.reason))].join("; ")}`);
@@ -316,7 +317,7 @@ export async function tutorInterestContext(studentId: number): Promise<string | 
 }
 
 const contexts = new Map<number, { at: number; text: string }>();
-const CONTEXT_TTL_MS = 10 * 60_000;
+const CONTEXT_TTL_MS = 3 * 60_000;
 
 /** Every topic signal for a student, oldest first */
 export async function getSignals(studentId: number): Promise<Signal[]> {
@@ -659,7 +660,7 @@ export async function setTopicRemoved(studentId: number, topicSlug: string, remo
   const learnerId = await learnerIdFor(studentId);
   let sent = false;
   if (learnerId) {
-    const role = CONTROL_ROLES[by.role];
+    const role = Object.hasOwn(CONTROL_ROLES, by.role) ? CONTROL_ROLES[by.role] : undefined;
     if (!role) return false;
     sent = !!(await compass.sendControl(learnerId, topicSlug, removed ? "remove" : "restore", { role, id: String(by.userId) }));
     if (!sent) return false;

@@ -22,7 +22,7 @@ and the student's `external_id` holds their Compass learner id. The client is
 | `getAffinities` | `GET /learners/{id}` (removed and rejected both mean "never serve") |
 | feed serving (`feedScoring`) | `POST /learners/{id}/rank`; excluded items are never served. SigmaRead keeps its own every-third-slot exploration and topic variety on top |
 | horizon topics | `GET /learners/{id}/explore` |
-| the tutor's interest line | `GET /learners/{id}/context`, put in the prompt as given (contract 6.6), cached 10 minutes |
+| the tutor's interest line | `GET /learners/{id}/context`, put in the prompt as given (contract 6.6), cached 3 minutes |
 | the adults' panel | `GET /learners/{id}` |
 | morning batch | `POST /interests/learners`, one call for every linked student |
 | history | `scripts/compass-import-interests.ts` (`POST /interests/import`), then a top-five check |

@@ -75,7 +75,8 @@ async function main() {
     }))).filter(a => a.status !== "rejected").slice(0, 5).map(a => a.topicSlug);
     const remote = await fetchInterests(s.learnerId, 20);
     const theirs = remote?.interests.filter(i => i.status === "declared" || i.status === "inferred").slice(0, 5).map(i => i.topicId);
-    const same = theirs && local.every(t => theirs.includes(t));
+    // Same set both ways (order may differ where Compass spreads to related topics)
+    const same = theirs && local.length === theirs.length && local.every(t => theirs.includes(t));
     console.log(`  ${same ? "✅" : "⚠️ "} ${s.name}: ${local.join(", ") || "(none)"} | ${theirs ? theirs.join(", ") || "(none)" : "unavailable"}`);
   }
 }
