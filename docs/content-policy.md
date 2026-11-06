@@ -111,7 +111,7 @@ The following content categories are never generated or served, regardless of co
 ### Current Process (MVP)
 
 1. Generation prompts include explicit factual accuracy requirements
-2. Articles are generated using the best available AI model (currently Claude Opus 4.6)
+2. Articles are generated using the best available AI model (`MODELS.writer` in `src/lib/models.ts`; see [ai-models.md](./ai-models.md))
 3. Source attribution is required for all articles
 4. Content bucket ratios are enforced in the generation prompt
 
