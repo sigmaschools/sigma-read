@@ -21,6 +21,7 @@ No test framework: `*.test.ts` files are plain `node:assert` scripts. Verify cha
 - `DATABASE_URL` — Neon Postgres connection string
 - `ANTHROPIC_API_KEY` — Anthropic API key
 - `JWT_SECRET` — JWT signing secret
+- `COMPASS_URL`, `COMPASS_INTERESTS_KEY` — optional, Compass interests API (see docs/interest-graph.md)
 
 ## Architecture
 

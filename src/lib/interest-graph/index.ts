@@ -6,8 +6,15 @@
  *   getRelated     neighbouring topics in the shared map
  *   resolveTopics  free text → topic slugs (exact match, then optionally Haiku)
  *
- * App code calls only these, never the tables, so moving the graph into Compass later means
- * replacing this file's internals with HTTP calls. See the interest graph design doc.
+ * App code calls only these, never the tables.
+ *
+ * Compass (app contract section 6) keeps the shared record of every learner's interests. For a
+ * student linked to Compass (students.external_id holds their learner id) and with
+ * COMPASS_URL and COMPASS_INTERESTS_KEY set, every signal is also sent to Compass, and reads
+ * (affinities, feed ranking, horizon topics, the tutor's summary, the adults' panel) come from
+ * Compass. When Compass is off, the student isn't linked, or a call fails or takes over two
+ * seconds, everything runs on SigmaRead's own graph as before. The local log stays as a copy
+ * until the switch has run for a while. See docs/interest-graph.md.
  */
 
 import type Anthropic from "@anthropic-ai/sdk";
@@ -24,6 +31,8 @@ import { summarizeInterests } from "./summary";
 import { buildIndex, matchKey, matchTopic, normalizePhrase, type TopicIndex } from "./resolve";
 import { mergeBatchInterests } from "./batch-interests";
 import { CHAT_MENTIONS_SCHEMA, chatMentionTopics, chatMentionsPrompt, verifiedMentions, type ChatMention } from "./chat-mentions";
+import * as compass from "./compass";
+import { candidateScore, type Candidate, type Scoring } from "./serving";
 
 export { SIGNALS, type Affinity, type SignalType } from "./affinity";
 export { matchKey } from "./resolve";
@@ -152,6 +161,101 @@ export async function recordSignals(inputs: SignalInput[]): Promise<void> {
   const rows = signalRows(inputs);
   if (rows.length === 0) return;
   await db.insert(schema.interestSignals).values(rows).onConflictDoNothing();
+  await sendToCompass(rows);
+}
+
+/**
+ * Send signals to Compass for the students linked to it, with the same source refs, so a repeat
+ * changes nothing there either. Never throws: a signal Compass misses can be sent again later
+ * by the import script, which is idempotent.
+ */
+async function sendToCompass(rows: ReturnType<typeof signalRows>): Promise<void> {
+  try {
+    if (!compass.compassConfigured() || rows.length === 0) return;
+    const learners = await learnerIds([...new Set(rows.map(r => r.studentId))]);
+    const events = rows.flatMap(r => {
+      const learnerId = learners.get(r.studentId);
+      const e = learnerId && compass.toEvidence(learnerId, { ...r, signalType: r.signalType as SignalType, createdAt: "createdAt" in r ? r.createdAt : undefined });
+      return e ? [e] : [];
+    });
+    if (events.length === 0) return;
+    const results = await compass.sendEvidence(events);
+    if (!results) { console.error(`Compass interests: ${events.length} events not sent; re-running the import sends them`); return; }
+    const refused = results?.filter(o => o.status === "refused") ?? [];
+    // Reasons only: an event may carry the student's words
+    if (refused.length > 0) console.error(`Compass interests: ${refused.length} of ${events.length} events refused: ${[...new Set(refused.map(o => o.reason))].join("; ")}`);
+  } catch (e) {
+    console.error("Compass interests: sending evidence failed:", e instanceof Error ? e.message : e);
+  }
+}
+
+// ─── Compass learners ─────────────────────────────────────────────────────────
+
+/** Compass learner ids of the given students that are linked (none when Compass is off) */
+async function learnerIds(studentIds: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  if (!compass.compassConfigured() || studentIds.length === 0) return out;
+  const rows = await db.select({ id: schema.students.id, externalId: schema.students.externalId })
+    .from(schema.students).where(inArray(schema.students.id, studentIds));
+  for (const r of rows) {
+    const id = compass.learnerIdFrom(r.externalId);
+    if (id) out.set(r.id, id);
+  }
+  return out;
+}
+
+async function learnerIdFor(studentId: number): Promise<string | null> {
+  try {
+    return (await learnerIds([studentId])).get(studentId) ?? null;
+  } catch (e) {
+    console.error("Compass interests: learner lookup failed:", e);
+    return null;
+  }
+}
+
+/** Interests read in bulk for the morning batch, kept briefly so per-student reads reuse them */
+const prefetched = new Map<number, { at: number; interests: compass.CompassInterest[] }>();
+const PREFETCH_TTL_MS = 30 * 60_000;
+
+/**
+ * Read many students' interests from Compass in one call (the morning batch plans for every
+ * student). Students that aren't linked, or a failed call, simply leave nothing cached.
+ */
+export async function prefetchInterests(studentIds: number[]): Promise<number> {
+  try {
+    const learners = await learnerIds(studentIds);
+    if (learners.size === 0) return 0;
+    const many = await compass.fetchManyInterests([...new Set(learners.values())]);
+    if (!many) return 0;
+    const now = Date.now();
+    let read = 0;
+    for (const [studentId, learnerId] of learners) {
+      const l = many.get(learnerId);
+      if (l) { prefetched.set(studentId, { at: now, interests: l.interests }); read++; }
+    }
+    return read;
+  } catch (e) {
+    console.error("Compass interests: bulk read failed:", e);
+    return 0;
+  }
+}
+
+/** Drop the bulk-read interests (the morning batch calls this when it finishes) */
+export function clearPrefetched() {
+  prefetched.clear();
+}
+
+/**
+ * A linked student's interests from Compass, or null (not linked, Compass off or unreachable,
+ * or Compass has nothing for them yet: a student linked before their history is imported keeps
+ * the local graph until Compass knows something)
+ */
+async function compassInterests(studentId: number): Promise<compass.CompassInterest[] | null> {
+  const hit = prefetched.get(studentId);
+  const interests = hit && Date.now() - hit.at < PREFETCH_TTL_MS
+    ? hit.interests
+    : await learnerIdFor(studentId).then(id => id ? compass.fetchInterests(id).then(r => r?.interests ?? null) : null);
+  return interests && interests.length > 0 ? interests : null;
 }
 
 function signalRows(inputs: SignalInput[]) {
@@ -168,10 +272,64 @@ function signalRows(inputs: SignalInput[]) {
     }));
 }
 
-/** A student's affinities, strongest first, including rejected topics (score 0, status "rejected") */
+/**
+ * A student's affinities, strongest first, including rejected topics (score 0, status "rejected").
+ * From Compass for a linked student, else from SigmaRead's own log.
+ */
 export async function getAffinities(studentId: number, now = new Date()): Promise<Affinity[]> {
-  return computeAffinities(await getSignals(studentId), now);
+  return (await readAffinities(studentId, now)).affinities;
 }
+
+/** Affinities with the labels Compass gave (Compass's map has topics SigmaRead's doesn't) */
+async function readAffinities(studentId: number, now = new Date()): Promise<{ affinities: Affinity[]; labels: Map<string, string> }> {
+  const remote = await compassInterests(studentId);
+  if (remote) return { affinities: compass.toAffinities(remote), labels: new Map(remote.map(i => [i.topicId, i.label])) };
+  return { affinities: computeAffinities(await getSignals(studentId), now), labels: new Map() };
+}
+
+/**
+ * How to score feed candidates for a student: Compass's ranking for a linked student (scores
+ * with spreading to related topics, and topics turned off excluded), else the student's
+ * affinities. Candidates Compass didn't score fall back to the affinities.
+ */
+export async function feedScoring(studentId: number, candidates: Candidate[], affinities: Map<string, Affinity>): Promise<Scoring> {
+  try {
+    const learnerId = await learnerIdFor(studentId);
+    if (!learnerId || candidates.length === 0) return affinities;
+    const ranked = await compass.rankItems(learnerId, candidates.map(c => ({ id: String(c.id), topicIds: c.topics })));
+    if (!ranked) return affinities;
+    // Nothing scored and nothing excluded: Compass doesn't know the student yet (linked, not
+    // imported), so the local graph ranks
+    if (ranked.every(r => r.score === 0 && !r.excluded)) return affinities;
+    const scores = compass.rankScores(ranked);
+    return c => {
+      const key = String(c.id);
+      return scores.has(key) ? scores.get(key)! : candidateScore(c.topics, affinities);
+    };
+  } catch (e) {
+    console.error("Compass interests: ranking failed, using local scores:", e);
+    return affinities;
+  }
+}
+
+/**
+ * The interest summary for the tutor's prompt, from Compass, as Compass wrote it (contract 6.6:
+ * context, not an instruction). Null when the student isn't linked or Compass can't answer; the
+ * caller then uses what it used before.
+ */
+export async function tutorInterestContext(studentId: number): Promise<string | null> {
+  // Asked on every tutor turn, so kept for a few minutes rather than fetched each time
+  const hit = contexts.get(studentId);
+  if (hit && Date.now() - hit.at < CONTEXT_TTL_MS) return hit.text;
+  const learnerId = await learnerIdFor(studentId);
+  if (!learnerId) return null;
+  const text = await compass.interestContext(learnerId, 400);
+  if (text !== null) contexts.set(studentId, { at: Date.now(), text });
+  return text;
+}
+
+const contexts = new Map<number, { at: number; text: string }>();
+const CONTEXT_TTL_MS = 3 * 60_000;
 
 /** Every topic signal for a student, oldest first */
 export async function getSignals(studentId: number): Promise<Signal[]> {
@@ -332,8 +490,8 @@ export async function recordChatMentions(args: {
  */
 export async function batchInterestsFor(studentId: number, profile: string[]): Promise<string[]> {
   // No `ai`: exact and alias matches only, no model call and no new aliases. Keyed by raw phrase.
-  const [profileSlugs, affinities] = await Promise.all([resolveTopics(profile), getAffinities(studentId)]);
-  const labels = await topicLabels(affinities.map(a => a.topicSlug));
+  const [profileSlugs, { affinities, labels: remoteLabels }] = await Promise.all([resolveTopics(profile), readAffinities(studentId)]);
+  const labels = new Map([...await topicLabels(affinities.map(a => a.topicSlug)), ...remoteLabels]);
   return mergeBatchInterests(profile, profileSlugs, affinities, labels);
 }
 
@@ -343,6 +501,12 @@ export async function batchInterestsFor(studentId: number, profile: string[]): P
  * has no strong topics yet (the batch then falls back to its model-suggested list).
  */
 export async function horizonTopicsFor(studentId: number, limit = 6): Promise<string[]> {
+  // Compass's exploration: topics near the strongest interests that the student has no view on
+  const learnerId = await learnerIdFor(studentId);
+  if (learnerId) {
+    const explored = await compass.exploreTopics(learnerId, limit);
+    if (explored && explored.length > 0) return explored.map(t => t.label.toLowerCase());
+  }
   const affinities = await getAffinities(studentId);
   const seeds = horizonSeeds(affinities);
   if (seeds.length === 0) return [];
@@ -464,8 +628,10 @@ export async function saveCheckin(studentId: number, answers: { slug: string; an
 
   // The event marks the check-in as asked; it and the answers are written together
   const event = db.insert(schema.articleFeedEvents).values({ studentId, eventType: CHECKIN_EVENT, metadata: { answers: valid } });
-  if (rows.length > 0) await db.batch([event, db.insert(schema.interestSignals).values(rows).onConflictDoNothing()]);
-  else await event;
+  if (rows.length > 0) {
+    await db.batch([event, db.insert(schema.interestSignals).values(rows).onConflictDoNothing()]);
+    await sendToCompass(rows);
+  } else await event;
   return true;
 }
 
@@ -473,6 +639,12 @@ export async function saveCheckin(studentId: number, answers: { slug: string; an
 
 /** What a student is into, in plain words: current interests, fading ones, and removed ones */
 export async function interestSummaryFor(studentId: number, now = new Date()) {
+  const remote = await compassInterests(studentId);
+  if (remote) {
+    const { labels, ...summary } = compass.toSummary(remote);
+    const label = <T extends { slug: string }>(list: T[]) => list.filter(t => labels.has(t.slug)).map(t => ({ ...t, label: labels.get(t.slug)! }));
+    return { current: label(summary.current), fading: label(summary.fading), removed: label(summary.removed), source: "compass" as const };
+  }
   const signals = await getSignals(studentId);
   const firstSeen = new Map<string, Date>();
   for (const s of signals) {
@@ -486,7 +658,7 @@ export async function interestSummaryFor(studentId: number, now = new Date()) {
   const summary = summarizeInterests(computeAffinities(signals, now), firstSeen, now, restored);
   const labels = await topicLabels([...summary.current, ...summary.fading, ...summary.removed].map(t => t.slug));
   const label = <T extends { slug: string }>(list: T[]) => list.filter(t => labels.has(t.slug)).map(t => ({ ...t, label: labels.get(t.slug)! }));
-  return { current: label(summary.current), fading: label(summary.fading), removed: label(summary.removed) };
+  return { current: label(summary.current), fading: label(summary.fading), removed: label(summary.removed), source: "sigmaread" as const };
 }
 
 /**
@@ -494,14 +666,40 @@ export async function interestSummaryFor(studentId: number, now = new Date()) {
  * removing a topic the student has no history with, or restoring one that isn't removed, does nothing.
  */
 export async function setTopicRemoved(studentId: number, topicSlug: string, removed: boolean, by: { role: string; userId: number }): Promise<boolean> {
-  const current = (await getAffinities(studentId)).find(a => a.topicSlug === topicSlug);
-  if (!current || (current.status === "rejected") === removed) return false;
-  await recordSignals([{
-    studentId, topicSlug, type: removed ? "removed" : "restored",
-    sourceRef: `adult:${by.role}:${by.userId}:${Date.now()}`,
-  }]);
-  return true;
+  // For a linked student Compass holds the record: the control goes there, with who did it. If
+  // Compass doesn't confirm it, nothing changes, so the panel never shows a removal that the
+  // feed and the tutor (which read from Compass) wouldn't follow
+  const learnerId = await learnerIdFor(studentId);
+  let sent = false;
+  if (learnerId) {
+    const role = Object.hasOwn(CONTROL_ROLES, by.role) ? CONTROL_ROLES[by.role] : undefined;
+    if (!role) return false;
+    sent = !!(await compass.sendControl(learnerId, topicSlug, removed ? "remove" : "restore", { role, id: String(by.userId) }));
+    // An unconfirmed control stops the change, unless Compass answers that it has no interests
+    // for the student yet (linked, history not imported), when the local graph still rules. A
+    // failed read counts as unconfirmed, so an outage never loses an adult's removal
+    if (!sent) {
+      const known = await compass.fetchInterests(learnerId);
+      if (!known || known.interests.length > 0) return false;
+    }
+    prefetched.delete(studentId);
+    contexts.delete(studentId);
+  }
+
+  // The local copy keeps the same history
+  const local = computeAffinities(await getSignals(studentId)).find(a => a.topicSlug === topicSlug);
+  if (local && (local.status === "rejected") !== removed) {
+    await recordSignals([{
+      studentId, topicSlug, type: removed ? "removed" : "restored",
+      sourceRef: `adult:${by.role}:${by.userId}:${Date.now()}`,
+    }]);
+    return true;
+  }
+  return sent;
 }
+
+/** SigmaRead's adult roles as Compass names them */
+const CONTROL_ROLES: Record<string, compass.ControlRole> = { guide: "guide", parent: "guardian", admin: "admin" };
 
 // ─── Backfill ─────────────────────────────────────────────────────────────────
 
