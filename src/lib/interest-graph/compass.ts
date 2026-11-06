@@ -243,7 +243,7 @@ const MAX_SHOWN = 8;
 /** The guide and parent panel (current, fading, removed) from Compass's interests */
 export function toSummary(interests: CompassInterest[]): InterestSummary & { labels: Map<string, string> } {
   const off = (i: CompassInterest) => i.status === "rejected" || i.status === "removed";
-  const current = interests
+  const current = [...interests].sort((a, b) => b.score - a.score)
     .filter(i => !off(i) && i.score >= SHOWN_MIN)
     .slice(0, MAX_SHOWN)
     .map(i => ({ slug: i.topicId, score: i.score, declared: i.status === "declared", isNew: i.status !== "declared" && i.trend === "new" }));

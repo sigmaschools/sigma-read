@@ -94,7 +94,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   const isTutorial = article.category === "tutorial";
   // Compass's interest summary for a student linked to it (used as given, contract 6.6); the
-  // profile as before otherwise, or when Compass doesn't answer within two seconds
+  // profile as before otherwise, when Compass has nothing yet (linked but not imported), or when
+  // Compass doesn't answer within two seconds
   const interests = isTutorial ? null : await tutorInterestContext(session.userId)
     .catch(e => { console.error("Interest summary unavailable:", e); return null; });
 
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     : comprehensionConversationPrompt(
         article.bodyText,
         student.readingLevel || 2,
-        interests !== null ? interests || "none known yet" : JSON.stringify(student.interestProfile || {}),
+        interests || JSON.stringify(student.interestProfile || {}),
         article.liked,
         conversationStyle,
         exchangeNumber
