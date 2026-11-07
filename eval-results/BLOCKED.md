@@ -1,9 +1,13 @@
 # Voice eval blocked, 7 Nov 2026
 
-The scheduled run stopped at setup step 2: `ANTHROPIC_API_KEY` is not set in this cloud environment, so the check `[ -n "$ANTHROPIC_API_KEY" ]` failed.
+The check run (`--configs=today --kids=theo --articles=bee-dance`) failed on the first API call:
 
-Neither the baseline run (`today,before`) nor the candidate run (`today,sigma-sonnet-low,sigma-opus-low,sigma-fable-low`) was started, so there are no result folders or logs.
+```
+today theo/bee-dance r0: error: 401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011CgpLvndrDxv3yBP7osmNQ"}
+```
 
-Branch checked out: `claude/project-thread-jm2vpd` at db9fb2c.
+`EVAL_ANTHROPIC_API_KEY` is set in the session, but its value is only 31 characters long and does not start with the usual Anthropic key prefix. A real Anthropic API key is over 100 characters long, so the value in the cloud environment is not a whole key (it looks truncated, or a placeholder was pasted).
 
-To unblock: add `ANTHROPIC_API_KEY` to this routine's cloud environment (and allow outbound access to api.anthropic.com), or run the eval on the Mac, where `~/Dev/sigma-read/.env.eval` holds the key.
+Fix: paste the full key from https://console.anthropic.com/settings/keys into the `EVAL_ANTHROPIC_API_KEY` variable of the Default cloud environment, then start the run again in a new session. Baseline and candidate runs were not attempted.
+
+The folder `2026-11-07T22-19-07-731Z-voice/` holds the failed check run.
