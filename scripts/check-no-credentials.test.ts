@@ -31,11 +31,11 @@ const mustFail = [
   "guide@example.com / hunter22", // credential-check: allow
   'const p = { password: "hunter22" };', // credential-check: allow
   'await bcrypt.hash("hunter22", 10);', // credential-check: allow
-  'await bcrypt.hash(s.username + "2026", 10);', // credential-check: allow
-  'const pw = u + "2026";', // credential-check: allow
-  'const password = name.toLowerCase() + "2026";', // credential-check: allow
+  'await bcrypt.hash(s.username + "x9", 10);', // credential-check: allow
+  'const pw = u + "x9";', // credential-check: allow
+  'const password = name.toLowerCase() + "x9";', // credential-check: allow
   'const password = "x" + name;', // credential-check: allow
-  "password: `${u}2026`,", // credential-check: allow
+  "password: `${u}x9`,", // credential-check: allow
   "DATABASE_URL=postgres://app:hunter22@db.example.com/main", // credential-check: allow
 ];
 for (const line of mustFail) {
