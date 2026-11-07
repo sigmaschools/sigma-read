@@ -1,0 +1,72 @@
+
+> sigma-reader-app@0.1.0 eval:voice
+> tsx --require ./scripts/md-require.cjs scripts/eval-voice.ts --configs=today,before --runs=2
+
+Running 32 conversations (16 cases x 2 setups) → eval-results/2026-11-07T22-28-51-310Z-voice
+Tutor turn ended in a closed question, asking for a rewrite
+Tutor turn ended in a closed question, asking for a rewrite
+  today nico/octopus r0: 6 exchanges, forced, tell-me 57%, $0.026
+  today nico/octopus r1: 6 exchanges, forced, tell-me 57%, $0.029
+Tutor turn ended in a closed question, asking for a rewrite
+Tutor turn ended in a closed question, asking for a rewrite
+  before nico/octopus r0: 6 exchanges, forced, tell-me 57%, $0.140
+  before nico/octopus r1: 6 exchanges, forced, tell-me 57%, $0.180
+  today nico/lighthouse r0: 6 exchanges, forced, tell-me 57%, $0.030
+  before nico/lighthouse r0: 6 exchanges, forced, tell-me 71%, $0.145
+  today nico/lighthouse r1: 6 exchanges, forced, tell-me 43%, $0.028
+  before nico/lighthouse r1: 6 exchanges, forced, tell-me 57%, $0.148
+  today maya/lighthouse r0: 6 exchanges, earned, tell-me 71%, $0.020
+  today maya/lighthouse r1: 5 exchanges, earned, tell-me 67%, $0.028
+Tutor turn ran long, asking for a rewrite
+  before maya/lighthouse r0: 5 exchanges, earned, tell-me 67%, $0.155
+Tutor turn ran long, asking for a rewrite
+Tutor turn ran long, asking for a rewrite
+  today maya/bee-dance r0: 5 exchanges, earned, tell-me 33%, $0.018
+  before maya/lighthouse r1: 5 exchanges, earned, tell-me 83%, $0.155
+Tutor turn ran long, asking for a rewrite
+  today maya/bee-dance r1: 5 exchanges, earned, tell-me 83%, $0.028
+Tutor turn ran long, asking for a rewrite
+  before maya/bee-dance r0: 5 exchanges, earned, tell-me 50%, $0.154
+  today theo/bee-dance r0: 6 exchanges, earned, tell-me 43%, $0.017
+Tutor turn ran long, asking for a rewrite
+Tutor turn ran long, asking for a rewrite
+  today theo/bee-dance r1: 6 exchanges, earned, tell-me 57%, $0.029
+  before maya/bee-dance r1: 5 exchanges, earned, tell-me 50%, $0.197
+  before theo/bee-dance r0: 6 exchanges, earned, tell-me 57%, $0.170
+Tutor turn ended in a closed question, asking for a rewrite
+  before theo/bee-dance r1: 6 exchanges, earned, tell-me 57%, $0.149
+  today ava/voyager r0: 5 exchanges, earned, tell-me 17%, $0.031
+  before ava/voyager r0: 5 exchanges, earned, tell-me 50%, $0.132
+  today ava/voyager r1: 6 exchanges, earned, tell-me 43%, $0.033
+Tutor turn ran long, asking for a rewrite
+  today sam/voyager r0: 6 exchanges, earned, tell-me 71%, $0.021
+  before ava/voyager r1: 5 exchanges, earned, tell-me 33%, $0.157
+  today sam/voyager r1: 5 exchanges, earned, tell-me 50%, $0.029
+Tutor turn ran long, asking for a rewrite
+  before sam/voyager r0: 5 exchanges, earned, tell-me 17%, $0.133
+  today sam/immune r0: 5 exchanges, earned, tell-me 50%, $0.029
+Tutor turn ran long, asking for a rewrite
+  before sam/voyager r1: 5 exchanges, earned, tell-me 67%, $0.155
+  today sam/immune r1: 5 exchanges, earned, tell-me 50%, $0.029
+  before sam/immune r0: 5 exchanges, earned, tell-me 33%, $0.160
+  before sam/immune r1: 5 exchanges, earned, tell-me 50%, $0.133
+Judging 16 pairs with claude-fable-5-1
+  before vs today nico/octopus/1: before (slight)
+  before vs today nico/octopus/0: before (slight)
+  before vs today nico/lighthouse/1: before (slight)
+  before vs today nico/lighthouse/0: today (slight)
+  before vs today maya/lighthouse/0: before (clear)
+  before vs today maya/bee-dance/0: today (clear)
+  before vs today maya/bee-dance/1: before (clear)
+  before vs today maya/lighthouse/1: before (slight)
+  before vs today ava/voyager/1: today (clear)
+  before vs today theo/bee-dance/0: before (slight)
+  before vs today theo/bee-dance/1: before (slight)
+  before vs today ava/voyager/0: today (clear)
+  before vs today sam/voyager/1: before (slight)
+  before vs today sam/immune/0: before (clear)
+  before vs today sam/voyager/0: before (slight)
+  before vs today sam/immune/1: before (slight)
+
+Summary: eval-results/2026-11-07T22-28-51-310Z-voice/summary.md
+Blind pairs for a person: eval-results/2026-11-07T22-28-51-310Z-voice/pairs.md

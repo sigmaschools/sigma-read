@@ -1,0 +1,1394 @@
+[
+ {
+  "case": "nico/octopus/0",
+  "kid": "nico",
+  "article": "octopus",
+  "level": 1,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A has the tutor's own reactions (\"It's basically a smoke bomb,\" \"I can barely keep track of one\") and never grades, though it hops from fact to fact after the kid's \"me too\" replies. B repeats \"Here's one I didn't expect… Wild, right?\" and the same \"Tell me…\" shape, praises answers (\"Ink clouds, nice trick!\"), and closes with a report card (\"Smart thinking!\").",
+   "a": {
+    "person": 4,
+    "keepTalking": 3,
+    "graderLines": 0,
+    "muddledLines": 2,
+    "worstLine": "Stuck, yep. The beak is the limit, so it has to find a bigger hole. If I were that octopus, I'd squirt ink and hope the fish got confused. It's basically a smoke bomb."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 3,
+    "muddledLines": 2,
+    "worstLine": "Hiding so fish can't find it is just right, and you picked the ink squirt as your octopus escape trick too. Smart thinking!"
+   }
+  }
+ },
+ {
+  "case": "nico/octopus/1",
+  "kid": "nico",
+  "article": "octopus",
+  "level": 1,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor has real reactions of their own: \"I keep picturing the rest of it just pouring through,\" \"Basically a smoke bomb,\" and \"I can't think why... so I'm making up reasons.\" It also builds on the kid's ideas, the beak test and spare hearts, and closes on the kid's idea instead of a recap. A repeats the same shape: \"Tell me which...,\" \"Wild, right?\" twice, and ends with a report-card summary. B still has some evaluative lines (\"Squishing is the right word,\" \"That's a good reason\") and abrupt topic hops to the ink and the suction cups.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "You picked no bones and the ink cloud, and I loved the idea of squeezing into your brother's room like an octopus."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 2,
+    "worstLine": "Fingers are good, but an octopus has eight arms with suction cups all over, and it uses them to grab food and hang on to rocks."
+   }
+  }
+ },
+ {
+  "case": "nico/lighthouse/0",
+  "kid": "nico",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "big",
+   "reason": "A builds on the kid's own five-flash pattern all the way through, ties it to the winding chain, and shares real reactions like \"I'd be holding on with one hand and wiping with the other,\" with no grading. B hops between topics, asks two things at once (\"Tell me how you'd feel, and what you'd do next\"), grades the kid (\"Checking the list is smart\"), and closes like a report card.",
+   "a": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 0,
+    "muddledLines": 1,
+    "worstLine": "Rocks is where a lighthouse earns its keep."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 3,
+    "worstLine": "You can fish, so you'd fit right in at a lighthouse, and you picked checking the list as your sailor move, which is just what the flash patterns were for."
+   }
+  }
+ },
+ {
+  "case": "nico/lighthouse/1",
+  "kid": "nico",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "big",
+   "reason": "A has its own reactions ('I'd lose track around three', 'I'd keep one hand on the rail') and follows the kid's 'gross' and 'my dad likes fish' remarks to a warm close. B runs the same 'Tell me what…' prompt every turn, steers the kid through a quiz chain, and ends grading the kid: 'Calling the flashes a code was a good way to see it.'",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 0,
+    "muddledLines": 0,
+    "worstLine": "Tell me what's the worst part of being out there in that storm."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 0,
+    "worstLine": "Calling the flashes a code was a good way to see it, and checking the list is just how a sailor would crack it and find out which lighthouse they were looking at."
+   }
+  }
+ },
+ {
+  "case": "maya/lighthouse/0",
+  "kid": "maya",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B builds on the kid's own ideas, from the birthday flash code to the dark climb where they lose count at 50, and ends with a personal 'I'd have done the same.' A keeps using the 'Imagine X and tell me Y' shape, jumps topics with 'Convince me why someone far from the sea should care,' never answers the pets question, and closes with a report-card summary.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "Your point that people in Kansas still depend on the keeper, because ships carry their food and clothes, is such a great reminder that one dim window could affect so many lives."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "You picked the right job to worry about."
+   }
+  }
+ },
+ {
+  "case": "maya/lighthouse/1",
+  "kid": "maya",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A builds on the kid's own Sparkle Tower and follows her questions (wet list, falling asleep, dropped rag) with its own reactions like \"Sparkle Tower. I'd know it anywhere.\" B hops topics (\"Now zoom out\", then a jump to the sailor scenario that skips her crash question), grades her with \"Good thinking about the late boat,\" and closes like a report card with \"says it all.\"",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "It is scary. Even a little soot on the glass made the light dimmer. Pick the chore you think mattered most and defend it."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "Two lighthouses sharing one pattern would be a real mix-up, which is why each one gets its own secret code, and your picture of a sailor grabbing the list and steering clear of the rocks says it all."
+   }
+  }
+ },
+ {
+  "case": "maya/bee-dance/0",
+  "kid": "maya",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B shares its own guesses ('my guess is she carries the sun's direction in her head'), tests the kid's afterimage idea with the tree-turn catch, and even corrects itself, while A runs the same 'reaction + Imagine/Convince me/Come up with' shape with graded praise ('that's your own guess, and it's a smart one', 'is perfect', 'clever backup plan'). B loses some ground by ending abruptly with 'That's it for this one' and ignoring the kid's von Frisch question.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "I love that idea, though I'm not sure the article says bees check each other; that's your own guess, and it's a smart one. Now convince me someone who's never seen a bee should care about this dance."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "That's it for this one. Thanks for talking it through with me."
+   }
+  }
+ },
+ {
+  "case": "maya/bee-dance/1",
+  "kid": "maya",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A follows the kid's own threads: the crowd theory becomes marked bees and then '5 and 5 against 7 or 8.' It also has real reactions ('which still amazes me,' 'the nearby patch doesn't get the big production') and corrects the Nobel year plainly. B leans on evaluations ('that's a great puzzle,' 'Your wasting-time idea is the heart of it'), hops to 'Zoom out' and to the bulldozed flowers, and closes with a summary that ignores the kid's energy question.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "The article doesn't say if they choose or just follow. Your crowd idea is your own theory, too."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 2,
+    "worstLine": "Your worry about tired bees makes the whole point click for me: a long waggle is basically a message saying the food just got way harder to reach, which is exactly why flowers near hives matter."
+   }
+  }
+ },
+ {
+  "case": "theo/bee-dance/0",
+  "kid": "theo",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B gives the kid concrete bee scenarios, such as tilting left of the sun or flowers far away, and adds the tutor's own reactions (\"I'd have been a doubter, honestly,\" \"I'm going to be watching for bees\"). A leans on approval (\"I like that,\" \"Good point\") and closes with a report-card-style summary (\"That chain you just laid out... is wild\"). B's repeated \"Say you're...\" frame is formulaic, but the kid stays more playful and engaged.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 3,
+    "muddledLines": 2,
+    "worstLine": "Say you told someone about this at dinner tonight, what would you want them to remember, and why?"
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 1,
+    "worstLine": "I'd have guessed nobody would think it mattered at first."
+   }
+  }
+ },
+ {
+  "case": "theo/bee-dance/1",
+  "kid": "theo",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A has its own reactions and moves around: \"A bee can't use a ruler, so she uses time spent shaking,\" a doubter role-play, and the chips-in-my-room exercise that catches and fixes the kid's misunderstanding of \"straight up.\" B falls into a \"Tell me...\" rhythm with grading remarks (\"That's a fair pick,\" \"That's it,\" \"Interesting guess\") and ends on a report-card summary.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Your answer about wanting a video to replay was my favorite part, because that's how you'd really check a bee."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 2,
+    "worstLine": "Now tell me what you think the writer most wanted you to take from all this, and whether you buy it."
+   }
+  }
+ },
+ {
+  "case": "ava/voyager/0",
+  "kid": "ava",
+  "article": "voyager",
+  "level": 5,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor builds a real line of thought with the kid, pushing back with \"So 'pointed at nothing' might cover almost everything on board\" and admitting \"I hadn't noticed that gap until you said it.\" A grades the kid (\"The pressure part is a great point,\" \"Your push-back on the record is a fair one\") and hops topics, jumping from engineer nerves to \"Pick the Voyager finding you think mattered most.\"",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 2,
+    "worstLine": "The pressure part is a great point. Quick check on the gravity piece, though: look at the slingshot sentence again and tell me what you think the planets are actually doing to the spacecraft's speed."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 1,
+    "worstLine": "A honk as a person deciding something is a better answer than I expected, and it makes me want to hear that track."
+   }
+  }
+ },
+ {
+  "case": "ava/voyager/1",
+  "kid": "ava",
+  "article": "voyager",
+  "level": 5,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor has real reactions of its own and pushes back on substance: \"here's what bugs me: whoever finds the record has never heard rain,\" and \"'empty' is the part I'd push on.\" It also ends on an image rather than a verdict. B hops topics with \"Connect that to the gold records for me,\" grades with \"That's a good call,\" and closes by summing up the kid's idea like a report card.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Rain is a smart way to say water without using words, since it's everywhere on Earth."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "Connect that to the gold records for me: why send a message to aliens from a spacecraft that was built to study particles?"
+   }
+  }
+ },
+ {
+  "case": "sam/voyager/0",
+  "kid": "sam",
+  "article": "voyager",
+  "level": 5,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "slight",
+   "reason": "B's tutor answers the kid's real questions honestly (\"The article doesn't say... As far as I know, decay is one of the more predictable things\"), catches the camera contradiction, and closes with its own image of a car horn after the heartbeat. Its steady stream of assignments (\"Make the case,\" \"Argue that it was a waste\") did get a \"this feels like a quiz lol.\" A follows the kid's record skepticism, but every turn ends in a \"Convince me / tell me / Connect that\" prompt, it drags in launch timing and Io as forced pivots, and it closes like a report card.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 1,
+    "muddledLines": 2,
+    "worstLine": "Commitment paying off in ways nobody planned is a great way to put it: the Io volcanoes were a surprise nobody could have aimed for, and I like that you're still holding out on whether the record earns its spot."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 3,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Here's the opposite case. The record will drift for tens of thousands of years before it nears another star. Argue that it was a waste to send it."
+   }
+  }
+ },
+ {
+  "case": "sam/voyager/1",
+  "kid": "sam",
+  "article": "voyager",
+  "level": 5,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor has real opinions of their own and challenges the kid's thinking: \"I'd still keep the heartbeat,\" \"Here's the problem I'd run into... Does that break your rule?\" and \"a harder-nosed answer than mine.\" A runs a thin \"[praise]. Tell me X.\" loop (\"Good question,\" \"that's a sharp way to see it,\" \"a great way to put it\") and closes on a report-card recap. B leans on \"Defend it / Walk me through\" phrasing and drifts into a tacked-on Io aside, but the kid gets a far livelier exchange.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Old data versus no data is a great way to put it."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 5,
+    "muddledLines": 2,
+    "worstLine": "It also fits how the article treats Io: nobody expected active volcanoes there, and they were the first ever seen beyond Earth."
+   }
+  }
+ },
+ {
+  "case": "sam/immune/0",
+  "kid": "sam",
+  "article": "immune",
+  "level": 6,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "B",
+   "margin": "big",
+   "reason": "A opens with a genuinely personal take and a useful correction ('The article calls it fast but blunt'), then collapses into repeating 'Say more, I want to hear this.' five times verbatim before a flat sign-off, which sounds like a script, not a person. B keeps following the kid's own ideas ('Kept notes...', 'Bankrupting yourself, ha'), though it slips into grading with 'Good catch' and 'Your redesign didn't suck'.",
+   "a": {
+    "person": 2,
+    "keepTalking": 1,
+    "graderLines": 0,
+    "muddledLines": 1,
+    "worstLine": "Say more, I want to hear this."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Good catch, the article never says what picks the survivors, and I don't know for sure either."
+   }
+  }
+ },
+ {
+  "case": "sam/immune/1",
+  "kid": "sam",
+  "article": "immune",
+  "level": 6,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-sonnet-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor has real reactions of its own: it can't decide whether the system is \"brilliant or just brute force,\" says \"One thing still bugs me,\" and honestly corrects the safety-check guess while leaving it open. It also builds on the kid's game analogies across turns. A repeats the \"[reaction]. ... tell me X\" shape nearly every turn and asks a double question in \"Tell me how that makes you see the 'most-wanted list' idea, and which kind of body...\"",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Tell me how that makes you see the 'most-wanted list' idea, and which kind of body would handle a brand-new germ better."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 5,
+    "muddledLines": 1,
+    "worstLine": "Use your game to explain why the flu shot gets redone every year, and don't use any science words."
+   }
+  }
+ },
+ {
+  "case": "nico/octopus/0",
+  "kid": "nico",
+  "article": "octopus",
+  "level": 1,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "big",
+   "reason": "A follows the kid's threads, like Tyler at recess and the fish swimming past a hidden octopus, and offers its own reactions such as 'I'd feel a little silly as that fish.' B repeats the 'Here's one I didn't expect... Wild, right?' template, grades with 'nice trick!' and 'is just right', and closes like a report card with 'Smart thinking!'",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 0,
+    "muddledLines": 1,
+    "worstLine": "I'm still picturing that octopus puddle sliding out of the jar, beak first."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Hiding so fish can't find it is just right, and you picked the ink squirt as your octopus escape trick too. Smart thinking!"
+   }
+  }
+ },
+ {
+  "case": "nico/octopus/1",
+  "kid": "nico",
+  "article": "octopus",
+  "level": 1,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A builds on the kid's answers (the beak, the couch, 'because its really big') and shares its own reactions, like 'Three hearts is weirder to me' and its guess about the eight arms. B repeats the same 'Tell me which... and why' and 'Wild, right?' shapes, hops between facts, and closes like a report card ('You picked no bones and the ink cloud').",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 0,
+    "muddledLines": 2,
+    "worstLine": "Under the couch cushions. Nobody would check there. And if your sister got close, you could squirt a dark ink cloud and slip away. That's what an octopus does to a hungry fish."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "You picked no bones and the ink cloud, and I loved the idea of squeezing into your brother's room like an octopus."
+   }
+  }
+ },
+ {
+  "case": "nico/lighthouse/0",
+  "kid": "nico",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "big",
+   "reason": "A builds on the kid's own 'five flashes' lighthouse and nap answer with real reactions ('I'd be setting an alarm', 'the 3 a.m. climb would be harder than the storm'). B hops from steps to walkway to codes to keeper kids, asks yes-bait like 'Pretty clever, right?', grades with 'Checking the list is smart', and closes like a report card.",
+   "a": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 1,
+    "worstLine": "A loud alarm and a nap. That might be the smartest plan a keeper ever had."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 3,
+    "worstLine": "You can fish, so you'd fit right in at a lighthouse, and you picked checking the list as your sailor move, which is just what the flash patterns were for."
+   }
+  }
+ },
+ {
+  "case": "nico/lighthouse/1",
+  "kid": "nico",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "big",
+   "reason": "B builds on the kid's own flash pattern, has its own reactions ('I'd be counting in the fog and lose track around seven', 'I'd be tempted too') and varies its moves. A repeats 'Imagine/Picture... tell me' nearly every turn, grades with 'A code is a great way to say it', and closes like a report card with 'Calling the flashes a code was a good way to see it'.",
+   "a": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Calling the flashes a code was a good way to see it, and checking the list is just how a sailor would crack it and find out which lighthouse they were looking at."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 0,
+    "muddledLines": 1,
+    "worstLine": "Or no lighthouse they know at all, which might be worse. So the nap is out. What gets me is that even a little soot on the glass made the light dimmer, so the keepers wiped it every single day. One smudge mattered."
+   }
+  }
+ },
+ {
+  "case": "maya/lighthouse/0",
+  "kid": "maya",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B follows Maya's ideas, such as her birthday flash pattern, the 3 a.m. climb and her soot question, offers its own takes (\"I think 3 a.m. on a quiet night is harder than the storm,\" \"I'd let someone else lick it first\") and closes warmly on her lighthouse. A repeats the \"Imagine/Picture... tell me\" shape, ignores the kid's last question about pets and ends with a report-card line praising her Kansas point.",
+   "a": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "Your point that people in Kansas still depend on the keeper, because ships carry their food and clothes, is such a great reminder that one dim window could affect so many lives."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Counting on your fingers is smart, though."
+   }
+  }
+ },
+ {
+  "case": "maya/lighthouse/1",
+  "kid": "maya",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor has its own reactions ('I'd want a rope on the kid at least,' 'I can't decide if that's sad or kind of cool') and follows the kid's questions. B leans on 'Imagine you're... tell me' prompts, grades ('Good thinking about the late boat'), and closes like a report card ('your picture... says it all').",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "Peeling glue is a good comparison. Even a little soot made the light dimmer. Say you missed one smudge. Walk me through what a sailor out in the dark would see."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 3,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Two lighthouses sharing one pattern would be a real mix-up, which is why each one gets its own secret code, and your picture of a sailor grabbing the list and steering clear of the rocks says it all."
+   }
+  }
+ },
+ {
+  "case": "maya/bee-dance/0",
+  "kid": "maya",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor brings real reactions of its own: it guesses at the vibration, plays the skeptic with \"bees just wiggle randomly. Convince me,\" and answers the farmer question with wildflower strips and rented hives. That outweighs its repetitive \"Say X. Tell me Y\" shape. B leans on grading (\"it's a smart one,\" \"is perfect,\" \"a clever backup plan\") and hops abruptly to \"convince me someone who's never seen a bee should care.\"",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Say your friend follows your dance and ends up in the wrong room. Walk me through what went wrong."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 5,
+    "muddledLines": 2,
+    "worstLine": "I love that idea, though I'm not sure the article says bees check each other; that's your own guess, and it's a smart one."
+   }
+  }
+ },
+ {
+  "case": "maya/bee-dance/1",
+  "kid": "maya",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor has real reactions of their own: \"she never sees the sun while she's dancing,\" playing the skeptic with \"bugs can't give directions,\" and guessing why bees repeat the dance. It also answers the kid's side questions and builds them into a growing map game. B leans on praise like \"that's a great puzzle\" and \"Your wasting-time idea is the heart of it,\" repeats the \"tell me what you think\" shape, and ends by summing up while ignoring the kid's energy question.",
+   "a": {
+    "person": 4,
+    "keepTalking": 5,
+    "graderLines": 2,
+    "muddledLines": 0,
+    "worstLine": "Window as the sun is a smart swap, and the whole room would see your backpack shimmy coming."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 2,
+    "worstLine": "Zoom out: imagine every bee in the hive could read that dance, and tell me what you think changes for the whole colony."
+   }
+  }
+ },
+ {
+  "case": "theo/bee-dance/0",
+  "kid": "theo",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A follows the kid's snack-code idea and pushes back with a real point of its own (\"I'd guess counting how long something lasts is easier by touch than judging speed\"), building a thread across turns. B hops topics every turn (wall map, then von Frisch, then dinner, then flowers, then crops) and leans on evaluative lines like \"Good point\" and \"I like that.\"",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "What I like is that you got there by noticing the dark changes what works."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 2,
+    "graderLines": 3,
+    "muddledLines": 3,
+    "worstLine": "Say you told someone about this at dinner tonight, what would you want them to remember, and why?"
+   }
+  }
+ },
+ {
+  "case": "theo/bee-dance/1",
+  "kid": "theo",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "big",
+   "reason": "B's tutor plays a stubborn doubter ('bugs can't give directions, they just follow smells. Convince me.') and gets the kid to design a smell-controlled experiment, ending on a personal keys joke. A repeats 'Tell me...' every turn, grades ('That's a fair pick,' 'Interesting guess'), and closes like a report card ('Your question about bees getting dizzy was a good one, and I liked that you picked...').",
+   "a": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Your question about bees getting dizzy was a good one, and I liked that you picked keeping the angle exact as the hardest part, since that's the piece that points the whole hive to the flowers."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 5,
+    "graderLines": 1,
+    "muddledLines": 0,
+    "worstLine": "Then I'm out of excuses. Same smell everywhere and they still pick the right patch, so it has to be the dance. That's the kind of test that turns doubters around."
+   }
+  }
+ },
+ {
+  "case": "ava/voyager/0",
+  "kid": "ava",
+  "article": "voyager",
+  "level": 5,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "big",
+   "reason": "B builds each turn from the kid's own idea, like the rain-vs-heartbeat point and the 'If none do... then how would you choose?' follow-up, and the tutor shares real positions ('That's where I came down too'). A grades out loud ('The pressure part is a great point,' 'Your push-back on the record is a fair one') and cycles through stock prompts ('Imagine you were an engineer... tell me', 'Pick the Voyager finding... convince me', 'Now picture the writer wrapping this up').",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 3,
+    "muddledLines": 2,
+    "worstLine": "Now picture the writer wrapping this up: tell me what you think they most wanted you to walk away with, and whether you buy it."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 5,
+    "graderLines": 1,
+    "muddledLines": 1,
+    "worstLine": "That's a real difference, and it changed how I think about the heartbeat."
+   }
+  }
+ },
+ {
+  "case": "ava/voyager/1",
+  "kid": "ava",
+  "article": "voyager",
+  "level": 5,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor brings real views of their own and builds on what the kid says, as in \"I don't think the heartbeat is the dishonest one... Rush hour is honest about now, and the heartbeat is honest about always\" and \"I land somewhere stranger: it feels sad and peaceful at once.\" B grades the kid (\"That's a good call\"), jumps topics (\"Connect that to the gold records for me\"), and ends by summing up the kid's idea, though A also falls into a repeated 'Picture X. Tell me Y.' pattern.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 1,
+    "worstLine": "You're the engineer now. Power's almost gone and one more instrument has to go dark. Walk me through how you decide which one."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Connect that to the gold records for me: why send a message to aliens from a spacecraft that was built to study particles?"
+   }
+  }
+ },
+ {
+  "case": "sam/voyager/0",
+  "kid": "sam",
+  "article": "voyager",
+  "level": 5,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor contributes their own thoughts, such as correcting the kid with \"plenty of the people who chose those sounds are still around\" and working out the 2150s window. It also drops the prompting after \"this feels like a quiz\" and ends on a warm callback to rush hour. A uses the same \"[reaction]. Tell me/Convince me/Connect...\" shape every turn and closes like a report card with \"is a great way to put it... I like that you're still holding out.\"",
+   "a": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "Okay, 'a lot of effort for a vibe' is fair, though the Voyagers also hold the title for farthest human-made thing, and nobody planned that with a vibe in mind. The article says the launch timing was no accident. Connect that planning to the record: what does it tell you about the people behind this?"
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Say you're one of them and power's dropping again. Walk me through how you'd decide what goes dark next."
+   }
+  }
+ },
+ {
+  "case": "sam/voyager/1",
+  "kid": "sam",
+  "article": "voyager",
+  "level": 5,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor has real stakes: he keeps the heartbeat, argues the letter 'did get sent', admits 'Fair, that one was a quiz', and corrects the alignment claim. Its main flaw is the repeated 'Make the case/Defend/Describe' ending. B's tutor mostly praises ('Good question', 'sharp way to see it', 'great way to put it'), misses the kid's wrong claim of 'zero spacecraft visits', and closes with a report-card recap.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Using what the article says about the launch timing, make the case for why."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "A traffic jam and an argument on a gold record would be a gloriously honest message to send the galaxy, and your 'old data versus no data' line stuck with me too, since it explains why a 40-year-old machine still matters."
+   }
+  }
+ },
+ {
+  "case": "sam/immune/0",
+  "kid": "sam",
+  "article": "immune",
+  "level": 6,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor brings real positions of their own and genuinely argues with the kid, as in \"I'd push on 'dumb,' though\" and the autoimmune memory-cell worry. B opens a grader line with \"Good catch,\" skips the kid's 'who decides 10 or 10,000' question, and ends on a report-card style reassurance, \"Your redesign didn't suck.\"",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "The flu disguise, which is exactly what the article describes."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Good catch, the article never says what picks the survivors, and I don't know for sure either."
+   }
+  }
+ },
+ {
+  "case": "sam/immune/1",
+  "kid": "sam",
+  "article": "immune",
+  "level": 6,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor takes real positions ('I lean toward the waste being the price of not knowing the menu'), admits limits ('I'd want a source'), and owns sloppy verbs, though nearly every turn ends in a formulaic 'Make the case…/Walk me through…' prompt. B grades the kid repeatedly ('Good question', 'You just spotted the trade-off', 'Wanted poster is a great way to put it') and ends on a summary.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 2,
+    "worstLine": "Here's a fact that's on the page: flu changes its surface so the memory cells walk right past it. Say you're a flu virus. Walk me through why that's smarter than just getting stronger."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Tell me how that makes you see the 'most-wanted list' idea, and which kind of body would handle a brand-new germ better."
+   }
+  }
+ },
+ {
+  "case": "nico/octopus/0",
+  "kid": "nico",
+  "article": "octopus",
+  "level": 1,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "big",
+   "reason": "A has its own reactions and follows the kid ('my blood is red' → 'Mine too. So that's one more way we're not octopuses'; 'Sneaky, not mean. I like that about it'; 'I'd be the rock'), and it closes warmly with no grading. B runs the same 'Here's one I didn't expect... Wild, right?' template twice, grades the kid ('nice trick!', 'just right', 'Smart thinking!'), and ends on a report-card summary.",
+   "a": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 0,
+    "muddledLines": 1,
+    "worstLine": "Mine too. So that's one more way we're not octopuses. The color trick is the other one I'd want: skin that turns rock-colored faster than a blink."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Hiding so fish can't find it is just right, and you picked the ink squirt as your octopus escape trick too. Smart thinking!"
+   }
+  }
+ },
+ {
+  "case": "nico/octopus/1",
+  "kid": "nico",
+  "article": "octopus",
+  "level": 1,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor brings its own thinking: making up a reason for three hearts, pushing back with 'I'd give the fish a break,' and 'Every trick in the article is about getting away, not fighting.' It also builds on the kid's answers. A repeats the 'Tell me which… and why' shape and 'Wild, right?', hops from the brother's room to the ink, and closes like a report card with 'You picked no bones and the ink cloud.'",
+   "a": {
+    "person": 2,
+    "keepTalking": 3,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "You picked no bones and the ink cloud, and I loved the idea of squeezing into your brother's room like an octopus."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 1,
+    "worstLine": "Blue blood might need extra pushing. I can't say you're wrong, since nobody in the article says. The color change is the one I'd want for myself. Under a second, and it just vanishes against the rock. Pick the octopus trick you'd want."
+   }
+  }
+ },
+ {
+  "case": "nico/lighthouse/0",
+  "kid": "nico",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "big",
+   "reason": "A follows the kid's own remarks ('thats a lot of stairs', 'storms r scary', 'i cant ride a bike yet') with real reactions of its own ('I'd want a storm now and then just to stay awake') and ends warmly. B skips past the kid's answers, grades with 'Checking the list is smart,' hops topics with 'Here's one I loved/didn't expect,' and closes with a report-card summary.",
+   "a": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 0,
+    "worstLine": "Neither could those keeper kids, probably. Nowhere to ride one on a rock in the ocean."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 3,
+    "worstLine": "You can fish, so you'd fit right in at a lighthouse, and you picked checking the list as your sailor move, which is just what the flash patterns were for."
+   }
+  }
+ },
+ {
+  "case": "nico/lighthouse/1",
+  "kid": "nico",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "big",
+   "reason": "B shares its own reactions (\"I'd take the hundred stairs over that any night,\" \"I'd want gloves\"), follows the kid's own question \"what did they eat,\" and closes on the kid's lighthouse rather than a verdict. A repeats \"Imagine/Picture... tell me\" every turn, offers praise (\"A code is a great way to say it\"), and ends with a report-card summary.",
+   "a": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Calling the flashes a code was a good way to see it, and checking the list is just how a sailor would crack it and find out which lighthouse they were looking at."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 0,
+    "muddledLines": 1,
+    "worstLine": "Black soot every morning, from a lamp that burned oil all night. The lamp was inside a glass lens shaped like a beehive, so you'd be wiping the inside of a giant glass beehive. I'd want gloves. Tell me the one chore from the whole job you'd pick, if you had to do just one."
+   }
+  }
+ },
+ {
+  "case": "maya/lighthouse/0",
+  "kid": "maya",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B has its own reactions ('I expected the light to just mean \"rocks here,\" not \"you are here\"'), pushes back ('Here's my worry… Convince me five quick flashes is enough'), and builds on the kid's ideas from flash pattern to sticker chart. A repeats the 'Imagine X and tell me Y' shape, jumps topics ('Convince me why someone far from the sea…'), skips the pets question, and ends on a report-card summary.",
+   "a": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "Your point that people in Kansas still depend on the keeper, because ships carry their food and clothes, is such a great reminder that one dim window could affect so many lives."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Your \"wait and count again\" point is fair. Sailors had all night. Now the other chore: soot on the glass."
+   }
+  }
+ },
+ {
+  "case": "maya/lighthouse/1",
+  "kid": "maya",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "big",
+   "reason": "B has opinions of its own (\"I think I'd take it for a summer, not a childhood,\" \"Fruit on the first day, candy the second. That's my order\"), follows the kid's rope and scurvy tangents, and varies its prompts. A keeps repeating \"Imagine you're... tell me,\" says \"Good thinking about the late boat,\" and ends on a report-card summary.",
+   "a": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 2,
+    "muddledLines": 2,
+    "worstLine": "Two lighthouses sharing one pattern would be a real mix-up, which is why each one gets its own secret code, and your picture of a sailor grabbing the list and steering clear of the rocks says it all."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 5,
+    "graderLines": 1,
+    "muddledLines": 0,
+    "worstLine": "You made the case and then argued it back yourself."
+   }
+  }
+ },
+ {
+  "case": "maya/bee-dance/0",
+  "kid": "maya",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor brings their own puzzles and reactions (\"What I can't picture is the 'a little sideways' part,\" \"I doubt they count miles\") and builds steadily through the article. B grades often (\"it's a smart one,\" \"is perfect,\" \"a clever backup plan\") and hops from the crowd idea straight to \"convince me someone who's never seen a bee should care.\"",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "1973, and you caught it yourself. Fine."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 2,
+    "worstLine": "I love that idea, though I'm not sure the article says bees check each other; that's your own guess, and it's a smart one."
+   }
+  }
+ },
+ {
+  "case": "maya/bee-dance/1",
+  "kid": "maya",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A has its own reactions and follows the kid. It catches the flaw in the kid's 'wiggle super big' plan (a longer waggle would signal farther flowers) and builds the doubter-then-von Frisch exchange from the kid's own lines. B stays thinner and more formulaic ('Zoom out: imagine...', 'Ooh, that's a great puzzle') and ends with a report-card wrap-up about the kid's 'worry about tired bees.'",
+   "a": {
+    "person": 4,
+    "keepTalking": 5,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "The empty snack cupboard is a good way to say it."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Ooh, that's a great puzzle, and I don't think the article says how she knows."
+   }
+  }
+ },
+ {
+  "case": "theo/bee-dance/0",
+  "kid": "theo",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B has its own voice and follows the kid: the 'I've met that dog' riff, the 'pointed at the fries' reply, and a real answer to the kid's own question about reading the dance now. A repeats the same '[reaction]. Tell me why...' shape every turn, hops from the dinner prompt to protecting flowers, and closes with a report-card line: 'That chain you just laid out... is wild.'",
+   "a": {
+    "person": 3,
+    "keepTalking": 2,
+    "graderLines": 3,
+    "muddledLines": 2,
+    "worstLine": "That chain you just laid out, flowers to bees to pollinating to food, is wild, because a tiny dance in a dark hive ends up connected to what ends up on our plates."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 0,
+    "worstLine": "As far as the article goes, yes."
+   }
+  }
+ },
+ {
+  "case": "theo/bee-dance/1",
+  "kid": "theo",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A keeps bringing its own reactions ('That's the piece I had to read twice', 'If I were a bee I'd want every trip spelled out') and follows the kid to crows, ending warmly. B grades the kid repeatedly ('That's a fair pick', 'Interesting guess, though the article doesn't say that') and closes with a report card ('Your question... was a good one, and I liked that you picked...').",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 0,
+    "worstLine": "The kitchen is a good way to put it."
+   },
+   "b": {
+    "person": 2,
+    "keepTalking": 2,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Your question about bees getting dizzy was a good one, and I liked that you picked keeping the angle exact as the hardest part, since that's the piece that points the whole hive to the flowers."
+   }
+  }
+ },
+ {
+  "case": "ava/voyager/0",
+  "kid": "ava",
+  "article": "voyager",
+  "level": 5,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor brings real feelings of their own (\"I can't decide if that's hopeful or a little lonely,\" \"it isn't lost, it's quiet\") and builds on the kid's crowd image, which it echoes at the close. A repeats a \"[reaction]. Imagine/Pick X and tell me Y\" shape every turn and grades the kid outright (\"The pressure part is a great point,\" \"Your push-back on the record is a fair one\").",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 3,
+    "muddledLines": 2,
+    "worstLine": "The pressure part is a great point. Quick check on the gravity piece, though: look at the slingshot sentence again and tell me what you think the planets are actually doing to the spacecraft's speed."
+   },
+   "b": {
+    "person": 5,
+    "keepTalking": 4,
+    "graderLines": 1,
+    "muddledLines": 1,
+    "worstLine": "And a quiet thing the article says in passing is that this mission was planned for about five years, and here we are near fifty. Make the case that the engineers secretly built it to outlast the plan."
+   }
+  }
+ },
+ {
+  "case": "ava/voyager/1",
+  "kid": "ava",
+  "article": "voyager",
+  "level": 5,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor has real stakes: preferring laughing, then conceding 'That's a better argument than mine,' and following the rain idea for three turns. A runs the same 'Imagine/Explain/Tell me/Connect that' drill every turn and jumps abruptly to the gold records. B still grades too much ('Rain is a strong pick,' 'cold call and I think it's the right one') and hops topics late.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 2,
+    "muddledLines": 1,
+    "worstLine": "That's a good call, the camera has nothing left to point at out there."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 3,
+    "muddledLines": 2,
+    "worstLine": "Sound plus picture, so one explains the other. The record already carries images alongside the sounds, so you've landed on the same idea the people who built it had."
+   }
+  }
+ },
+ {
+  "case": "sam/voyager/0",
+  "kid": "sam",
+  "article": "voyager",
+  "level": 5,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor brings their own stakes. Lines like \"Your subway is Earth on a Tuesday,\" \"I'd worry an alien hears it and decides to skip us,\" and \"I don't have a defense for that either\" make the kid want to keep talking. A runs a steady 'Fair, but… tell me/connect X' routine and ends on a report-card line, \"is a great way to put it… I like that you're still holding out.\" B does hop topics a few times and echoes the kid's phrases often, but it still feels like a person.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 1,
+    "muddledLines": 2,
+    "worstLine": "Commitment paying off in ways nobody planned is a great way to put it: the Io volcanoes were a surprise nobody could have aimed for, and I like that you're still holding out on whether the record earns its spot."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 2,
+    "muddledLines": 3,
+    "worstLine": "I'll add one thing: the whole trip only worked because the outer planets lined up once in 175 years and somebody caught it. Convince me that was skill and not luck."
+   }
+  }
+ },
+ {
+  "case": "sam/voyager/1",
+  "kid": "sam",
+  "article": "voyager",
+  "level": 5,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor has real positions and defends or concedes them: \"it was for us,\" \"That one's on me,\" and splitting the mission from the prayer. A runs the same \"[praise]. Tell me...\" loop (\"Good question,\" \"that's a sharp way to see it,\" \"a great way to put it\") and closes like a report card. B still slips into evaluating (\"Rain's a strong one,\" \"better name than NASA did\") and invents claims the article doesn't make, such as the engine line and the team decision.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 0,
+    "worstLine": "A traffic jam and an argument on a gold record would be a gloriously honest message to send the galaxy, and your 'old data versus no data' line stuck with me too, since it explains why a 40-year-old machine still matters."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "The article says Voyager never had much of an engine anyway, it borrowed speed from the planets, so by your test it stopped being a spacecraft around Neptune."
+   }
+  }
+ },
+ {
+  "case": "sam/immune/0",
+  "kid": "sam",
+  "article": "immune",
+  "level": 6,
+  "run": 0,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor brings its own views ('I keep flipping on whether that's brilliant', 'loyalty or something a bit grim'), flags its outside knowledge honestly, and recovers well when the kid says 'this feels like a quiz lol.' A runs the same react-then-assign shape every turn ('Explain to me…', 'Take a guess…', 'convince me') and closes with a reassuring summary of the kid's ideas.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Explain to me how you think that actually works, using what the article says about how the response goes."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 4,
+    "muddledLines": 2,
+    "worstLine": "Say you're one of those matching cells. Describe the moment the germ finally shows up."
+   }
+  }
+ },
+ {
+  "case": "sam/immune/1",
+  "kid": "sam",
+  "article": "immune",
+  "level": 6,
+  "run": 1,
+  "base": "today",
+  "other": "sigma-fable-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B's tutor brings real opinions of its own: it concedes the kid's point (\"so I'll concede it\"), owns up when the kid calls a question quiz-like (\"Fair. That one was sitting right there\"), and offers outside knowledge with honest hedges. A runs the same \"Say X: tell me Y\" routine and opens with a generic \"Pick a fact... tell me why.\" B still slips into grading at times (\"Catching your own contradiction is more than most people do\"), and its prompt asking why the flu's delay \"still counts as a win for the virus\" muddles its own argument.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Pick a fact from the article that stands out to you and tell me why."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "graderLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Catching your own contradiction is more than most people do, and I think the way out is yours."
+   }
+  }
+ }
+]

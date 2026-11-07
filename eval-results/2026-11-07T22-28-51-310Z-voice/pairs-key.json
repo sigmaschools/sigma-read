@@ -1,0 +1,98 @@
+[
+ {
+  "pair": 1,
+  "A": "today",
+  "B": "before",
+  "judge": "B"
+ },
+ {
+  "pair": 2,
+  "A": "today",
+  "B": "before",
+  "judge": "B"
+ },
+ {
+  "pair": 3,
+  "A": "today",
+  "B": "before",
+  "judge": "A"
+ },
+ {
+  "pair": 4,
+  "A": "today",
+  "B": "before",
+  "judge": "B"
+ },
+ {
+  "pair": 5,
+  "A": "before",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 6,
+  "A": "before",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 7,
+  "A": "before",
+  "B": "today",
+  "judge": "B"
+ },
+ {
+  "pair": 8,
+  "A": "today",
+  "B": "before",
+  "judge": "B"
+ },
+ {
+  "pair": 9,
+  "A": "today",
+  "B": "before",
+  "judge": "B"
+ },
+ {
+  "pair": 10,
+  "A": "today",
+  "B": "before",
+  "judge": "B"
+ },
+ {
+  "pair": 11,
+  "A": "before",
+  "B": "today",
+  "judge": "B"
+ },
+ {
+  "pair": 12,
+  "A": "today",
+  "B": "before",
+  "judge": "A"
+ },
+ {
+  "pair": 13,
+  "A": "today",
+  "B": "before",
+  "judge": "B"
+ },
+ {
+  "pair": 14,
+  "A": "before",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 15,
+  "A": "before",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 16,
+  "A": "before",
+  "B": "today",
+  "judge": "A"
+ }
+]

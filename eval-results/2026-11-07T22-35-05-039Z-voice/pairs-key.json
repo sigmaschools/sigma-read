@@ -1,0 +1,290 @@
+[
+ {
+  "pair": 1,
+  "A": "sigma-sonnet-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 2,
+  "A": "today",
+  "B": "sigma-sonnet-low",
+  "judge": "B"
+ },
+ {
+  "pair": 3,
+  "A": "sigma-sonnet-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 4,
+  "A": "sigma-sonnet-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 5,
+  "A": "today",
+  "B": "sigma-sonnet-low",
+  "judge": "B"
+ },
+ {
+  "pair": 6,
+  "A": "sigma-sonnet-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 7,
+  "A": "today",
+  "B": "sigma-sonnet-low",
+  "judge": "B"
+ },
+ {
+  "pair": 8,
+  "A": "sigma-sonnet-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 9,
+  "A": "today",
+  "B": "sigma-sonnet-low",
+  "judge": "B"
+ },
+ {
+  "pair": 10,
+  "A": "sigma-sonnet-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 11,
+  "A": "today",
+  "B": "sigma-sonnet-low",
+  "judge": "B"
+ },
+ {
+  "pair": 12,
+  "A": "sigma-sonnet-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 13,
+  "A": "today",
+  "B": "sigma-sonnet-low",
+  "judge": "B"
+ },
+ {
+  "pair": 14,
+  "A": "today",
+  "B": "sigma-sonnet-low",
+  "judge": "B"
+ },
+ {
+  "pair": 15,
+  "A": "sigma-sonnet-low",
+  "B": "today",
+  "judge": "B"
+ },
+ {
+  "pair": 16,
+  "A": "today",
+  "B": "sigma-sonnet-low",
+  "judge": "B"
+ },
+ {
+  "pair": 17,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 18,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 19,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 20,
+  "A": "today",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 21,
+  "A": "today",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 22,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 23,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 24,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 25,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 26,
+  "A": "today",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 27,
+  "A": "today",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 28,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 29,
+  "A": "today",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 30,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 31,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 32,
+  "A": "sigma-opus-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 33,
+  "A": "sigma-fable-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 34,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 35,
+  "A": "sigma-fable-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 36,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 37,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 38,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 39,
+  "A": "sigma-fable-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 40,
+  "A": "sigma-fable-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 41,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 42,
+  "A": "sigma-fable-low",
+  "B": "today",
+  "judge": "A"
+ },
+ {
+  "pair": 43,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 44,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 45,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 46,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 47,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ },
+ {
+  "pair": 48,
+  "A": "today",
+  "B": "sigma-fable-low",
+  "judge": "B"
+ }
+]

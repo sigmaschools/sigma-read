@@ -1,0 +1,127 @@
+
+> sigma-reader-app@0.1.0 eval:voice
+> tsx --require ./scripts/md-require.cjs scripts/eval-voice.ts --configs=today,sigma-sonnet-low,sigma-opus-low,sigma-fable-low --runs=2 --judge=claude-opus-5-5
+
+Warning: the judge (claude-opus-5-5) is also a candidate; pass --judge=<other model> for a clean comparison
+Running 64 conversations (16 cases x 4 setups) → eval-results/2026-11-07T22-35-05-039Z-voice
+  today nico/octopus r0: 6 exchanges, forced, tell-me 57%, $0.026
+Tutor turn ended in a question where a directive was expected, asking for a rewrite
+  today nico/octopus r1: 6 exchanges, forced, tell-me 57%, $0.028
+  sigma-fable-low nico/octopus r0: 8 exchanges, forced, tell-me 11%, $0.176
+  sigma-opus-low nico/octopus r0: 8 exchanges, forced, tell-me 56%, $0.107
+  sigma-sonnet-low nico/octopus r0: 8 exchanges, forced, tell-me 0%, $0.085
+  today nico/lighthouse r0: 6 exchanges, forced, tell-me 57%, $0.028
+  sigma-sonnet-low nico/octopus r1: 8 exchanges, forced, tell-me 11%, $0.073
+  sigma-opus-low nico/octopus r1: 8 exchanges, forced, tell-me 11%, $0.086
+  sigma-fable-low nico/octopus r1: 8 exchanges, forced, tell-me 22%, $0.126
+  today nico/lighthouse r1: 6 exchanges, forced, tell-me 57%, $0.028
+  sigma-opus-low nico/lighthouse r0: 8 exchanges, forced, tell-me 22%, $0.107
+  sigma-fable-low nico/lighthouse r0: 8 exchanges, forced, tell-me 0%, $0.183
+  sigma-sonnet-low nico/lighthouse r0: 8 exchanges, forced, tell-me 22%, $0.090
+  sigma-sonnet-low nico/lighthouse r1: 8 exchanges, forced, tell-me 22%, $0.081
+  today maya/lighthouse r0: 5 exchanges, earned, tell-me 50%, $0.017
+  sigma-opus-low nico/lighthouse r1: 8 exchanges, forced, tell-me 11%, $0.096
+  sigma-fable-low nico/lighthouse r1: 8 exchanges, forced, tell-me 22%, $0.155
+Tutor turn ended in a question where a directive was expected, asking for a rewrite
+  today maya/lighthouse r1: 5 exchanges, earned, tell-me 50%, $0.031
+  sigma-sonnet-low maya/lighthouse r0: 6 exchanges, earned, tell-me 0%, $0.066
+  sigma-fable-low maya/lighthouse r0: 8 exchanges, forced, tell-me 44%, $0.207
+  sigma-opus-low maya/lighthouse r0: 8 exchanges, forced, tell-me 22%, $0.133
+  sigma-opus-low maya/lighthouse r1: 7 exchanges, earned, tell-me 13%, $0.100
+  today maya/bee-dance r0: 5 exchanges, earned, tell-me 17%, $0.029
+  sigma-sonnet-low maya/lighthouse r1: 8 exchanges, forced, tell-me 44%, $0.106
+  sigma-fable-low maya/lighthouse r1: 8 exchanges, forced, tell-me 33%, $0.201
+Tutor turn ended in a question where a directive was expected, asking for a rewrite
+  today maya/bee-dance r1: 5 exchanges, earned, tell-me 67%, $0.031
+  sigma-sonnet-low maya/bee-dance r0: 8 exchanges, forced, tell-me 33%, $0.104
+  sigma-opus-low maya/bee-dance r0: 8 exchanges, forced, tell-me 22%, $0.137
+  sigma-fable-low maya/bee-dance r0: 8 exchanges, forced, tell-me 11%, $0.262
+Tutor turn ended in a question where a directive was expected, asking for a rewrite
+  today theo/bee-dance r0: 6 exchanges, earned, tell-me 57%, $0.020
+  sigma-sonnet-low maya/bee-dance r1: 8 exchanges, forced, tell-me 11%, $0.112
+  sigma-opus-low maya/bee-dance r1: 8 exchanges, forced, tell-me 22%, $0.131
+  sigma-sonnet-low theo/bee-dance r0: 6 exchanges, earned, tell-me 29%, $0.059
+  sigma-fable-low maya/bee-dance r1: 8 exchanges, forced, tell-me 33%, $0.261
+  today theo/bee-dance r1: 6 exchanges, forced, tell-me 71%, $0.029
+  sigma-opus-low theo/bee-dance r0: 8 exchanges, forced, tell-me 11%, $0.108
+  sigma-fable-low theo/bee-dance r0: 8 exchanges, forced, tell-me 33%, $0.164
+  sigma-opus-low theo/bee-dance r1: 6 exchanges, earned, tell-me 29%, $0.074
+  sigma-sonnet-low theo/bee-dance r1: 8 exchanges, forced, tell-me 11%, $0.094
+  today ava/voyager r0: 6 exchanges, earned, tell-me 57%, $0.032
+  sigma-fable-low theo/bee-dance r1: 5 exchanges, earned, tell-me 17%, $0.102
+  today ava/voyager r1: 5 exchanges, earned, tell-me 33%, $0.028
+  sigma-opus-low ava/voyager r0: 5 exchanges, earned, tell-me 0%, $0.082
+  sigma-sonnet-low ava/voyager r0: 6 exchanges, earned, tell-me 14%, $0.076
+  sigma-fable-low ava/voyager r0: 8 exchanges, forced, tell-me 11%, $0.228
+  sigma-sonnet-low ava/voyager r1: 6 exchanges, earned, tell-me 29%, $0.077
+  sigma-fable-low ava/voyager r1: 5 exchanges, earned, tell-me 17%, $0.111
+Tutor turn ended in a closed question, asking for a rewrite
+  today sam/voyager r0: 5 exchanges, earned, tell-me 50%, $0.021
+  sigma-opus-low ava/voyager r1: 8 exchanges, forced, tell-me 22%, $0.129
+  today sam/voyager r1: 5 exchanges, earned, tell-me 67%, $0.029
+  sigma-sonnet-low sam/voyager r0: 7 exchanges, earned, tell-me 13%, $0.099
+  sigma-opus-low sam/voyager r0: 8 exchanges, forced, tell-me 11%, $0.147
+  sigma-fable-low sam/voyager r0: 7 exchanges, earned, tell-me 25%, $0.191
+  sigma-sonnet-low sam/voyager r1: 8 exchanges, forced, tell-me 11%, $0.098
+  today sam/immune r0: 5 exchanges, earned, tell-me 33%, $0.029
+  sigma-opus-low sam/voyager r1: 8 exchanges, forced, tell-me 0%, $0.150
+  sigma-fable-low sam/voyager r1: 8 exchanges, forced, tell-me 33%, $0.259
+  sigma-sonnet-low sam/immune r0: 8 exchanges, earned, tell-me 0%, $0.076
+  today sam/immune r1: 5 exchanges, earned, tell-me 67%, $0.029
+  sigma-opus-low sam/immune r0: 8 exchanges, earned, tell-me 0%, $0.155
+  sigma-fable-low sam/immune r0: 8 exchanges, forced, tell-me 11%, $0.283
+  sigma-sonnet-low sam/immune r1: 8 exchanges, forced, tell-me 0%, $0.105
+  sigma-opus-low sam/immune r1: 8 exchanges, forced, tell-me 0%, $0.158
+  sigma-fable-low sam/immune r1: 8 exchanges, earned, tell-me 33%, $0.267
+Judging 48 pairs with claude-opus-5-5
+  sigma-sonnet-low vs today nico/lighthouse/1: sigma-sonnet-low (big)
+  sigma-sonnet-low vs today nico/lighthouse/0: sigma-sonnet-low (big)
+  sigma-sonnet-low vs today nico/octopus/0: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today nico/octopus/1: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today maya/lighthouse/1: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today maya/lighthouse/0: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today maya/bee-dance/0: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today maya/bee-dance/1: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today theo/bee-dance/1: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today theo/bee-dance/0: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today ava/voyager/0: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today ava/voyager/1: sigma-sonnet-low (clear)
+  sigma-sonnet-low vs today sam/voyager/0: sigma-sonnet-low (slight)
+  sigma-sonnet-low vs today sam/immune/0: today (big)
+  sigma-sonnet-low vs today sam/voyager/1: sigma-sonnet-low (clear)
+  sigma-opus-low vs today nico/octopus/0: sigma-opus-low (big)
+  sigma-opus-low vs today nico/octopus/1: sigma-opus-low (clear)
+  sigma-sonnet-low vs today sam/immune/1: sigma-sonnet-low (clear)
+  sigma-opus-low vs today nico/lighthouse/1: sigma-opus-low (big)
+  sigma-opus-low vs today nico/lighthouse/0: sigma-opus-low (big)
+  sigma-opus-low vs today maya/lighthouse/0: sigma-opus-low (clear)
+  sigma-opus-low vs today maya/lighthouse/1: sigma-opus-low (clear)
+  sigma-opus-low vs today maya/bee-dance/0: sigma-opus-low (clear)
+  sigma-opus-low vs today maya/bee-dance/1: sigma-opus-low (clear)
+  sigma-opus-low vs today theo/bee-dance/1: sigma-opus-low (big)
+  sigma-opus-low vs today theo/bee-dance/0: sigma-opus-low (clear)
+  sigma-opus-low vs today ava/voyager/0: sigma-opus-low (big)
+  sigma-opus-low vs today ava/voyager/1: sigma-opus-low (clear)
+  sigma-opus-low vs today sam/voyager/0: sigma-opus-low (clear)
+  sigma-opus-low vs today sam/voyager/1: sigma-opus-low (clear)
+  sigma-opus-low vs today sam/immune/0: sigma-opus-low (clear)
+  sigma-fable-low vs today nico/octopus/0: sigma-fable-low (big)
+  sigma-opus-low vs today sam/immune/1: sigma-opus-low (clear)
+  sigma-fable-low vs today nico/octopus/1: sigma-fable-low (clear)
+  sigma-fable-low vs today nico/lighthouse/0: sigma-fable-low (big)
+  sigma-fable-low vs today nico/lighthouse/1: sigma-fable-low (big)
+  sigma-fable-low vs today maya/lighthouse/0: sigma-fable-low (clear)
+  sigma-fable-low vs today maya/lighthouse/1: sigma-fable-low (big)
+  sigma-fable-low vs today maya/bee-dance/1: sigma-fable-low (clear)
+  sigma-fable-low vs today maya/bee-dance/0: sigma-fable-low (clear)
+  sigma-fable-low vs today theo/bee-dance/1: sigma-fable-low (clear)
+  sigma-fable-low vs today theo/bee-dance/0: sigma-fable-low (clear)
+  sigma-fable-low vs today ava/voyager/1: sigma-fable-low (clear)
+  sigma-fable-low vs today ava/voyager/0: sigma-fable-low (clear)
+  sigma-fable-low vs today sam/voyager/1: sigma-fable-low (clear)
+  sigma-fable-low vs today sam/voyager/0: sigma-fable-low (clear)
+  sigma-fable-low vs today sam/immune/0: sigma-fable-low (clear)
+  sigma-fable-low vs today sam/immune/1: sigma-fable-low (clear)
+
+Summary: eval-results/2026-11-07T22-35-05-039Z-voice/summary.md
+Blind pairs for a person: eval-results/2026-11-07T22-35-05-039Z-voice/pairs.md
