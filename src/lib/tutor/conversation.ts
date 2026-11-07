@@ -55,13 +55,13 @@ export async function sigmaExchange(args: SigmaExchangeArgs): Promise<SigmaExcha
     : args.previousNotes?.done ? "earned"
     : exchanges >= MAX_EXCHANGES ? "forced"
     : null;
-  const tutorModel = args.tutorModel ?? MODELS.tutor;
+  const tutorModel = args.tutorModel ?? MODELS.sigmaTutor;
   const systemBlocks = sigmaSystemBlocks({ articleTitle: args.articleTitle, articleText: args.articleText, level: args.level, notes: args.guideNotes });
 
   const turnPromise = runSigmaTurn({
     client: args.tutorClient,
     model: tutorModel,
-    settings: args.tutorSettings ?? requestSettings(tutorModel, "tutor"),
+    settings: args.tutorSettings ?? requestSettings(tutorModel, "sigmaTutor"),
     systemBlocks,
     guideNotes: args.guideNotes,
     messages: args.messages,

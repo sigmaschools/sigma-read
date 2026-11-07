@@ -1,6 +1,6 @@
 # The redesigned tutor ("Sigma", `src/lib/tutor/`)
 
-*Written 7 November 2026. Status: built behind a switch, being evaluated. The production tutor ("classic") is unchanged and remains the default.*
+*Written 7 November 2026. Status: built behind a switch; the voice eval (below) picked Claude Opus 5.5 at low effort (`MODELS.sigmaTutor`). The production tutor ("classic") is unchanged and remains the default until `TUTOR_DESIGN=sigma` is set.*
 
 ## Why
 
@@ -35,6 +35,19 @@ The chat route answers with server-sent events when the client sends `Accept: te
 
 Setups: `today` (classic, Sonnet 5.5 thinking off), `before` (classic, Opus 4.6), `classic-opus-low`, `sigma-sonnet-low`, `sigma-opus-low`, `sigma-opus-medium`, `sigma-fable-low`, `sigma-opus-low-nonotes`. Pass `--judge=` when the judge model is also a candidate.
 
-## Cost (estimates until measured)
+## Results (7 November 2026)
 
-Per conversation of about eight tutor turns on a cached system prompt of about 6,000 tokens (character, examples, article, notes) plus the observer: Sonnet 5.5 about $0.10, Opus 5.5 about $0.15, Fable 5.1 about $0.36. Prep notes about $0.05 per base article, shared by every reader. Today's classic tutor on Sonnet 5.5 is about $0.05.
+Two runs in the cloud, 96 conversations, kids played by Claude Sonnet 4.6, each pair (same kid, article and run) judged blind. Result files on branch `eval/voice-results-2026-11-07`.
+
+**Baseline.** Judged by Claude Fable 5.1, the old tutor (`before`: Opus 4.6, same prompt) beat `today` 12–4 over 16 pairs, for the reasons seen live: one repeated shape, grading out loud, report-card closings. So the eval sees the decline.
+
+**Candidates** (judge Claude Opus 5.5, 16 pairs each against `today`):
+
+| Setup | Wins vs today | Person /5 | Keep talking /5 | Rewrites | "tell me" | Grader lines | Repeated opener | Median reply | Cost / conversation |
+|---|---|---|---|---|---|---|---|---|---|
+| today (classic, Sonnet 5.5, thinking off) | - | 2.6 | 2.6 | 0 | 53% | 17% | 17% | 1.8 s | $0.027 |
+| sigma, Sonnet 5.5, low | 15–1 | 4.0 | 3.7 | 7 | 16% | 4% | 40% | 2.8 s | $0.088 |
+| **sigma, Opus 5.5, low** | **16–0** | 4.3 | 4.2 | 1 | 16% | 2% | 28% | 2.5 s | **$0.119** |
+| sigma, Fable 5.1, low | 16–0 | 4.4 | 4.1 | 0 | 22% | 4% | 24% | 2.7 s | $0.199 |
+
+Cost is tutor plus observer with prompt caching as the API reported it; prep notes added about $0.02 per article, once for every reader. Opus 5.5 at low effort was chosen: never lost, one rewrite in 16 conversations, within the $0.15 budget; Fable read the same for two thirds more. Caveats: Opus 5.5 was both judge and a candidate (Sonnet and Fable won almost as often under it, so the direction holds, the Opus–Sonnet gap is less certain), and the kids are simulated. The one pattern that got worse was the repeated opener: with prep notes, every conversation on an article opened from the same idea. `sigmaOpener` now draws the starting point and the way in per conversation; not yet re-measured.

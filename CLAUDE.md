@@ -56,7 +56,7 @@ docs/              # Product docs, conversation design, testing guides
 
 Additional rules:
 
-- **AI models**: one model per job in `src/lib/models.ts` (`MODELS.tutor`, `report`, `writer`, `standard`, `light`); never hardcode a model id in a route. Build requests with `forJob(job, body)` (or spread `requestSettings(model, job)`) so thinking/effort settings come along. Why each model was chosen, and how to re-test: `docs/ai-models.md`. The eval scripts pin their student simulator to a fixed model, so a model change in the app doesn't change the simulated students
+- **AI models**: one model per job in `src/lib/models.ts` (`MODELS.tutor`, `sigmaTutor`, `observer`, `report`, `writer`, `standard`, `light`); never hardcode a model id in a route. Build requests with `forJob(job, body)` (or spread `requestSettings(model, job)`) so thinking/effort settings come along. Why each model was chosen, and how to re-test: `docs/ai-models.md`. The eval scripts pin their student simulator to a fixed model, so a model change in the app doesn't change the simulated students
 - **Auth pattern**: Every API route checks `getSession()` first, returns 401 if missing
 - **All API routes**: Must `export const dynamic = "force-dynamic"` when authenticated
 - **Imports**: Use `@/` path alias (maps to `src/`)
