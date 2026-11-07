@@ -12,6 +12,7 @@
     "eval:articles": "tsx scripts/eval-articles.ts",
     "eval:repeats": "tsx scripts/eval-repeats.ts",
     "eval:reports": "tsx --require ./scripts/md-require.cjs scripts/eval-reports.ts",
+    "eval:voice": "tsx --require ./scripts/md-require.cjs scripts/eval-voice.ts",
     "test": "find src scripts -name '*.test.ts' -print0 | xargs -0 -n1 tsx"
   },
   "dependencies": {

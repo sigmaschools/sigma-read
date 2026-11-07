@@ -11,6 +11,9 @@ Last reviewed 4 Nov 2026. The source of truth is `src/lib/models.ts`; this page 
 | `writer` | base article and each level adaptation, once per article for all students | Claude Opus 5.5 | medium effort | Clearly the best articles: most accurate, best level fit, every length on target (test 3) |
 | `standard` | onboarding chat, coaching tip, word definitions, parent chat | Claude Sonnet 5.5 | thinking off | Short chat replies: fast, and the same model as the tutor |
 | `light` | duplicate check, source picking, content filter, web search step, topic tagging, interest matching, pre-reading prompt | Claude Haiku 5.5 | thinking off | Classification and picking; a tenth of the price of Haiku 4.5 |
+| `observer` | beside each turn of the redesigned tutor (`TUTOR_DESIGN=sigma`, [tutor-redesign.md](./tutor-redesign.md)): scores the student's message, keeps the running notes, decides when the talk is done | Claude Sonnet 5.5 | thinking off | The same scoring the tutor used to do inside its reply, on the same scale; not yet re-tested |
+
+The redesigned tutor's own model is chosen by `npm run eval:voice` (see [tutor-redesign.md](./tutor-redesign.md)); until that lands, `tutor` stays as below.
 
 Two cost levers apply to every job:
 
