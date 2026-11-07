@@ -33,6 +33,7 @@ import { parseSourcePick, type SearchResult } from "./source-pick";
 import { MODELS, requestSettings } from "../models";
 import { BASE_LEVEL, rewriteFromSource as writeBase, adaptArticleToLevel as writeAdaptation, type SourcedTopic } from "./article-writer";
 import { findDuplicate, type ExistingArticle } from "./dedup";
+import { writeGuideNotes } from "../tutor/guide-notes";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
 import { recentArticles, recentTopics } from "../recent-reading";
 import { interestCap, pickInterests } from "./plan-interests";
@@ -52,6 +53,11 @@ const LIGHT = { model: MODELS.light, ...requestSettings(MODELS.light, "light") }
 const rewriteFromSource = (topic: SourcedTopic) => writeBase(tracked(anthropic, "batch_rewrite"), topic);
 const adaptArticleToLevel = (title: string, body: string, level: number) =>
   writeAdaptation(tracked(anthropic, "batch_adapt"), title, body, level);
+/** Sigma's prep notes for a new base article, stored on its row; a failure leaves the tutor without notes, never without an article */
+const writeNotesFor = (cacheId: number, title: string, body: string) => quietly((async () => {
+  const notes = await writeGuideNotes(tracked(anthropic, "guide_notes"), title, body);
+  if (notes) await sql`UPDATE article_cache SET guide_notes = ${JSON.stringify(notes)}::jsonb WHERE id = ${cacheId}`;
+})(), "guide notes");
 const ADAPT_CONCURRENCY = 3;
 
 export interface BatchOptions {
@@ -940,6 +946,7 @@ async function runSteps(result: BatchResult) {
     result.baseArticles++;
     // The interest the batch searched for is the article's main topic; the rewrite's own tag is a fallback
     await quietly(tagCacheArticle(inserted.id, t.type === "news" ? [article.topic] : [t.query, article.topic], { client: anthropic }), "article tagging");
+    await writeNotesFor(inserted.id, article.title, article.bodyText);
     baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
     await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${t.query ?? null})`;
     console.log(`     ✅ "${article.title}" (source: ${t.sourceUrl.substring(0, 50)}...)`);
@@ -1037,6 +1044,7 @@ export async function writeInterestArticle(interest: string, level: number): Pro
       RETURNING id
     `;
     await quietly(tagCacheArticle(base.id, [interest, article.topic], { client: anthropic }), "article tagging");
+    await writeNotesFor(base.id, article.title, article.bodyText);
     await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${interest})`;
     // Tomorrow's batch rotates to the student's other interests first
     await sql`

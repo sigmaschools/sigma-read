@@ -14,6 +14,10 @@ export const MODELS = {
   standard: "claude-sonnet-5-5",
   /** Classification, picking, tagging, short summaries, web-search steps */
   light: "claude-haiku-5-5",
+  /** The observer beside the tutor: scores each student message and decides when the talk is done (src/lib/tutor/observer.ts) */
+  observer: "claude-sonnet-5-5",
+  /** The redesigned tutor (src/lib/tutor, behind TUTOR_DESIGN=sigma): thinks at low effort. Chosen by the 7 Nov 2026 voice eval (docs/tutor-redesign.md) */
+  sigmaTutor: "claude-opus-5-5",
 } as const;
 
 export type ModelJob = keyof typeof MODELS;
@@ -33,7 +37,8 @@ function settingsFor(model: string, job: ModelJob): {
   thinking?: { type: "between_tools" | "disabled" };
   output_config?: { effort: "low" | "medium" | "high" };
 } {
-  const think = job === "writer";
+  // The redesigned tutor thinks too: its reply is plain text that streams, so the wait is the first token, not the whole message
+  const think = job === "writer" || job === "sigmaTutor";
   // Articles are written once for every student: medium effort measurably improved them (docs/ai-models.md)
   if (model.startsWith("claude-opus-5")) return { output_config: { effort: job === "writer" ? "medium" : "low" } };
   if (model.startsWith("claude-sonnet-5")) return think ? { output_config: { effort: "low" } } : { thinking: { type: "between_tools" } };

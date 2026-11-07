@@ -4,15 +4,18 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
-import { tracked } from "@/lib/ai-usage";
+import { tracked, trackedStreaming } from "@/lib/ai-usage";
 import { comprehensionConversationPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt, maxWordsForLevel } from "@/lib/prompts";
 import { MODELS, forJob, requestSettings } from "@/lib/models";
 import { getStudentConversation } from "@/lib/ownership";
-import { runTutorTurn } from "@/lib/conversation-turn";
+import { runTutorTurn, type ClosingKind } from "@/lib/conversation-turn";
 import { saveComprehensionReport } from "@/lib/comprehension-report";
 import { stripMarkdown } from "@/lib/plain-text";
 import { safeComprehensionCompassReport } from "@/lib/compass-report-data";
 import { tutorInterestContext } from "@/lib/interest-graph";
+import { sigmaExchange } from "@/lib/tutor/conversation";
+import { guideNotesForArticle } from "@/lib/tutor/notes-store";
+import { tutorDesignForNewConversation, type TutorDesign } from "@/lib/tutor/design";
 
 const anthropic = new Anthropic();
 
@@ -35,6 +38,17 @@ function computeActiveDiscussionSeconds(msgs: { role: string; timestamp?: string
     }
   }
   return Math.round(activeMs / 1000);
+}
+
+type StoredMessage = { role: string; content: string; timestamp?: string; type?: string };
+
+/** What the client gets back after a turn; on the closing turn, the report block for Compass too */
+interface TurnResponse {
+  message: string;
+  complete: boolean;
+  progressScore: number;
+  coachingFeedback?: string | null;
+  compassReport?: object | null;
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -69,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // Build messages (with timestamps)
-  const messages = [...(conversation.messages || [])];
+  const messages: StoredMessage[] = [...(conversation.messages || [])];
   const now = new Date().toISOString();
   const isOpener = message === "__resume_check__" && messages.length === 0;
   if (!isOpener) {
@@ -79,63 +93,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const exchangeNumber = messages.filter(m => m.role === "user").length;
-
-  // Pick conversation style once per conversation, reuse on subsequent messages.
-  // A new one differs from the student's last conversation, so openers don't repeat back to back
-  let conversationStyle = conversation.conversationStyle;
-  if (!conversationStyle) {
-    const [last] = await db.select({ style: schema.conversations.conversationStyle })
-      .from(schema.conversations)
-      .innerJoin(schema.readingSessions, eq(schema.conversations.readingSessionId, schema.readingSessions.id))
-      .where(and(eq(schema.readingSessions.studentId, session.userId), ne(schema.conversations.id, conversationId)))
-      .orderBy(desc(schema.conversations.id))
-      .limit(1);
-    conversationStyle = pickConversationStyle(last?.style);
-  }
   const isTutorial = article.category === "tutorial";
-  // Compass's interest summary for a student linked to it (used as given, contract 6.6); the
-  // profile as before otherwise, when Compass has nothing yet (linked but not imported), or when
-  // Compass doesn't answer within two seconds
-  const interests = isTutorial ? null : await tutorInterestContext(session.userId)
-    .catch(e => { console.error("Interest summary unavailable:", e); return null; });
+  const level = student.readingLevel || 2;
 
-  // Get AI response — use tutorial prompt for tutorial articles
-  const systemPrompt = isTutorial
-    ? tutorialConversationPrompt(article.bodyText, student.readingLevel || 2)
-    : comprehensionConversationPrompt(
-        article.bodyText,
-        student.readingLevel || 2,
-        interests || JSON.stringify(student.interestProfile || {}),
-        article.liked,
-        conversationStyle,
-        exchangeNumber
-      );
+  // Which tutor runs this conversation is fixed on its first turn, so a switch of the default
+  // mid-conversation never changes the voice halfway through
+  const design: TutorDesign = isTutorial ? "classic" : (conversation.tutorDesign as TutorDesign | null) ?? (isOpener ? tutorDesignForNewConversation() : "classic");
 
-  const turn = await runTutorTurn({
-    client: tracked(anthropic, "tutor_turn", session.userId),
-    model: MODELS.tutor,
-    settings: requestSettings(MODELS.tutor, "tutor"),
-    systemPrompt,
-    messages,
-    priorProgress: conversation.progressScore || 0,
-    maxWords: maxWordsForLevel(student.readingLevel || 2),
-  });
-  const cleanText = turn.message;
-  const isComplete = turn.complete;
-  const newProgressScore = turn.progressScore;
-
-  messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
-
-  // Save updated messages, conversation style, and progress score
-  const updateData: any = { messages, complete: isComplete, progressScore: newProgressScore };
-  if (!conversation.conversationStyle) {
-    updateData.conversationStyle = conversationStyle;
-  }
-  await db.update(schema.conversations).set(updateData).where(eq(schema.conversations.id, conversationId));
-
-  // If complete, mark article as read, save summary, and generate report
-  if (isComplete) {
-    // Store a brief summary for cross-article connections
+  const finish = async (cleanText: string, closing: ClosingKind | null, newProgressScore: number): Promise<TurnResponse> => {
+    // Mark article as read, close the reading session, and generate the report and coaching tip
     const summaryText = `${article.title}: ${article.topic}`;
     await db.update(schema.articles).set({ read: true, summary: summaryText }).where(eq(schema.articles.id, article.id));
     const activeSecs = computeActiveDiscussionSeconds(messages);
@@ -153,17 +119,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         studentName: student.name,
         articleTitle: article.title,
         articleText: article.bodyText,
-        level: student.readingLevel || 2,
+        level,
         messages,
         transcript,
-        forcedClose: turn.closing === "forced",
+        forcedClose: closing === "forced",
         inChatScore: newProgressScore,
       }).catch(e => console.error("Report save failed:", e)),
       tracked(anthropic, "coaching", session.userId).messages.create(forJob("standard", {
         max_tokens: 256,
         messages: [{
           role: "user" as const,
-          content: coachingFeedbackPrompt(article.bodyText, transcript, student.readingLevel || 2),
+          content: coachingFeedbackPrompt(article.bodyText, transcript, level),
         }],
       })).catch(e => { console.error("Coaching feedback failed:", e); return null; }),
     ]);
@@ -180,8 +146,108 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // For Compass: the report block on the finished discussion (null for tutorials or a failed report)
     const compassReport = isTutorial ? null : await safeComprehensionCompassReport(conversationId);
 
-    return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore, coachingFeedback, compassReport });
+    return { message: cleanText, complete: true, progressScore: newProgressScore, coachingFeedback, compassReport };
+  };
+
+  if (design === "sigma") {
+    const guideNotes = await guideNotesForArticle(article.sourceCacheId).catch(e => { console.error("Guide notes unavailable:", e); return null; });
+    const run = async (onDelta?: (text: string) => void): Promise<TurnResponse> => {
+      const turn = await sigmaExchange({
+        tutorClient: trackedStreaming(anthropic, "tutor_turn", session.userId),
+        observerClient: tracked(anthropic, "observer", session.userId),
+        articleTitle: article.title,
+        articleText: article.bodyText,
+        level,
+        guideNotes,
+        messages,
+        priorProgress: conversation.progressScore || 0,
+        previousNotes: conversation.observerNotes ?? null,
+        onDelta,
+      });
+      messages.push({ role: "assistant", content: turn.message, timestamp: new Date().toISOString() });
+      await db.update(schema.conversations).set({
+        messages, complete: turn.complete, progressScore: turn.progressScore, observerNotes: turn.notes, tutorDesign: "sigma",
+      }).where(eq(schema.conversations.id, conversationId));
+      if (turn.complete) return finish(turn.message, turn.closing, turn.progressScore);
+      return { message: turn.message, complete: false, progressScore: turn.progressScore };
+    };
+
+    // The reply streams to the student as it is written when the client asks for events; the
+    // final event carries everything the JSON response would have
+    if (req.headers.get("accept")?.includes("text/event-stream")) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const send = (event: object) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          try {
+            const result = await run(text => send({ type: "delta", text }));
+            send({ type: "done", ...result });
+          } catch (e) {
+            console.error("Sigma turn failed:", e);
+            send({ type: "error", error: "The tutor didn't answer. Try sending that again." });
+          }
+          controller.close();
+        },
+      });
+      return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" } });
+    }
+    return NextResponse.json(await run());
   }
 
+  // ─── Classic tutor ───────────────────────────────────────────────────────
+
+  // Pick conversation style once per conversation, reuse on subsequent messages.
+  // A new one differs from the student's last conversation, so openers don't repeat back to back
+  let conversationStyle = conversation.conversationStyle;
+  if (!conversationStyle) {
+    const [last] = await db.select({ style: schema.conversations.conversationStyle })
+      .from(schema.conversations)
+      .innerJoin(schema.readingSessions, eq(schema.conversations.readingSessionId, schema.readingSessions.id))
+      .where(and(eq(schema.readingSessions.studentId, session.userId), ne(schema.conversations.id, conversationId)))
+      .orderBy(desc(schema.conversations.id))
+      .limit(1);
+    conversationStyle = pickConversationStyle(last?.style);
+  }
+  // Compass's interest summary for a student linked to it (used as given, contract 6.6); the
+  // profile as before otherwise, when Compass has nothing yet (linked but not imported), or when
+  // Compass doesn't answer within two seconds
+  const interests = isTutorial ? null : await tutorInterestContext(session.userId)
+    .catch(e => { console.error("Interest summary unavailable:", e); return null; });
+
+  // Get AI response — use tutorial prompt for tutorial articles
+  const systemPrompt = isTutorial
+    ? tutorialConversationPrompt(article.bodyText, level)
+    : comprehensionConversationPrompt(
+        article.bodyText,
+        level,
+        interests || JSON.stringify(student.interestProfile || {}),
+        article.liked,
+        conversationStyle,
+        exchangeNumber
+      );
+
+  const turn = await runTutorTurn({
+    client: tracked(anthropic, "tutor_turn", session.userId),
+    model: MODELS.tutor,
+    settings: requestSettings(MODELS.tutor, "tutor"),
+    systemPrompt,
+    messages,
+    priorProgress: conversation.progressScore || 0,
+    maxWords: maxWordsForLevel(level),
+  });
+  const cleanText = turn.message;
+  const isComplete = turn.complete;
+  const newProgressScore = turn.progressScore;
+
+  messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
+
+  // Save updated messages, conversation style, and progress score
+  const updateData: { messages: StoredMessage[]; complete: boolean; progressScore: number; conversationStyle?: string } = { messages, complete: isComplete, progressScore: newProgressScore };
+  if (!conversation.conversationStyle) {
+    updateData.conversationStyle = conversationStyle;
+  }
+  await db.update(schema.conversations).set(updateData).where(eq(schema.conversations.id, conversationId));
+
+  if (isComplete) return NextResponse.json(await finish(cleanText, turn.closing, newProgressScore));
   return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore });
 }

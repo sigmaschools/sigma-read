@@ -28,6 +28,25 @@ If a hungry fish gets too close, an octopus can squirt dark ink into the water. 
 Here is one more surprising fact. An octopus has three hearts, and its blood is blue!`,
   },
   {
+    id: "lighthouse",
+    level: 2,
+    title: "The Lighthouse Keeper's Job",
+    topic: "lighthouses",
+    bodyText: `Before ships had radios and satellites, a lighthouse was often the only warning that rocks were near. Someone had to keep the light burning all night, every night. That person was the lighthouse keeper.
+
+The keeper's day started in the evening. The big lamp burned oil, and it needed to be filled, lit and watched. The lamp sat inside a giant glass lens shaped like a beehive. The lens gathered the small flame into one strong beam that could be seen many miles out at sea.
+
+The beam had to turn, so sailors would see a flash instead of a steady glow. Each lighthouse flashed in its own pattern. A sailor who saw three flashes and then a pause could check a list and know exactly which lighthouse it was, and where their ship was.
+
+In many lighthouses, the lens was turned by a weight on a long chain, like a grandfather clock. The weight dropped slowly down the tower. Every few hours the keeper had to climb the stairs and wind it back up. Some keepers climbed more than a hundred steps several times a night.
+
+Keepers also cleaned the glass every day. Smoke from the lamp left black soot on the lens, and even a little soot made the light dimmer. In a storm, salt spray coated the windows outside, so keepers went out on the narrow walkway to wipe them down while the wind howled.
+
+Many keepers lived at the lighthouse with their families, far from any town. Supplies came by boat a few times a year. Children of keepers often learned to row, fish and fix things before they learned to ride a bike.
+
+Today almost every lighthouse runs on electricity and turns itself on at dusk. The keepers are gone, but the flashing patterns still work the same way they did a hundred years ago.`,
+  },
+  {
     id: "bee-dance",
     level: 3,
     title: "How Honeybees Give Directions",
@@ -60,5 +79,22 @@ After the planets, the spacecraft kept going. In 2012, Voyager 1 crossed into in
 Each Voyager also carries a gold-plated record. It holds sounds and images chosen to represent life on Earth, including greetings in 55 languages, music from many cultures, and the sound of a human heartbeat. The record is a message for anyone who might find it, even though the spacecraft will not come close to another star for tens of thousands of years.
 
 The Voyagers will not last forever. They are powered by the heat of decaying plutonium, which produces a little less electricity each year. Engineers have been turning off instruments one by one to save power. Sometime in the coming years, the last instrument will go quiet. Even then, the two spacecraft will keep drifting silently through the galaxy, carrying their records with them.`,
+  },
+  {
+    id: "immune",
+    level: 6,
+    title: "How Your Body Remembers a Germ",
+    topic: "the immune system",
+    bodyText: `Every day, your body is invaded. Bacteria ride in on food, viruses drift in with each breath, and most of them never make you sick, because an army inside you is already at work. That army is the immune system, and its most remarkable feature is not its strength but its memory.
+
+The first line of defense is general-purpose. White blood cells patrol the bloodstream and swallow anything that looks foreign. They do not need to recognize a specific germ; they react to broad warning signs, like the chemical signature of a bacterial cell wall. This response is fast, but it is also blunt, and a determined virus can slip past it.
+
+The second line is slower and far more precise. Specialized cells called lymphocytes carry receptors, each shaped to lock onto one particular molecule. Your body produces billions of lymphocytes with billions of different receptor shapes, almost all of which will never meet their match. When a germ does arrive, the few lymphocytes whose receptors happen to fit it begin to multiply furiously. Within days there are millions of them, each producing antibodies, proteins that stick to the germ and mark it for destruction.
+
+This is why you feel sick for several days: the precise response needs time to build. But when the infection ends, something unusual happens. Most of the specialized cells die off, yet a small number remain in reserve. These are memory cells, and they can last for decades. If the same germ ever returns, memory cells recognize it immediately and launch the precise response within hours instead of days. Often, you never notice you were infected at all.
+
+Vaccines borrow this trick. A vaccine shows the immune system a harmless piece or weakened form of a germ, enough to trigger the precise response and leave behind memory cells, without causing the disease. The body ends up prepared for an enemy it has technically never fought.
+
+The system is not perfect. Some viruses, like the ones that cause flu, change their surface molecules often enough that old memory cells no longer recognize them, which is why flu vaccines are updated every year. And sometimes the immune system mistakes the body's own cells for invaders, causing autoimmune diseases. Still, the fact that a scar-free encounter decades ago can still protect you today remains one of the strangest and most useful facts about being alive.`,
   },
 ];

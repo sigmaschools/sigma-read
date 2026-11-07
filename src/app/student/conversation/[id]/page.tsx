@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CompassReport, LEVEL_CHANGED_EVENT } from "@/components/CompassReport";
 import { ArticleBody } from "@/components/ArticleBody";
+import { chatTurn } from "@/lib/chat-stream";
 
 interface Message {
   role: "user" | "assistant";
@@ -52,18 +53,14 @@ export default function ConversationPage() {
     });
   }, [id]);
 
-  // Start or resume conversation
+  // Start or resume conversation. The opener may stream in word by word; an existing
+  // conversation comes back whole.
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/conversations/${id}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "__resume_check__" }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`API error: ${r.status}`);
-        return r.json();
-      })
+    const openerDelta = (text: string) => setMessages(prev => prev.length === 0
+      ? [{ role: "assistant", content: text }]
+      : [{ ...prev[0], content: prev[0].content + text }]);
+    chatTurn(String(id), "__resume_check__", openerDelta)
       .then((data) => {
         if (data.error) {
           // Conversation not found (deleted by reset) — go back to dashboard
@@ -71,14 +68,14 @@ export default function ConversationPage() {
           return;
         }
         if (data.existingMessages && data.existingMessages.length > 0) {
-          setMessages(data.existingMessages);
-          setStudentTurnCount(data.existingMessages.filter((m: Message) => m.role === "user").length);
+          setMessages(data.existingMessages as Message[]);
+          setStudentTurnCount((data.existingMessages as Message[]).filter((m) => m.role === "user").length);
           if (data.progressScore !== undefined) setProgressScore(data.progressScore);
           if (data.complete) {
             setComplete(true);
             if (data.compassReport) setCompassReport(data.compassReport);
             // Check if coaching feedback already persisted — no timer on resume
-            const coachingMsg = data.existingMessages.find((m: Message & { type?: string }) => m.type === "coaching");
+            const coachingMsg = data.existingMessages.find((m) => m.type === "coaching");
             if (coachingMsg) setCoachingFeedback(coachingMsg.content);
           }
         } else if (data.message) {
@@ -88,19 +85,12 @@ export default function ConversationPage() {
       })
       .catch(() => {
         // Retry once — the AI opener is critical for the conversation
-        fetch(`/api/conversations/${id}/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "__resume_check__" }),
-        })
-          .then((r) => {
-            if (!r.ok) throw new Error(`API error: ${r.status}`);
-            return r.json();
-          })
+        setMessages([]);
+        chatTurn(String(id), "__resume_check__", openerDelta)
           .then((data) => {
             if (data.error) { router.push("/student"); return; }
             if (data.existingMessages && data.existingMessages.length > 0) {
-              setMessages(data.existingMessages);
+              setMessages(data.existingMessages as Message[]);
               if (data.complete) setComplete(true);
             } else if (data.message) {
               setMessages([{ role: "assistant", content: data.message }]);
@@ -121,13 +111,21 @@ export default function ConversationPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/conversations/${id}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+      // The reply streams in as it is written (redesigned tutor) or arrives whole (classic)
+      // The streamed text accumulates here and each update shows the whole of it so far, so the
+      // order React runs the updaters in doesn't matter. The student's message was appended
+      // above, so a trailing assistant message is always this reply.
+      let streamed = "";
+      const showReply = (content: string) => setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        const reply = { role: "assistant" as const, content };
+        return last?.role === "assistant" ? [...prev.slice(0, -1), reply] : [...prev, reply];
       });
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
+      const data = await chatTurn(String(id), userMessage, text => {
+        streamed += text;
+        showReply(streamed);
+      });
+      showReply(data.message ?? "");
       if (data.progressScore !== undefined) setProgressScore(data.progressScore);
       if (data.complete) {
         setComplete(true);
@@ -214,7 +212,7 @@ export default function ConversationPage() {
                 </div>
               </div>
             ))}
-            {loading && !complete && (
+            {loading && !complete && messages[messages.length - 1]?.role !== "assistant" && (
               <div className="flex justify-start">
                 <div className="px-4 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-2xl rounded-bl-md">
                   <div className="flex gap-1">

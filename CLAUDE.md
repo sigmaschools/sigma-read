@@ -10,6 +10,7 @@ npm run build        # Production build (use to verify changes)
 npm run lint         # ESLint (pre-existing warnings, non-blocking in CI)
 npm test             # Plain-assert *.test.ts files under src/ and scripts/ (runs in CI)
 npm run eval         # Offline simulated-student conversation eval (needs ANTHROPIC_API_KEY, no DB)
+npm run eval:voice   # Does the tutor sound like a person? Realistic kid sims, blind pairwise judge (docs/tutor-redesign.md)
 npx drizzle-kit push # Push schema changes to DB
 npx tsx scripts/<name>.ts  # Run utility scripts (requires DATABASE_URL; add --require ./scripts/md-require.cjs if it imports src/lib/prompts)
 ```
@@ -55,7 +56,7 @@ docs/              # Product docs, conversation design, testing guides
 
 Additional rules:
 
-- **AI models**: one model per job in `src/lib/models.ts` (`MODELS.tutor`, `report`, `writer`, `standard`, `light`); never hardcode a model id in a route. Build requests with `forJob(job, body)` (or spread `requestSettings(model, job)`) so thinking/effort settings come along. Why each model was chosen, and how to re-test: `docs/ai-models.md`. The eval scripts pin their student simulator to a fixed model, so a model change in the app doesn't change the simulated students
+- **AI models**: one model per job in `src/lib/models.ts` (`MODELS.tutor`, `sigmaTutor`, `observer`, `report`, `writer`, `standard`, `light`); never hardcode a model id in a route. Build requests with `forJob(job, body)` (or spread `requestSettings(model, job)`) so thinking/effort settings come along. Why each model was chosen, and how to re-test: `docs/ai-models.md`. The eval scripts pin their student simulator to a fixed model, so a model change in the app doesn't change the simulated students
 - **Auth pattern**: Every API route checks `getSession()` first, returns 401 if missing
 - **All API routes**: Must `export const dynamic = "force-dynamic"` when authenticated
 - **Imports**: Use `@/` path alias (maps to `src/`)
@@ -96,7 +97,8 @@ Branch naming: use short descriptive names like `fix/admin-student-access`, `fea
 |-----|---------------|
 | `docs/product-requirements.md` | Authoritative PRD |
 | `docs/product-boundary.md` | What SigmaRead is and isn't |
-| `docs/conversation-design.md` | AI conversation rules, 6 styles, scoring rubric |
+| `docs/conversation-design.md` | AI conversation rules, 6 styles, scoring rubric (the classic tutor) |
+| `docs/tutor-redesign.md` | The redesigned tutor in `src/lib/tutor/`: character, prep notes, observer, streaming, the `TUTOR_DESIGN` switch, the voice eval |
 | `docs/level-progression.md` | Gradual Mix level system |
 | `docs/article-pipeline.md` | Morning batch generation, article sharing and duplicate checks |
 | `docs/ai-models.md` | Which model does each job, the tests behind it, costs |

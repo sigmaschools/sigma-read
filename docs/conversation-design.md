@@ -4,6 +4,8 @@
 
 This document describes how the AI-guided comprehension conversations work in SigmaRead — the rules, the tone, and the reasoning behind them. This is the system that replaces quizzes and multiple-choice tests.
 
+*November 2026: a redesigned tutor (a character instead of a rule list, prep notes per article, scoring moved to a separate observer, streamed plain-text replies) is built behind the `TUTOR_DESIGN` switch and being evaluated. See [tutor-redesign.md](./tutor-redesign.md). Everything below describes the classic tutor, which stays the default.*
+
 ---
 
 ## How It Works

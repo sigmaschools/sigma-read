@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/morning-batch",
       "schedule": "0 12,13 * * *"
+    },
+    {
+      "path": "/api/cron/guide-notes",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

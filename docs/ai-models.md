@@ -11,6 +11,10 @@ Last reviewed 4 Nov 2026. The source of truth is `src/lib/models.ts`; this page 
 | `writer` | base article and each level adaptation, once per article for all students | Claude Opus 5.5 | medium effort | Clearly the best articles: most accurate, best level fit, every length on target (test 3) |
 | `standard` | onboarding chat, coaching tip, word definitions, parent chat | Claude Sonnet 5.5 | thinking off | Short chat replies: fast, and the same model as the tutor |
 | `light` | duplicate check, source picking, content filter, web search step, topic tagging, interest matching, pre-reading prompt | Claude Haiku 5.5 | thinking off | Classification and picking; a tenth of the price of Haiku 4.5 |
+| `observer` | beside each turn of the redesigned tutor (`TUTOR_DESIGN=sigma`, [tutor-redesign.md](./tutor-redesign.md)): scores the student's message, keeps the running notes, decides when the talk is done | Claude Sonnet 5.5 | thinking off | The same scoring the tutor used to do inside its reply, on the same scale; not yet re-tested on its own |
+| `sigmaTutor` | every turn of the redesigned tutor (`TUTOR_DESIGN=sigma`) | Claude Opus 5.5 | low effort | Voice eval of 7 Nov 2026 ([tutor-redesign.md](./tutor-redesign.md)): won all 16 blind pairs against today's tutor, "sounds like a person" 4.3/5 against 2.6, about $0.12 a conversation with the observer. Sonnet 5.5 at low effort won 15 of 16 for $0.09 but repeated itself more; Fable 5.1 scored the same as Opus for $0.20 |
+
+`tutor` below is the classic tutor, which stays the default until `TUTOR_DESIGN=sigma` is set.
 
 Two cost levers apply to every job:
 
