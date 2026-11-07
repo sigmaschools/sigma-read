@@ -8,7 +8,7 @@ require("../../../scripts/md-require.cjs");
 const { plain, supportsSystemMessages, sigmaClosing, sigmaOpener, OPENER_SHAPES, runSigmaTurn } = require("./turn") as typeof import("./turn");
 const { sigmaSystemBlocks, formatNotes, levelVoice } = require("./prompt") as typeof import("./prompt");
 const { sigmaExchange } = require("./conversation") as typeof import("./conversation");
-const { observerPrompt, MIN_EXCHANGES, MAX_EXCHANGES } = require("./observer") as typeof import("./observer");
+const { observerPrompt, kidAskedQuestion, MIN_EXCHANGES, MAX_EXCHANGES } = require("./observer") as typeof import("./observer");
 const { tutorDesignForNewConversation } = require("./design") as typeof import("./design");
 
 // ─── plain(): the markdown the model adds anyway comes off ─────────────────
@@ -182,6 +182,40 @@ const blocks = sigmaSystemBlocks({ articleTitle: "T", articleText: "B", level: 3
     assert.equal(forced.closing, "forced");
     assert.equal(forced.complete, true);
     console.log("✅ sigmaExchange closing rules");
+  }
+  // An observer failure scores nothing (the previous delta was already counted) but keeps the notes
+  {
+    const prev = { progressDelta: 30, shown: "knows the gist", steer: "push on the why", askedQuestion: false, done: false };
+    const tutor = fakeClient(["Reply."]);
+    const failing = { messages: { create: async () => { throw new Error("overloaded"); } } };
+    const r = await sigmaExchange({ tutorClient: tutor as never, observerClient: failing as never, articleTitle: "T", articleText: "B", level: 3, messages: [{ role: "assistant", content: "O" }, { role: "user", content: "a" }, { role: "assistant", content: "r" }, { role: "user", content: "b" }], priorProgress: 30, previousNotes: prev, tutorModel: "claude-opus-5-5", tutorSettings: {}, observerModel: "claude-sonnet-5-5", observerSettings: {} });
+    assert.equal(r.progressDelta, 0, "nothing is added when the observer fails");
+    assert.equal(r.progressScore, 30);
+    assert.equal(r.notes?.steer, "push on the why", "the running notes survive for the next turn");
+    assert.equal(r.notes?.progressDelta, 0, "and don't carry a delta that could be counted again");
+    console.log("✅ observer failure scores nothing");
+  }
+  // An earned close waits a turn when the kid's latest message is a question
+  {
+    assert.ok(kidAskedQuestion("why is the blood blue?"));
+    assert.ok(kidAskedQuestion("how do they know"));
+    assert.ok(kidAskedQuestion("wait do the dads eat"));
+    assert.ok(!kidAskedQuestion("idk"));
+    assert.ok(!kidAskedQuestion("the ink one, its like a smoke bomb"));
+    const doneNotes = { progressDelta: 10, shown: "", steer: "", askedQuestion: false, done: true };
+    const later = JSON.stringify({ progressDelta: 5, shown: "", steer: "", askedQuestion: true, done: false });
+    const tutor = fakeClient(["Answering the question.", "Goodbye."]);
+    const observer = fakeClient([later]);
+    const history = [{ role: "assistant", content: "O" }, { role: "user", content: "a" }, { role: "assistant", content: "r" }, { role: "user", content: "b" }, { role: "assistant", content: "r" }, { role: "user", content: "c" }, { role: "assistant", content: "r" }, { role: "user", content: "d" }, { role: "assistant", content: "r" }, { role: "user", content: "wait, what did the dads eat?" }];
+    const r = await sigmaExchange({ tutorClient: tutor as never, observerClient: observer as never, articleTitle: "T", articleText: "B", level: 3, messages: history, priorProgress: 90, previousNotes: doneNotes, tutorModel: "claude-opus-5-5", tutorSettings: {}, observerModel: "claude-sonnet-5-5", observerSettings: {} });
+    assert.equal(r.complete, false, "no goodbye on a question");
+    assert.equal(r.closing, null);
+    assert.equal(r.notes?.done, true, "the close is only put off, not forgotten");
+    assert.equal(r.progressDelta, 5, "the deferred turn is still scored");
+    const next = await sigmaExchange({ tutorClient: tutor as never, observerClient: observer as never, articleTitle: "T", articleText: "B", level: 3, messages: [...history, { role: "assistant", content: "Answering the question." }, { role: "user", content: "oh ok" }], priorProgress: 95, previousNotes: r.notes, tutorModel: "claude-opus-5-5", tutorSettings: {}, observerModel: "claude-sonnet-5-5", observerSettings: {} });
+    assert.equal(next.closing, "earned");
+    assert.equal(next.complete, true);
+    console.log("✅ earned close waits for the kid's question");
   }
   // The observer's done flag is ignored before MIN_EXCHANGES, and when the kid asked a question
   {

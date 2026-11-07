@@ -112,12 +112,20 @@ export default function ConversationPage() {
 
     try {
       // The reply streams in as it is written (redesigned tutor) or arrives whole (classic)
-      let started = false;
-      const data = await chatTurn(String(id), userMessage, text => {
-        setMessages((prev) => started ? [...prev.slice(0, -1), { ...prev[prev.length - 1], content: prev[prev.length - 1].content + text }] : [...prev, { role: "assistant", content: text }]);
-        started = true;
+      // The streamed text accumulates here and each update shows the whole of it so far, so the
+      // order React runs the updaters in doesn't matter. The student's message was appended
+      // above, so a trailing assistant message is always this reply.
+      let streamed = "";
+      const showReply = (content: string) => setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        const reply = { role: "assistant" as const, content };
+        return last?.role === "assistant" ? [...prev.slice(0, -1), reply] : [...prev, reply];
       });
-      setMessages((prev) => started ? [...prev.slice(0, -1), { role: "assistant", content: data.message ?? "" }] : [...prev, { role: "assistant", content: data.message ?? "" }]);
+      const data = await chatTurn(String(id), userMessage, text => {
+        streamed += text;
+        showReply(streamed);
+      });
+      showReply(data.message ?? "");
       if (data.progressScore !== undefined) setProgressScore(data.progressScore);
       if (data.complete) {
         setComplete(true);

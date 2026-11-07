@@ -11,7 +11,7 @@ import type { ClosingKind, TurnMessage } from "../conversation-turn";
 import { MODELS, requestSettings } from "../models";
 import { sigmaSystemBlocks } from "./prompt";
 import type { GuideNotes } from "./guide-notes";
-import { observe, MAX_EXCHANGES, type ObserverNotes } from "./observer";
+import { observe, kidAskedQuestion, MAX_EXCHANGES, type ObserverNotes } from "./observer";
 import { runSigmaTurn, type SigmaTurnArgs, type SigmaTurnResult } from "./turn";
 
 export interface SigmaExchangeArgs {
@@ -51,8 +51,12 @@ export async function sigmaExchange(args: SigmaExchangeArgs): Promise<SigmaExcha
   // The observer decided on the previous message that the talk had done its job, so this reply
   // closes (one exchange later, so the kid's last answer gets a reaction). The backstop closes
   // on the reply to the MAX_EXCHANGES-th message whatever the observer says.
+  // An earned close waits one more turn when the kid's latest message asks Sigma something, so
+  // the goodbye never lands on a question (the backstop still closes, answering it inside the goodbye).
+  const lastKidMessage = [...args.messages].reverse().find(m => m.role === "user")?.content ?? "";
+  const deferred = !isOpener && !!args.previousNotes?.done && kidAskedQuestion(lastKidMessage) && exchanges < MAX_EXCHANGES;
   const closing: ClosingKind | null = isOpener ? null
-    : args.previousNotes?.done ? "earned"
+    : args.previousNotes?.done && !deferred ? "earned"
     : exchanges >= MAX_EXCHANGES ? "forced"
     : null;
   const tutorModel = args.tutorModel ?? MODELS.sigmaTutor;
@@ -81,10 +85,15 @@ export async function sigmaExchange(args: SigmaExchangeArgs): Promise<SigmaExcha
     priorProgress: args.priorProgress,
     model: args.observerModel,
     settings: args.observerSettings,
-  }).catch(e => {
-    console.error("Observer failed, keeping the previous notes:", e);
-    return args.previousNotes;
-  });
+  }).then(
+    // The close was only put off for the kid's question: it still happens next turn
+    n => deferred ? { ...n, done: true } : n,
+    e => {
+      // Keep the running notes for the next turn, but score nothing: the previous delta was already counted
+      console.error("Observer failed, keeping the previous notes:", e);
+      return args.previousNotes ? { ...args.previousNotes, progressDelta: 0 } : null;
+    },
+  );
   const [turn, notes] = await Promise.all([turnPromise, notesPromise]);
   const progressDelta = isOpener || closing ? 0 : (notes?.progressDelta ?? 0);
   return {

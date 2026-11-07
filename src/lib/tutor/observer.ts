@@ -40,6 +40,18 @@ export const OBSERVER_SCHEMA = {
 } as const;
 
 /** Fewest student messages before the observer may close the conversation */
+/**
+ * Does the kid's message ask Sigma something? A cheap check for the turn when the observer
+ * doesn't run (the closing candidate), so the goodbye never lands on a question: a question
+ * mark, or a line that opens like one even without it ("how do they know", "wait do the dads eat").
+ */
+export function kidAskedQuestion(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  if (t.includes("?")) return true;
+  return /^(?:wait,?\s+|so,?\s+|but,?\s+|and,?\s+|um,?\s+|ok,?\s+)*(?:what|why|how|when|where|who|which|whats|hows|whys|can|could|do|does|did|is|are|was|were|will|would|should|isnt|arent|dont|doesnt|didnt)\b/.test(t);
+}
+
 export const MIN_EXCHANGES = 4;
 /** The conversation closes on the turn after this many student messages, whatever the observer says */
 export const MAX_EXCHANGES = 8;
