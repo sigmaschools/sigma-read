@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { markdownToPlainText } from "@/lib/markdown";
 
 interface Article {
   id: number;
@@ -32,7 +33,7 @@ function categoryLabel(article: Article) {
 }
 
 function articleSummary(text: string, title: string): string {
-  const clean = text.replace(/^#+\s.*\n*/gm, "").trim();
+  const clean = markdownToPlainText(text).replace(/\s+/g, " ").trim();
   const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
   if (sentences.length === 0) return clean.slice(0, 180);
 

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CompassReport, LEVEL_CHANGED_EVENT } from "@/components/CompassReport";
+import { ArticleBody } from "@/components/ArticleBody";
 import { chatTurn } from "@/lib/chat-stream";
 
 interface Message {
@@ -147,9 +148,11 @@ export default function ConversationPage() {
   }
 
   function renderArticleBody(text: string) {
-    return text.replace(/^#+\s.*\n*/gm, "").trim().split("\n\n").map((para, i) => (
-      <p key={i} className="mb-5 text-[16px] leading-[1.75] text-[var(--fg)]">{para}</p>
-    ));
+    return (
+      <div className="text-[16px] leading-[1.75] text-[var(--fg)]">
+        <ArticleBody text={text} />
+      </div>
+    );
   }
 
   return (
