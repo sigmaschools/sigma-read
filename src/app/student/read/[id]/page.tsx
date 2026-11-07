@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ArticleBody } from "@/components/ArticleBody";
 
 interface Article {
   id: number;
@@ -72,7 +73,7 @@ export default function ReaderPage() {
     if (target.tagName !== "SPAN" || !target.dataset.word) return;
 
     const word = target.dataset.word;
-    const sentence = target.closest("p")?.textContent || "";
+    const sentence = target.closest("p, li, blockquote")?.textContent || "";
 
     setDefLoading(true);
     setDefinition({ word, text: "" });
@@ -86,37 +87,6 @@ export default function ReaderPage() {
     setDefinition({ word, text: data.definition });
     setDefLoading(false);
   }, [id]);
-
-  function renderBody(text: string) {
-    return text.split("\n\n").map((para, i) => {
-      // Skip h1 headings (duplicate of article title)
-      if (para.startsWith("# ") && !para.startsWith("## ")) return null;
-      if (para.startsWith("## ") || para.startsWith("### ")) {
-        const level = para.startsWith("### ") ? "h3" : "h2";
-        const content = para.replace(/^#{2,3}\s/, "");
-        const Tag = level;
-        return <Tag key={i} className="font-semibold text-lg mt-6 mb-2">{content}</Tag>;
-      }
-      const words = para.split(/(\s+)/);
-      return (
-        <p key={i} className="mb-5">
-          {words.map((w, j) =>
-            /^\s+$/.test(w) ? (
-              <span key={j}>{w}</span>
-            ) : (
-              <span
-                key={j}
-                data-word={w.replace(/[^a-zA-Z'-]/g, "")}
-                className="cursor-pointer hover:bg-blue-50 hover:text-[var(--accent)] rounded transition-colors"
-              >
-                {w}
-              </span>
-            )
-          )}
-        </p>
-      );
-    });
-  }
 
   async function handleFeedback(value: boolean) {
     if (transitioning) return;
@@ -181,7 +151,7 @@ export default function ReaderPage() {
         <h1 className="text-3xl font-semibold tracking-tight mb-2">{article.title}</h1>
         <p className="text-sm text-[var(--muted)] mb-8">{article.topic}</p>
         <div className="reader-body" style={{ fontSize: `${fontSize}px` }}>
-          {renderBody(article.bodyText)}
+          <ArticleBody text={article.bodyText} tappable />
         </div>
 
         {article.sources && article.sources.length > 0 && (

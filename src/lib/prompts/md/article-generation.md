@@ -29,6 +29,7 @@ Requirements:
   Do not repeat the same style across articles in the same batch.
 - Age-appropriate for the target grade range.
 - Short paragraphs (2-4 sentences each). White space matters for younger readers.
+- FORMAT: Markdown. Separate paragraphs with a blank line. Subheadings are optional; when you use one, put it on its own line as "## Subheading", never as a bold line like "**Subheading**". Don't repeat the title as a heading. Use **bold** or *italics* sparingly, and no HTML.
 - For news articles: Write original coverage of a recent news event.
 - For horizon-expanding articles: The topic should be adjacent to the student's interests but in a new domain.
 
