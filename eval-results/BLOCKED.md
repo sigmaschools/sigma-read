@@ -11,3 +11,13 @@ today theo/bee-dance r0: error: 401 {"type":"error","error":{"type":"authenticat
 Fix: paste the full key from https://console.anthropic.com/settings/keys into the `EVAL_ANTHROPIC_API_KEY` variable of the Default cloud environment, then start the run again in a new session. Baseline and candidate runs were not attempted.
 
 The folder `2026-11-07T22-19-07-731Z-voice/` holds the failed check run.
+
+## Second attempt, ~22:24Z
+
+A second scheduled run hit the same thing: `EVAL_ANTHROPIC_API_KEY` is still 31 characters with no key prefix, and the check run failed the same way:
+
+```
+today theo/bee-dance r0: error: 401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011CgpML2DK14BBNEzLuapeV"}
+```
+
+The folder `2026-11-07T22-24-22-925Z-voice/` holds that check run. Baseline and candidate runs were not attempted. The environment value has not been fixed yet, so running the routine again will fail until the full key is pasted.
