@@ -5,7 +5,7 @@ import type { GuideNotes } from "./guide-notes";
 // The prompt .md files load as strings, as in Next's bundler
 const require = createRequire(import.meta.url);
 require("../../../scripts/md-require.cjs");
-const { plain, supportsSystemMessages, sigmaClosing, runSigmaTurn } = require("./turn") as typeof import("./turn");
+const { plain, supportsSystemMessages, sigmaClosing, sigmaOpener, OPENER_SHAPES, runSigmaTurn } = require("./turn") as typeof import("./turn");
 const { sigmaSystemBlocks, formatNotes, levelVoice } = require("./prompt") as typeof import("./prompt");
 const { sigmaExchange } = require("./conversation") as typeof import("./conversation");
 const { observerPrompt, MIN_EXCHANGES, MAX_EXCHANGES } = require("./observer") as typeof import("./observer");
@@ -55,6 +55,20 @@ const notes: GuideNotes = {
   console.log("✅ sigmaSystemBlocks");
 }
 
+// ─── The opener is drawn per conversation, so one article doesn't always open the same way ─
+{
+  const openers = Array.from({ length: 12 }, (_, i) => sigmaOpener(notes, i / 12));
+  const starts = new Set(openers.map(o => o.split("Start from this one")[1]?.split(". The way in")[0]));
+  const shapes = new Set(openers.map(o => o.split("The way in this time: ")[1]));
+  assert.ok(starts.size >= 2, "different conversations start from different notes");
+  assert.equal(shapes.size, OPENER_SHAPES.length, "every shape gets drawn");
+  assert.ok(openers.some(o => o.includes("the fathers fast for two months (your take: I'd last a day)")), "ideas come with Sigma's take");
+  assert.ok(openers.some(o => o.includes("the egg sits on their feet")), "vivid details are starting points too");
+  assert.ok(sigmaOpener(null, 0.5).includes("middle or the end of the article"), "without notes, still not the first paragraph");
+  assert.ok(sigmaOpener(notes, 0.999).length > 0 && sigmaOpener(notes, 0).length > 0, "edges of the draw are safe");
+  console.log("✅ sigmaOpener varies");
+}
+
 // ─── Closing instructions never ask for a question ─────────────────────────
 {
   assert.ok(sigmaClosing("earned", 1).includes("Don't ask a question"));
@@ -100,9 +114,10 @@ const blocks = sigmaSystemBlocks({ articleTitle: "T", articleText: "B", level: 3
   // Opener: the instruction goes in as the first user message (the kid hasn't spoken)
   {
     const c = fakeClient(["I keep coming back to the ink. Pick the part you'd try."]);
-    const r = await runSigmaTurn({ client: c as never, model: "claude-opus-5-5", systemBlocks: blocks, messages: [], level: 3, closing: null });
+    const r = await runSigmaTurn({ client: c as never, model: "claude-opus-5-5", systemBlocks: blocks, messages: [], level: 3, closing: null, guideNotes: notes, openerPick: 0.2 });
     assert.equal(r.message, "I keep coming back to the ink. Pick the part you'd try.");
     assert.equal(c.seen[0].messages[0].role, "user");
+    assert.equal(c.seen[0].messages[0].content, sigmaOpener(notes, 0.2), "the opener note carries the drawn start and shape");
     assert.equal(c.seen[0].system.length, 2);
     assert.equal(r.calls, 1);
     assert.equal(r.fixed, null);

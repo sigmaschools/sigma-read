@@ -10,8 +10,36 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { endsWithQuestion, endsWithMenu, needsQuietNudge, type ClosingKind, type TurnMessage } from "../conversation-turn";
 import { levelVoice } from "./prompt";
+import type { GuideNotes } from "./guide-notes";
 
 export const SIGMA_OPENER = "The kid just finished reading and hasn't said anything yet. Start the conversation: your reaction to one specific thing in the article, in your own words, then one move. No greeting, no \"great article\".";
+
+/** Ways into a conversation; one is picked per conversation so openers on the same article differ */
+export const OPENER_SHAPES = [
+  "a detail that made you think \"wait, really?\"",
+  "a confession: something you'd have guessed wrong, or wouldn't have believed before reading it",
+  "a side you've already picked, and why",
+  "a tiny scene from the article, told as if you were standing there",
+  "the one thing you're still wondering about after reading it",
+  "something ordinary from your own day that the article made you see differently",
+];
+
+/**
+ * The opener instruction for one conversation. With prep notes, every conversation on an
+ * article would otherwise start from the same idea (the eval measured 24-40% repeated
+ * openers), so the starting point and the shape are drawn per conversation. `pick` is a
+ * number in [0, 1); pass one in tests, leave it to Math.random in the app.
+ */
+export function sigmaOpener(notes: GuideNotes | null | undefined, pick: number = Math.random()): string {
+  const starts = notes
+    ? [...notes.worthTalkingAbout.map(i => `${i.idea} (your take: ${i.take})`), ...notes.vividDetails]
+    : [];
+  const shape = OPENER_SHAPES[Math.floor(pick * OPENER_SHAPES.length) % OPENER_SHAPES.length];
+  const start = starts.length
+    ? `Start from this one, not from whatever comes first in the article or in your notes: ${starts[Math.floor(pick * 7919) % starts.length]}.`
+    : "Start from something in the middle or the end of the article, not its first paragraph.";
+  return `${SIGMA_OPENER} ${start} The way in this time: ${shape}.`;
+}
 
 export const SIGMA_QUIET_NUDGE = "Note to self: two very short answers in a row. Don't ask anything this time. Share one thing from the article they haven't brought up, the way you'd tell a friend, and end with a light invite like \"Wild, right?\" or just stop.";
 
@@ -50,6 +78,10 @@ export interface SigmaTurnArgs {
   closing: ClosingKind | null;
   /** The observer's steer for this turn, if any */
   steer?: string | null;
+  /** The guide's prep notes, used to vary the opener (ignored after the first turn) */
+  guideNotes?: GuideNotes | null;
+  /** Fixes the opener's random draw (tests and evals that want repeatable openers) */
+  openerPick?: number;
   /** Streams the reply's text as it is written */
   onDelta?: (text: string) => void;
 }
@@ -84,7 +116,7 @@ export async function runSigmaTurn(args: SigmaTurnArgs): Promise<SigmaTurnResult
   const history: Msg[] = args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
   const isOpener = history.length === 0;
   const notes: Msg[] = [];
-  if (isOpener) notes.push({ role: "user", content: SIGMA_OPENER });
+  if (isOpener) notes.push({ role: "user", content: sigmaOpener(args.guideNotes, args.openerPick) });
   else if (args.closing) notes.push(note(args.model, sigmaClosing(args.closing, args.level)));
   else {
     if (needsQuietNudge(args.messages)) notes.push(note(args.model, SIGMA_QUIET_NUDGE));

@@ -63,6 +63,7 @@ export async function sigmaExchange(args: SigmaExchangeArgs): Promise<SigmaExcha
     model: tutorModel,
     settings: args.tutorSettings ?? requestSettings(tutorModel, "tutor"),
     systemBlocks,
+    guideNotes: args.guideNotes,
     messages: args.messages,
     level: args.level,
     closing,

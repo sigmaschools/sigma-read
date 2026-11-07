@@ -61,7 +61,7 @@ export function sigmaSystemBlocks(args: SigmaPromptArgs): [string, string] {
     `---`,
     ...(args.notes ? ["", formatNotes(args.notes)] : []),
     ``,
-    `Your first message: your reaction to one specific thing in the article, in your own words, then one move. Vary the shape between conversations: a "wait, really?" detail, a confession ("I would never have guessed..."), a side you've already picked, a tiny scene from the article. Never "great article", never a greeting.`,
+    `Your first message: your reaction to one specific thing in the article, in your own words, then one move. The system will name a starting point and a way in; other kids reading this article get different ones, so stick to yours. Never "great article", never a greeting.`,
     `Every message after that: react to what they said, add something of your own, hand it back with one move. Keep going until the system tells you to close.`,
   ].join("\n");
   return [stable, article];
