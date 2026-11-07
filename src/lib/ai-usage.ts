@@ -12,7 +12,7 @@ export type AiFeature =
   | "tutor_turn" | "report" | "coaching" | "onboarding" | "definition" | "pre_reading"
   | "feed_event" | "article_generate" | "parent_chat" | "interest_resolve" | "chat_mentions"
   | "batch_adjacent" | "batch_search" | "batch_source_pick" | "batch_filter" | "batch_rewrite" | "batch_adapt" | "batch_dedup"
-  | "serve_repeats";
+  | "serve_repeats" | "observer" | "guide_notes";
 
 type CreateResult = { model?: string; usage?: Anthropic.Usage };
 
@@ -42,6 +42,21 @@ async function record(feature: AiFeature, studentId: number | undefined, request
  * or .withResponse() on a tracked client is a compile error rather than a runtime one.
  */
 export type MessagesClient = { messages: Pick<Anthropic["messages"], "create"> };
+
+/** A client whose messages.create and messages.stream both record usage under `feature` */
+export function trackedStreaming(client: Anthropic, feature: AiFeature, studentId?: number): { messages: Pick<Anthropic["messages"], "create" | "stream"> } {
+  const base = tracked(client, feature, studentId);
+  return {
+    messages: {
+      create: base.messages.create,
+      stream: (body: Anthropic.MessageStreamParams, options?: unknown) => {
+        const s = (client.messages.stream as (b: unknown, o?: unknown) => ReturnType<Anthropic["messages"]["stream"]>)(body, options);
+        s.finalMessage().then((res: CreateResult) => record(feature, studentId, body.model, res)).catch(() => { /* the caller sees the stream's own error */ });
+        return s;
+      },
+    },
+  } as { messages: Pick<Anthropic["messages"], "create" | "stream"> };
+}
 
 /** A client whose messages.create records usage under `feature`. Non-streaming calls only. */
 export function tracked(client: Anthropic, feature: AiFeature, studentId?: number): MessagesClient {

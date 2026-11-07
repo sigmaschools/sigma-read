@@ -14,6 +14,8 @@ export const MODELS = {
   standard: "claude-sonnet-5-5",
   /** Classification, picking, tagging, short summaries, web-search steps */
   light: "claude-haiku-5-5",
+  /** The observer beside the tutor: scores each student message and decides when the talk is done (src/lib/tutor/observer.ts) */
+  observer: "claude-sonnet-5-5",
 } as const;
 
 export type ModelJob = keyof typeof MODELS;

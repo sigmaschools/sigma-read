@@ -1,4 +1,6 @@
 import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date, numeric, real, uniqueIndex, index } from "drizzle-orm/pg-core";
+import type { GuideNotes } from "../tutor/guide-notes";
+import type { ObserverNotes } from "../tutor/observer";
 
 export const generatedTopics = pgTable("generated_topics", {
   id: serial("id").primaryKey(),
@@ -104,6 +106,7 @@ export const articleCache = pgTable("article_cache", {
   headlineSource: text("headline_source"), // source URL for news articles
   sourceUrl: text("source_url"), // URL of the real web source this article was rewritten from
   flagged: boolean("flagged").default(false).notNull(), // flagged = won't be served to new students
+  guideNotes: jsonb("guide_notes").$type<GuideNotes>(), // Sigma's prep notes, written once on the base article (src/lib/tutor/guide-notes.ts)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -159,6 +162,8 @@ export const conversations = pgTable("conversations", {
   conversationStyle: varchar("conversation_style", { length: 30 }), // which of 6 styles was used
   complete: boolean("complete").default(false).notNull(),
   progressScore: integer("progress_score").default(0).notNull(), // quality-based progress toward conversation completion (0-100+)
+  tutorDesign: varchar("tutor_design", { length: 10 }), // "sigma" (src/lib/tutor) or null for the classic tutor; fixed once the conversation starts
+  observerNotes: jsonb("observer_notes").$type<ObserverNotes>(), // sigma only: the observer's running notes between exchanges
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
