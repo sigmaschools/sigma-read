@@ -68,7 +68,7 @@ export function asksForDebate(text: string): boolean {
   // Moves aimed at the kid only. "How does the fish defend the egg" or "scientists couldn't prove it
   // for years" are article talk and must pass; the eval's broader DEBATE metric (scripts/eval/
   // voice-metrics.ts) counts more shapes on purpose.
-  return /\b(make (the|your|a) case|defend (that|your (point|pick|idea|side|answer|choice))|convince me|argue (your|the other) (case|side|point)|argue (for|against) (it|that)|prove (it to me|me wrong)|prove it[.!?]|(take|argue|try) the other side|push(ing)? back on (that|it|you)|devil's advocate)/i.test(text);
+  return /\b(make (the|your|a) case|defend (that[.!?,]|your (point|pick|idea|side|answer|choice))|convince me|argue (your|the other) (case|side|point)|argue (for|against) (it|that)|prove (it to me|me wrong)|(take|argue|try) the other side|push(ing)? back on (that|it|you)|devil's advocate)/i.test(text);
 }
 
 type Create = Pick<Anthropic["messages"], "create">;
@@ -172,7 +172,7 @@ export async function runSigmaTurn(args: SigmaTurnArgs): Promise<SigmaTurnResult
   // A debate move ("make the case", "convince me") is against the character; one rewrite, then keep what came back
   if (message && !fixed && args.debateGuard !== false && asksForDebate(message)) {
     fixed = "debate";
-    const retry = await ask([...messages, { role: "assistant", content: message }, note(args.model, "That asks them to argue or defend something, which isn't how you talk. Rewrite the last message with the same reaction and one easy move instead (something to pick, picture or say), no debating. Same voice, same length. Reply with the new message only.")], false)
+    const retry = await ask([...messages, { role: "assistant", content: message }, note(args.model, "That asks them to argue or defend something, which isn't how you talk. Rewrite the last message with the same reaction and one easy move instead (something to pick, describe or say), no debating. Same voice, same length. Reply with the new message only.")], false)
       .then(plain).catch(() => "");
     if (retry && !asksForDebate(retry)) message = retry;
   }
