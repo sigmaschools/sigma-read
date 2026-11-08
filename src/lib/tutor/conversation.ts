@@ -75,6 +75,7 @@ export async function sigmaExchange(args: SigmaExchangeArgs): Promise<SigmaExcha
     closing,
     steer: args.previousNotes?.steer,
     onDelta: args.onDelta,
+    debateGuard: !args.voice, // an older character under eval is measured as it was
   });
   // The closing turn scores nothing, as before: an answer given after the talk is done
   // shouldn't move the in-chat score

@@ -161,7 +161,13 @@ const blocks = sigmaSystemBlocks({ articleTitle: "T", articleText: "B", level: 3
     const r2 = await runSigmaTurn({ client: c2 as never, model: "claude-opus-5-5", systemBlocks: blocks, messages: [{ role: "assistant", content: "O" }, { role: "user", content: "cracker" }], level: 3, closing: null });
     assert.equal(r2.fixed, "debate");
     assert.equal(r2.message, "Convince me the fluffy kind is better.", "a rewrite that still debates is not taken");
-    for (const line of ["I'd take the cracker, honestly. Which one are you grabbing for lunch?", "The waves push back against the wall all night."]) assert.ok(!asksForDebate(line), line);
+    for (const line of ["I'd take the cracker, honestly. Which one are you grabbing for lunch?", "The waves push back against the wall all night.", "Say you're the penguin. How do you defend the egg?", "Scientists couldn't prove it for years.", "The dads argue with each other over the best spot."]) assert.ok(!asksForDebate(line), line);
+    for (const line of ["Make the case for the octopus.", "Defend that, then.", "Prove it.", "Argue the other side for a second."]) assert.ok(asksForDebate(line), line);
+    // An eval of an older character turns the guard off and gets the message as written
+    const c3 = fakeClient(["Make the case for who really runs the animal kingdom."]);
+    const r3 = await runSigmaTurn({ client: c3 as never, model: "claude-opus-5-5", systemBlocks: blocks, messages: [{ role: "assistant", content: "O" }, { role: "user", content: "bugs" }], level: 4, closing: null, debateGuard: false });
+    assert.equal(r3.fixed, null);
+    assert.equal(r3.calls, 1);
     console.log("✅ debate move gets a rewrite");
   }
   // Empty reply → fallback

@@ -65,7 +65,10 @@ export function supportsSystemMessages(model: string): boolean {
  * Sigma's character rules out. Checked live so one slip gets a rewrite instead of reaching the kid.
  */
 export function asksForDebate(text: string): boolean {
-  return /\b(make (the|your|a) case|defend (that|it|your|the|yourself)|convince me|argue (the|for|against|it|that|your|with)|prove (it|me|that|you)|(take|argue|try) the other side|push(ing)? back on (that|it|you)|devil's advocate)\b/i.test(text);
+  // Moves aimed at the kid only. "How does the fish defend the egg" or "scientists couldn't prove it
+  // for years" are article talk and must pass; the eval's broader DEBATE metric (scripts/eval/
+  // voice-metrics.ts) counts more shapes on purpose.
+  return /\b(make (the|your|a) case|defend (that|your (point|pick|idea|side|answer|choice))|convince me|argue (your|the other) (case|side|point)|argue (for|against) (it|that)|prove (it to me|me wrong)|prove it[.!?]|(take|argue|try) the other side|push(ing)? back on (that|it|you)|devil's advocate)/i.test(text);
 }
 
 type Create = Pick<Anthropic["messages"], "create">;
@@ -92,6 +95,8 @@ export interface SigmaTurnArgs {
   openerPick?: number;
   /** Streams the reply's text as it is written */
   onDelta?: (text: string) => void;
+  /** Rewrite a debate move (default true); evals of an older character turn it off to measure that character as it was */
+  debateGuard?: boolean;
 }
 
 export interface SigmaTurnResult {
@@ -165,7 +170,7 @@ export async function runSigmaTurn(args: SigmaTurnArgs): Promise<SigmaTurnResult
     if (retry) message = retry;
   }
   // A debate move ("make the case", "convince me") is against the character; one rewrite, then keep what came back
-  if (message && !fixed && asksForDebate(message)) {
+  if (message && !fixed && args.debateGuard !== false && asksForDebate(message)) {
     fixed = "debate";
     const retry = await ask([...messages, { role: "assistant", content: message }, note(args.model, "That asks them to argue or defend something, which isn't how you talk. Rewrite the last message with the same reaction and one easy move instead (something to pick, picture or say), no debating. Same voice, same length. Reply with the new message only.")], false)
       .then(plain).catch(() => "");

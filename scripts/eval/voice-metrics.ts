@@ -34,7 +34,11 @@ export interface VoiceMetrics {
 
 const GRADING = /\b(smart (guess|point|move|idea|catch|way|pick|question)|good (catch|point|way|thinking|guess|question)|great (point|catch|idea|question|thinking)|nice (thinking|catch|point|pick)|sharp (point|catch|way)|clever (point|idea|thinking)|exactly (right|the kind)|you (put|tied|connected|spotted|caught|figured|nailed|got|used|picked|planned|read|noticed) (that|those|two|the|it|both|right|up|a|this|something)|that's (a|the) (good|great|smart|sharp|clever|clear|strong) (way|point|idea|catch|reason)|is a clear way|way to put it|well (put|said|done)|love that (you|idea)|good (one|job)|nicely)\b/i;
 
-/** Debate-club moves: the 8 Nov 2026 pattern ("Make the case…" in four of seven turns, a counter-claim every turn) */
+/**
+ * Debate-club moves: the 8 Nov 2026 pattern ("Make the case…" in four of seven turns, a counter-claim
+ * every turn). Broader than the live guard (asksForDebate in src/lib/tutor/turn.ts) on purpose: the
+ * metric wants every shape of the habit, the guard only what is unmistakably aimed at the kid.
+ */
 const DEBATE = /\b(make (the|your|a) case|defend (that|it|your|the|yourself)|convince me|argue (the|for|against|it|that|your|with)|prove (it|me|that|you)|(take|argue|try|see) the other side|push(ing)? back|i'll push|push on (that|it)|devil's advocate|take the opposite|hold that position)\b/i;
 /** A correction of the kid: pointing them back to the text or telling them they have it wrong */
 const CORRECTS = /\b(look (again|back|at (that|the|it) [^.?!]{0,30}again)|not quite|i don't think that's (quite )?(what|right|it|how)|that's not (quite )?(what|how|right)|one small thing|quick check|reread|read (that|it|the \w+) again|check (that|the \w+) again|you (flipped|mixed|got that backwards|have (that|it) backwards))\b/i;
