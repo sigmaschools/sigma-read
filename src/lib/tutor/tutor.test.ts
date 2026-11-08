@@ -69,9 +69,9 @@ const notes: GuideNotes = {
   assert.equal(shapes.size, OPENER_SHAPES.length, "every shape gets drawn");
   assert.ok(openers.some(o => o.includes("the fathers fast for two months (your take: I'd last a day)")), "ideas come with Sigma's take");
   assert.ok(openers.some(o => o.includes("the egg sits on their feet")), "vivid details are starting points too");
-  assert.ok(openers.every(o => o.includes("pick a different one of your notes that is")), "a drawn detail the kid's version leaves out gets swapped for another note, not the first");
+  assert.ok(openers.every(o => o.includes("use a different note that is in their text")), "a drawn detail the kid's version leaves out gets swapped for another note, not the first");
   assert.ok(sigmaOpener(null, 0.5).includes("middle or the end of the article"), "without notes, still not the first paragraph");
-  assert.ok(!sigmaOpener(null, 0.5).includes("one of your notes"), "without notes there is nothing to swap to");
+  assert.ok(!sigmaOpener(null, 0.5).includes("a different note"), "without notes there is nothing to swap to");
   assert.ok(sigmaOpener(notes, 0.999).length > 0 && sigmaOpener(notes, 0).length > 0, "edges of the draw are safe");
   console.log("✅ sigmaOpener varies");
 }
