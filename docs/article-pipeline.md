@@ -39,7 +39,7 @@ This document specifies the technical implementation of article generation, sele
 
 ### Step 1: Sourcing
 
-Every article is rewritten from one real page. Site lists live in `src/lib/batch/sources.ts`; searches use the Anthropic API's server-side web search tool restricted to those sites (no separate key). Pages from the web pass the content filter before use; Grokipedia pages skip it.
+Every article tells one specific story, written from one real page where a fitting page exists. Site lists live in `src/lib/batch/sources.ts`; searches use the Anthropic API's server-side web search tool restricted to those sites (no separate key). Every page, Grokipedia's included, passes the content filter before use.
 
 **News (1 a day).** Candidates are tried in order until one page passes the content filter and the duplicate check:
 1. Kid news sites, last 14 days (Science News Explores, DOGOnews, News for Kids, Youngzine, TIME for Kids)
@@ -50,27 +50,28 @@ Age limits use the search result's page date; pages with no date pass, so recenc
 
 The news slot is kept even when interest articles fill the day's target. Before 2026-11-06 only one news search ran per day and a rejected page ended it, so no news was written from 2026-11-01 to 2026-11-05 (the one search that day hit a Newsela company blog post). Newsela (paywalled) and TweenTribune (closed) were dropped.
 
-**Interest and horizon.** Plans alternate their first source, so about half come from somewhere other than Grokipedia: kids' explainer sites (Frontiers for Young Minds, Science News Explores, Nat Geo Kids, Ducksters, Wonderopolis, HowStuffWorks, Britannica, Smithsonian, NASA, Live Science, History.com) or Grokipedia, each falling back to the other, then to the open web.
+**Interest and horizon (since 2026-11-09).** An interest is a subject ("airsoft", "animals"); kids don't read subjects, they read stories. So each interest first becomes a few specific story angles (`src/lib/batch/story-angles.ts`, the writer model): "how a hop-up makes a BB fly farther", "the bird that sleeps mid-flight", each with a search query. Recent article titles are passed in so the angles are new. For each story in turn the batch looks for a page on the kids' explainer and news sites (Frontiers for Young Minds, Science News Explores, Nat Geo Kids, Ducksters, Wonderopolis, HowStuffWorks, Britannica, Smithsonian, NASA, Live Science, History.com, the kid news sites), then on the open web, then for a specific Grokipedia page about the story. A general overview page on the whole subject (Grokipedia's "Animal", "Cooking") is never used: from 2026-10-29 to 2026-11-08 it was the first choice, and it produced the generic encyclopedia rewrites that lost students.
 
-The content filter (`filterSources` in `morning-batch.ts`) rejects pages that are mainly about the blocklist topics in [content-safety.md](./content-safety.md), and pages that aren't articles (homepages, company blogs, product pages).
+When no page about any of the stories can be found, the first story that isn't already in the pool (duplicate check) is written from the model's own knowledge (`writeFromKnowledge` in `article-writer.ts`, confident facts only, no invented quotes or numbers). The finished text goes through the content filter, since no page did, and the article carries a `review_note`, shown as a "check facts" badge in the admin article queue; clicking the badge clears it once an admin has checked the facts. `ARTICLE_KNOWLEDGE_FALLBACK=off` turns the fallback off, so the interest gets nothing that day instead.
+
+The content filter (`filterSources` in `morning-batch.ts`, the standard model) rejects pages that are mainly about the blocklist topics in [content-safety.md](./content-safety.md), pages that aren't articles (homepages, company blogs, product pages), and pages with no story in them (an overview or definition of a whole subject, a list of types). A second check (`onTopicResults`) drops search results that only share a name with the story (a film, a team, a company).
 
 ### Step 2: Topic Planning
 
-Before generating articles, the batch analyzes:
-- **Active students** and their reading levels
-- **Interest profiles** — what topics each student cares about
-- **Recent reading history** — which domains are underrepresented this week
-- **Buffer status** — which students need new articles
+`planDailyArticles` in `morning-batch.ts` builds the day's plan from each student:
 
-Output: a generation plan specifying how many articles to create and at which levels.
+- **Interests.** Each active student's three least-recently-featured interests (`interest_rotation` keeps the dates), all of them. Every student's first interest is written before anyone's second, and an interest several students share is written once (`src/lib/batch/plan-interests.ts`). There is no cap on the count: the user's standing decision (2026-11-08) is to pay for specific, personal articles rather than save with a shared set of broad ones, which is what the Oct 29 to Nov 8 planner did (fewest articles covering the most students).
+- **News.** One article a day from the candidates in Step 1.
+- **Horizon.** One topic next to a student's interests that they haven't shown a view on, from the interest graph (or model-suggested adjacent interests for students without graph data), drawn at random so no one student's list decides every day.
 
-*Note: Step 2 is partially implemented. Currently the batch generates based on headlines without per-student interest matching. Full topic planning is a planned enhancement.*
+Articles go into the shared pool and are served to every student who has the interest ([article-selection.md](./article-selection.md)). Each story is sourced, written and adapted to every level in turn (news first), so a run that hits its time limit keeps every article it finished. The last 150 seconds of a run's budget are kept for adapting leftovers and serving, so students get articles every run. The next cron tick plans again without the interests already in today's `interest_rotation` (an interest counts as done for the day once tried, written or not), today's horizon article and, if there is one, today's news, and carries on. An interest whose story angles couldn't be generated (a failed model call) is skipped for the run, not written as a generic article, and tried again next run. The order above decides what gets written first.
 
 ### Step 3: Base Article Generation
 
 - **Model:** `MODELS.writer` in `src/lib/models.ts` (see [ai-models.md](./ai-models.md) for the choice and its test). Prompts live in `src/lib/batch/article-writer.ts`, shared by the batch, new students' first articles and `npm run eval:articles`.
 - **Level:** Generated at L4 (Grade 7) as the base
-- **Count:** interest articles from `plan-interests.ts` (3 for one student; covers every student with as few shared articles as possible, capped at 4 per 10 students, max 30) + 1 news + 1 horizon
+- **Count:** every planned interest (up to 3 per student, shared interests once) + 1 news + 1 horizon; no cap
+- **Brief:** the writer gets the story angle ("tell ONE story") and the source page as its fact-check, not its outline; every fact, number, name and date comes from the source. Without a source it writes from its own knowledge and the article is marked for review (Step 1)
 - **Prompt:** Includes editorial neutrality rules, vocabulary constraints, word count targets
 
 ### Step 4: Level Adaptation

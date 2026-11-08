@@ -6,6 +6,7 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { MODELS, requestSettings } from "../models";
+import type { StoryAngle } from "./story-angles";
 
 export const BASE_LEVEL = 4;
 
@@ -19,14 +20,18 @@ export const levelGuide: Record<number, { lexile: string; grade: string; words: 
 };
 
 export interface SourcedTopic {
+  /** The interest or news topic the article is for, in the student's words */
   query: string;
   type: "interest" | "news" | "horizon";
-  sourceUrl: string;
+  /** The page the article is rewritten from; null when no page fit and it is written from the model's own knowledge */
+  sourceUrl: string | null;
   sourceText: string;
+  /** The one story to tell (story-angles.ts); the interest itself when absent */
+  angle?: StoryAngle;
 }
 
 export interface BaseArticle {
-  title: string; topic: string; bodyText: string; sourceUrl: string;
+  title: string; topic: string; bodyText: string; sourceUrl: string | null;
   sources: string[]; estimatedReadTime: number; category: string;
 }
 
@@ -42,6 +47,25 @@ export interface WriterOptions {
 
 /** How an article body is written; the reader renders it with src/lib/markdown.ts */
 export const ARTICLE_FORMAT = `- FORMAT: Markdown. Separate paragraphs with a blank line. Subheadings are optional; when you use one, put it on its own line as "## Subheading", never as a bold line like "**Subheading**". Don't repeat the title as a heading. Use **bold** or *italics* sparingly, and no HTML.`;
+
+/** The one story the article tells, for the writer's brief (story-angles.ts); the interest itself when the batch had no angle */
+export function storyBrief(topic: SourcedTopic): string {
+  const angle = topic.angle;
+  if (!angle || angle.angle.toLowerCase() === topic.query.toLowerCase()) {
+    return `\nTHE STORY: one specific, concrete story about "${topic.query}" for a kid who loves it. Pick the single most surprising thing in the material and build the article around it.\n`;
+  }
+  return `\nTHE STORY: ${angle.angle}${angle.why ? ` (${angle.why.replace(/\.$/, "")})` : ""}. The reader asked for "${topic.query}"; this is the story you picked for them.\n`;
+}
+
+const OPENING_RULE = `- OPENING STYLE — HARD RULE: Your FIRST WORD must NOT be "Imagine", "Picture", "What", or "Have". These are hard-banned. Before writing the article, silently pick ONE style from this list and write only that style:
+  1. Statistic: Lead with a striking number. E.g., "Every second, 6,000 lightning bolts hit Earth."
+  2. Scene drop: Real moment, third-person present tense. E.g., "A coyote trots down a Chicago sidewalk at 2 a.m."
+  3. Historical moment: Specific time and place. E.g., "On July 20, 1969, two astronauts stepped onto a world no human had touched."
+  4. Bold claim: A surprising fact. E.g., "Coyotes have spread farther than any other predator in North America in the last century."
+  5. Contrast: Two opposing facts. E.g., "The drone weighs less than a smartphone. It can carry 20 pounds for 30 miles."
+  6. Q&A: Ask, then answer immediately. E.g., "How fast is the fastest animal? The peregrine falcon dives at 240 mph."
+  7. Micro-story: One sentence about a real person or event. E.g., "At nine years old, Ai Hinatsuru showed up at a stranger's door demanding to be taught."
+  Do not use style 1 twice in the same batch.`;
 
 const BANNED_OPENINGS = ["imagine ", "picture this", "picture yourself", "what if ", "have you ever"];
 
@@ -67,31 +91,24 @@ export function rewritePrompt(topic: SourcedTopic): string {
     ? sourceWords.slice(0, 2000).join(" ") + "..."
     : topic.sourceText;
 
-  return `Rewrite the following source material as an original nonfiction article for a student.
+  return `Write an original nonfiction article for a student from the source material below.
 
 Reading level: ${BASE_LEVEL} (Lexile ${guide.lexile}, Grade ${guide.grade})
 Article type: ${topic.type}
 Target length: ${guide.words} words
-
+${storyBrief(topic)}
 SOURCE MATERIAL:
 ${truncatedSource}
 
 VOCABULARY RULES: ${guide.vocab}
 
 Requirements:
-- Rewrite the source material as an ORIGINAL article. Keep all facts accurate. Do not add information not in the source.
+- Tell ONE story well, the one in the brief. The source is your fact-check, not your outline: leave out everything in it that doesn't serve the story, even most of the page. Never a general overview of the subject.
+- Every fact, number, name and date must come from the source. Do not add information not in the source.
 - Do NOT copy sentences verbatim from the source. Use your own words and structure.
 - Calibrate sentence length and complexity to the grade level.
 - Make it genuinely interesting. Concrete details and examples throughout.
-- OPENING STYLE — HARD RULE: Your FIRST WORD must NOT be "Imagine", "Picture", "What", or "Have". These are hard-banned. Before writing the article, silently pick ONE style from this list and write only that style:
-  1. Statistic: Lead with a striking number. E.g., "Every second, 6,000 lightning bolts hit Earth."
-  2. Scene drop: Real moment, third-person present tense. E.g., "A coyote trots down a Chicago sidewalk at 2 a.m."
-  3. Historical moment: Specific time and place. E.g., "On July 20, 1969, two astronauts stepped onto a world no human had touched."
-  4. Bold claim: A surprising fact. E.g., "Coyotes have spread farther than any other predator in North America in the last century."
-  5. Contrast: Two opposing facts. E.g., "The drone weighs less than a smartphone. It can carry 20 pounds for 30 miles."
-  6. Q&A: Ask, then answer immediately. E.g., "How fast is the fastest animal? The peregrine falcon dives at 240 mph."
-  7. Micro-story: One sentence about a real person or event. E.g., "At nine years old, Ai Hinatsuru showed up at a stranger's door demanding to be taught."
-  Do not use style 1 twice in the same batch.
+${OPENING_RULE}
 - Short paragraphs (2-4 sentences each).
 ${ARTICLE_FORMAT}
 - Age-appropriate for grade ${guide.grade} students.
@@ -126,7 +143,7 @@ export function parseRewrite(raw: string, topic: SourcedTopic): BaseArticle | nu
       topic: parsed.topic || topic.query,
       bodyText: parsed.body,
       sourceUrl: topic.sourceUrl,
-      sources: [topic.sourceUrl],
+      sources: topic.sourceUrl ? [topic.sourceUrl] : [],
       estimatedReadTime: parsed.estimated_read_time_minutes || 3,
       category: topic.type === "interest" ? "interest" : topic.type === "news" ? "news" : "general",
     };
@@ -141,6 +158,54 @@ export async function rewriteFromSource(client: Client, topic: SourcedTopic, opt
     messages: [{ role: "user", content: rewritePrompt(topic) }],
   } as Anthropic.MessageCreateParamsNonStreaming);
   return parseRewrite(text(response), topic);
+}
+
+/**
+ * When no page about the story could be found, the article is written from what the model knows,
+ * the way the spring 2026 articles were (StarCraft and swarm robots, the physics of a Nerf
+ * blaster). It is marked for review (article_cache.review_note), since nothing checks it against a page.
+ */
+export function knowledgePrompt(topic: SourcedTopic): string {
+  const guide = levelGuide[BASE_LEVEL];
+  return `Write an original nonfiction article for a student, from your own knowledge.
+
+Reading level: ${BASE_LEVEL} (Lexile ${guide.lexile}, Grade ${guide.grade})
+Article type: ${topic.type}
+Target length: ${guide.words} words
+${storyBrief(topic)}
+VOCABULARY RULES: ${guide.vocab}
+
+Requirements:
+- Tell ONE story well, the one in the brief. Never a general overview of the subject.
+- Use only facts you are confident are true and well documented. No invented quotes, statistics, studies or people. If you are not sure of a number or a date, leave it out or round it ("about", "more than"). Prefer how things work and why, which you know well, over recent events, which you may not.
+- Calibrate sentence length and complexity to the grade level.
+- Make it genuinely interesting. Concrete details and examples throughout.
+${OPENING_RULE}
+- Short paragraphs (2-4 sentences each).
+${ARTICLE_FORMAT}
+- Age-appropriate for grade ${guide.grade} students.
+- EDITORIAL NEUTRALITY: Report facts, not opinions.
+
+Output format:
+[ARTICLE]
+{
+  "title": "Article title",
+  "topic": "Topic tag (1-3 words)",
+  "body": "The full article text.",
+  "estimated_read_time_minutes": 3
+}
+
+No preamble or commentary outside the JSON.`;
+}
+
+/** Writes an article about the topic's story from the model's own knowledge (no source page) */
+export async function writeFromKnowledge(client: Client, topic: SourcedTopic, opts?: WriterOptions): Promise<BaseArticle | null> {
+  const response = await client.messages.create({
+    ...request(opts),
+    max_tokens: 4000,
+    messages: [{ role: "user", content: knowledgePrompt(topic) }],
+  } as Anthropic.MessageCreateParamsNonStreaming);
+  return parseRewrite(text(response), { ...topic, sourceUrl: null });
 }
 
 export function adaptPrompt(baseTitle: string, baseBody: string, targetLevel: number): string {

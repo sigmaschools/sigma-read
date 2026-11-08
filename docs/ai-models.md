@@ -10,7 +10,7 @@ Last reviewed 4 Nov 2026. The source of truth is `src/lib/models.ts`; this page 
 | `report` | once per finished conversation; moves the student's level | Claude Sonnet 5.5 | thinking off | As good as the best report model, scores closest to a reference grader, half the cost of Opus (test 2) |
 | `writer` | base article and each level adaptation, once per article for all students | Claude Opus 5.5 | medium effort | Clearly the best articles: most accurate, best level fit, every length on target (test 3) |
 | `standard` | onboarding chat, coaching tip, word definitions, parent chat | Claude Sonnet 5.5 | thinking off | Short chat replies: fast, and the same model as the tutor |
-| `light` | duplicate check, source picking, content filter, web search step, topic tagging, interest matching, pre-reading prompt | Claude Haiku 5.5 | thinking off | Classification and picking; a tenth of the price of Haiku 4.5 |
+| `light` | web search step, topic tagging, interest matching, pre-reading prompt | Claude Haiku 5.5 | thinking off | Mechanical steps; a tenth of the price of Haiku 4.5. Until 2026-11-09 it also judged the batch's sources and duplicates; those moved to `standard` and story angles to `writer`, because judging what kids read is not a place to economize |
 | `observer` | beside each turn of the redesigned tutor (`TUTOR_DESIGN=sigma`, [tutor-redesign.md](./tutor-redesign.md)): scores the student's message, keeps the running notes, decides when the talk is done | Claude Sonnet 5.5 | thinking off | The same scoring the tutor used to do inside its reply, on the same scale; not yet re-tested on its own |
 | `sigmaTutor` | every turn of the redesigned tutor (`TUTOR_DESIGN=sigma`) | Claude Opus 5.5 | low effort | Voice eval of 7 Nov 2026 ([tutor-redesign.md](./tutor-redesign.md)): won all 16 blind pairs against today's tutor, "sounds like a person" 4.3/5 against 2.6, about $0.12 a conversation with the observer. Sonnet 5.5 at low effort won 15 of 16 for $0.09 but repeated itself more; Fable 5.1 scored the same as Opus for $0.20 |
 
@@ -19,7 +19,7 @@ Last reviewed 4 Nov 2026. The source of truth is `src/lib/models.ts`; this page 
 Two cost levers apply to every job:
 
 - **Prompt caching.** The tutor's system prompt (rules plus the article, about 4,900 tokens) is cached, so each turn after the first reads it at a tenth of the input price. The onboarding and parent chats cache theirs too. Measured: first turn writes 4,908 cached tokens, the next turn reads 4,908.
-- **Articles are shared.** One article, adapted to each level, serves every student who has that interest. The morning batch picks the day's interests to cover every student with as few articles as possible (`src/lib/batch/plan-interests.ts`), at most 4 per 10 students (max 30) a day, and nothing on the same subject is written twice (`src/lib/batch/dedup.ts`; details in [article-pipeline.md](./article-pipeline.md)).
+- **Articles are shared, but planned per student.** One article, adapted to each level, serves every student who has that interest. The morning batch writes a specific story for each of every student's top interests (`src/lib/batch/plan-interests.ts`), with no daily cap since 2026-11-09 (the user chose quality and personal fit over cost), and nothing on the same subject is written twice (`src/lib/batch/dedup.ts`; details in [article-pipeline.md](./article-pipeline.md)).
 
 ## Cost
 
@@ -31,7 +31,7 @@ Two cost levers apply to every job:
 | **Per conversation** | **~$0.18** | **~$0.05** |
 | Writing one article in all 6 levels | ~$0.10 | ~$0.30 |
 
-For 100 students reading 3 articles a school day (about 6,600 conversations a month): conversations about $330 a month instead of about $1,200; writing at most 32 articles a day, about $290 a month if every level is needed (before, the batch had no daily cap, so it would have written one article per distinct interest, up to three per student). About **$650 a month** in all, against an earlier estimate of $1,000 to $1,500 at today's models. For a single pilot student, writing is the larger part: about 5 articles a day, roughly $45 a month.
+For 100 students reading 3 articles a school day (about 6,600 conversations a month): conversations about $330 a month instead of about $1,200; writing one article per distinct interest, up to three per student plus news and horizon (at most about 300 a day for 100 students if no interests are shared, far fewer in practice). An article costs about $0.30 to write at all six levels (the table below: $0.15 for three levels) plus roughly $0.10 for its story angles and the standard-model source checks, so writing can reach about $3,500 a month at that scale. That is the user's decision (2026-11-08): specific, personal articles over a cheaper shared set, which from Oct 29 to Nov 8 capped writing at 4 per 10 students and made the feed generic. For a single pilot student: about 5 articles a day, roughly $45 a month.
 
 The cheaper writer option, if writing cost ever matters more than the last bit of quality: Claude Sonnet 5.5 with thinking off scored 7.1 against 7.6, at a little over half the cost. Change `MODELS.writer` and the `writer` line in `requestSettings`.
 

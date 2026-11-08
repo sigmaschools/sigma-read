@@ -107,6 +107,7 @@ export const articleCache = pgTable("article_cache", {
   sourceUrl: text("source_url"), // URL of the real web source this article was rewritten from
   flagged: boolean("flagged").default(false).notNull(), // flagged = won't be served to new students
   guideNotes: jsonb("guide_notes").$type<GuideNotes>(), // Sigma's prep notes, written once on the base article (src/lib/tutor/guide-notes.ts)
+  reviewNote: text("review_note"), // why an admin should look at this article (written without a source page); null = nothing to check
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
