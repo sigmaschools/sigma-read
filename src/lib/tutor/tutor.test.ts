@@ -46,7 +46,12 @@ const notes: GuideNotes = {
   assert.ok(article.includes("7- or 8-year-old"), "level voice");
   assert.ok(article.includes("I'd last a day"), "notes");
   assert.ok(article.includes("the mothers are at sea feeding"));
+  // Notes are written from the base (level 4) article; the kid's version may leave a detail out
+  const skipRule = "if something in these notes isn't in the article text above, don't bring it up";
+  assert.ok(article.includes(skipRule), "notes carry the skip-what-the-kid-can't-see rule");
+  assert.ok(article.indexOf("Body of the article.") < article.indexOf(skipRule), "the kid's text comes before the notes the rule points at");
   const noNotes = sigmaSystemBlocks({ articleTitle: "T", articleText: "B", level: 6, notes: null })[1];
+  assert.ok(!noNotes.includes(skipRule), "no notes, no rule about them");
   assert.ok(!noNotes.includes("YOUR NOTES"));
   assert.ok(noNotes.includes("14-year-old"));
   assert.equal(levelVoice(99).kid, levelVoice(6).kid);
@@ -64,7 +69,9 @@ const notes: GuideNotes = {
   assert.equal(shapes.size, OPENER_SHAPES.length, "every shape gets drawn");
   assert.ok(openers.some(o => o.includes("the fathers fast for two months (your take: I'd last a day)")), "ideas come with Sigma's take");
   assert.ok(openers.some(o => o.includes("the egg sits on their feet")), "vivid details are starting points too");
+  assert.ok(openers.every(o => o.includes("pick a different one of your notes that is")), "a drawn detail the kid's version leaves out gets swapped for another note, not the first");
   assert.ok(sigmaOpener(null, 0.5).includes("middle or the end of the article"), "without notes, still not the first paragraph");
+  assert.ok(!sigmaOpener(null, 0.5).includes("one of your notes"), "without notes there is nothing to swap to");
   assert.ok(sigmaOpener(notes, 0.999).length > 0 && sigmaOpener(notes, 0).length > 0, "edges of the draw are safe");
   console.log("✅ sigmaOpener varies");
 }

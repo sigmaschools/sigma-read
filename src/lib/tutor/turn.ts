@@ -36,7 +36,7 @@ export function sigmaOpener(notes: GuideNotes | null | undefined, pick: number =
     : [];
   const shape = OPENER_SHAPES[Math.floor(pick * OPENER_SHAPES.length) % OPENER_SHAPES.length];
   const start = starts.length
-    ? `Start from this one, not from whatever comes first in the article or in your notes: ${starts[Math.floor(pick * 7919) % starts.length]}. If that detail isn't in the article text the kid has, start from one of your notes that is.`
+    ? `Start from this one, not from whatever comes first in the article or in your notes: ${starts[Math.floor(pick * 7919) % starts.length]}. If that detail isn't in the article text the kid has, pick a different one of your notes that is, not the first one.`
     : "Start from something in the middle or the end of the article, not its first paragraph.";
   return `${SIGMA_OPENER} ${start} The way in this time: ${shape}.`;
 }
