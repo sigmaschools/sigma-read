@@ -5,7 +5,7 @@ import { isCurrentGuideNotes, NOTES_VERSION, type GuideNotes } from "./guide-not
 // The prompt .md files load as strings, as in Next's bundler
 const require = createRequire(import.meta.url);
 require("../../../scripts/md-require.cjs");
-const { plain, supportsSystemMessages, sigmaClosing, sigmaOpener, OPENER_SHAPES, runSigmaTurn } = require("./turn") as typeof import("./turn");
+const { plain, supportsSystemMessages, sigmaClosing, sigmaOpener, OPENER_SHAPES, runSigmaTurn, asksForDebate } = require("./turn") as typeof import("./turn");
 const { sigmaSystemBlocks, formatNotes, levelVoice } = require("./prompt") as typeof import("./prompt");
 const { sigmaExchange } = require("./conversation") as typeof import("./conversation");
 const { observerPrompt, kidAskedQuestion, MIN_EXCHANGES, MAX_EXCHANGES } = require("./observer") as typeof import("./observer");
@@ -149,6 +149,20 @@ const blocks = sigmaSystemBlocks({ articleTitle: "T", articleText: "B", level: 3
     assert.equal(r2.fixed, "closing_question");
     assert.ok(!r2.message.endsWith("?"));
     console.log("✅ rewrites and fallbacks");
+  }
+  // A debate move gets one rewrite; a rewrite that still debates is dropped for the original
+  {
+    const c = fakeClient(["Bugs hold up the floor. Make the case for who really runs the animal kingdom.", "Bugs hold up the floor. Pick the one you'd least want to lose."]);
+    const r = await runSigmaTurn({ client: c as never, model: "claude-opus-5-5", systemBlocks: blocks, messages: [{ role: "assistant", content: "O" }, { role: "user", content: "bugs i guess" }], level: 4, closing: null });
+    assert.equal(r.fixed, "debate");
+    assert.equal(r.calls, 2);
+    assert.ok(!asksForDebate(r.message));
+    const c2 = fakeClient(["Convince me the fluffy kind is better.", "Defend that, then."]);
+    const r2 = await runSigmaTurn({ client: c2 as never, model: "claude-opus-5-5", systemBlocks: blocks, messages: [{ role: "assistant", content: "O" }, { role: "user", content: "cracker" }], level: 3, closing: null });
+    assert.equal(r2.fixed, "debate");
+    assert.equal(r2.message, "Convince me the fluffy kind is better.", "a rewrite that still debates is not taken");
+    for (const line of ["I'd take the cracker, honestly. Which one are you grabbing for lunch?", "The waves push back against the wall all night."]) assert.ok(!asksForDebate(line), line);
+    console.log("✅ debate move gets a rewrite");
   }
   // Empty reply → fallback
   {
