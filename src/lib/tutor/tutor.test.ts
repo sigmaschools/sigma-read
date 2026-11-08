@@ -98,6 +98,7 @@ const notes: GuideNotes = {
   assert.equal(tutorDesignForNewConversation({}), "classic");
   assert.equal(tutorDesignForNewConversation({ TUTOR_DESIGN: "Sigma " }), "sigma");
   assert.equal(tutorDesignForNewConversation({ TUTOR_DESIGN: "on" }), "classic");
+  assert.equal(tutorDesignForNewConversation({ TUTOR_DESIGN: "spring" }), "spring");
   console.log("✅ tutorDesignForNewConversation");
 }
 

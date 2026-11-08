@@ -1,0 +1,1 @@
+This is a strong reader. Open-ended, analytical, and abstract directives are all fair game from the start. "Tell me what stood out to you" works fine as an opener.

@@ -35,6 +35,9 @@ export function closingInstruction(kind: ClosingKind, maxWords?: number): string
   return `[SYSTEM: This is your final message. ${body}${length} Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]`;
 }
 
+/** The spring 2026 tutor's closing instruction: May 2026's, minus the verdict praise ("You nailed it") the owner's no-hype rule rules out */
+export const SPRING_CLOSING_INSTRUCTION = `[SYSTEM: This is your final message. Wrap up in one warm sentence that reacts to one specific thing the student said. No verdict on them ("You nailed it", "Great job") and no hype. Do not ask a question. Respond with JSON: {"message": "your closing sentence", "progressDelta": 0}]`;
+
 /** A student answer this short (in words) counts as a short answer for the quiet-kid nudge */
 const SHORT_ANSWER_WORDS = 4;
 
@@ -92,6 +95,11 @@ export async function runTutorTurn(args: {
   priorProgress: number;
   /** The level's word cap, repeated in the closing instruction (it otherwise runs long at L1) */
   maxWords: number;
+  /**
+   * The spring 2026 tutor: its own closing instruction, and none of the later additions (the
+   * quiet-kid nudge, the rewrite pass for questions and long turns), as it ran from May to October 2026
+   */
+  spring?: boolean;
 }): Promise<TurnResult> {
   const exchangeNumber = args.messages.filter(m => m.role === "user").length;
   const forceComplete = exchangeNumber >= MAX_STUDENT_MESSAGES;
@@ -103,8 +111,8 @@ export async function runTutorTurn(args: {
   const finalMessages: { role: "user" | "assistant"; content: string }[] = args.messages.length > 0
     ? args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
     : [{ role: "user", content: OPENER_INSTRUCTION }];
-  if (closing) finalMessages.push({ role: "user", content: closingInstruction(closing, args.maxWords) });
-  const nudged = !closing && needsQuietNudge(args.messages);
+  if (closing) finalMessages.push({ role: "user", content: args.spring ? SPRING_CLOSING_INSTRUCTION : closingInstruction(closing, args.maxWords) });
+  const nudged = !closing && !args.spring && needsQuietNudge(args.messages);
   if (nudged) finalMessages.push({ role: "user", content: QUIET_NUDGE });
 
   async function ask(messages: typeof finalMessages) {
@@ -139,7 +147,7 @@ export async function runTutorTurn(args: {
   const parsed = await ask(finalMessages);
   // The prompt bans quiz-show questions and long turns, but the model still slips (live tests):
   // ask once for a rewrite. The score stays from the first reply, since it grades the same answer.
-  const problem = closing ? null : rewriteReason(parsed.message || "", args.maxWords, nudged, lastTutorMessage(args.messages));
+  const problem = closing || args.spring ? null : rewriteReason(parsed.message || "", args.maxWords, nudged, lastTutorMessage(args.messages));
   if (problem) {
     console.warn(`Tutor turn ${problem.kind}, asking for a rewrite`);
     const retry = await ask([...finalMessages, { role: "user", content: problem.instruction(parsed.message || "") }]).catch(e => {
