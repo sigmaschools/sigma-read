@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { ANGLES_PER_INTEREST, anglesPrompt, bareAngle, parseAngles } from "./story-angles";
+import { ANGLES_PER_INTEREST, anglesPrompt, parseAngles } from "./story-angles";
 
 // The prompt carries the interest in the kid's words, the rule against overviews, and recent titles to skip
 const p = anglesPrompt("airsoft", "interest", ["The Science Behind Airsoft Pellets"]);
@@ -32,6 +32,5 @@ assert.equal(parseAngles("no json here"), null);
 assert.equal(parseAngles('{"angles": []}'), null);
 assert.equal(parseAngles('{"angles": "nope"}'), null);
 assert.equal(parseAngles('{"angles": [{"angle": 1}]}'), null);
-assert.deepEqual(bareAngle("starcraft"), { angle: "starcraft", query: "starcraft", why: "" });
 
 console.log("story-angles tests passed");

@@ -64,7 +64,7 @@ The content filter (`filterSources` in `morning-batch.ts`, the standard model) r
 - **News.** One article a day from the candidates in Step 1.
 - **Horizon.** One topic next to a student's interests that they haven't shown a view on, from the interest graph (or model-suggested adjacent interests for students without graph data), drawn at random so no one student's list decides every day.
 
-Articles go into the shared pool and are served to every student who has the interest ([article-selection.md](./article-selection.md)). Each story is sourced and written in turn (news first), so a run that hits its time limit keeps every article it finished; the next cron tick plans again without the interests already in today's `interest_rotation`, today's horizon article and, if there is one, today's news, and carries on. The order above decides what gets written first.
+Articles go into the shared pool and are served to every student who has the interest ([article-selection.md](./article-selection.md)). Each story is sourced, written and adapted to every level in turn (news first), so a run that hits its time limit keeps every article it finished. The last 150 seconds of a run's budget are kept for adapting leftovers and serving, so students get articles every run. The next cron tick plans again without the interests already in today's `interest_rotation` (an interest counts as done for the day once tried, written or not), today's horizon article and, if there is one, today's news, and carries on. An interest whose story angles couldn't be generated (a failed model call) is skipped for the run, not written as a generic article, and tried again next run. The order above decides what gets written first.
 
 ### Step 3: Base Article Generation
 

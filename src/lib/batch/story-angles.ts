@@ -86,16 +86,12 @@ export function parseAngles(text: string): StoryAngle[] | null {
   }
 }
 
-/** The interest itself as the one angle, when the model gives nothing usable */
-export function bareAngle(interest: string): StoryAngle {
-  return { angle: interest, query: interest, why: "" };
-}
-
 type Client = { messages: Pick<Anthropic["messages"], "create"> };
 
 /**
- * Story angles for an interest, best first. Falls back to the bare interest if the model call
- * fails or its reply can't be read, so a failure never blocks writing.
+ * Story angles for an interest, best first; empty if the model call fails or its reply can't
+ * be read, so the interest is skipped this run rather than searched as a bare subject (which
+ * finds the overview page, or writes a generic article from knowledge).
  * The writer model does this: choosing the story is the step that decides whether a kid wants to
  * read the article at all, so it gets the strongest model (quality over cost, user decision
  * 2026-11-08). The large max_tokens leaves room for its thinking.
@@ -108,9 +104,9 @@ export async function storyAngles(client: Client, interest: string, type: "inter
       messages: [{ role: "user", content: anglesPrompt(interest, type, recentTitles.slice(0, 60)) }],
     }) as Anthropic.MessageCreateParamsNonStreaming);
     const text = response.content.filter(b => b.type === "text").map(b => (b as Anthropic.TextBlock).text).join("");
-    return parseAngles(text) ?? [bareAngle(interest)];
+    return parseAngles(text) ?? [];
   } catch (e) {
-    console.error(`Story angles failed for "${interest}", searching the interest itself:`, (e as Error).message);
-    return [bareAngle(interest)];
+    console.error(`Story angles failed for "${interest}":`, (e as Error).message);
+    return [];
   }
 }

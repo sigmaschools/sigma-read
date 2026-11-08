@@ -86,6 +86,8 @@ const writeNotesFor = (cacheId: number, title: string, body: string) => quietly(
   if (notes) await sql`UPDATE article_cache SET guide_notes = ${JSON.stringify(notes)}::jsonb WHERE id = ${cacheId}`;
 })(), "guide notes");
 const ADAPT_CONCURRENCY = 3;
+/** Budget kept at the end of a run for adapting leftovers and serving, so students get articles every run */
+const SERVE_RESERVE_MS = 150_000;
 
 export interface BatchOptions {
   /** Epoch ms after which no new unit of work is started. */
@@ -202,8 +204,7 @@ async function planDailyArticles(
 ): Promise<ArticlePlan[]> {
   console.log("📋 Planning daily article mix...");
 
-  // Target: ~10 base articles for the pool
-  // 60% interest (3), 20% news (1), 20% horizon (1) — 5 articles/day
+  // Every student's top interests (one story each), one news article, one horizon topic
   const plans: ArticlePlan[] = [];
 
   // --- News (1 article) — candidates in order; sourcing stops at the first that passes ---
@@ -593,9 +594,9 @@ Return ONLY a JSON array of indices to KEEP:
       return sources.filter((_, i) => keepIndices.has(i));
     }
   } catch (e) {
-    console.log("  ⚠️ Content filter failed, keeping all sources");
+    console.log("  ⚠️ Content filter failed, keeping the pages and dropping any article written from knowledge (it has no other check)");
   }
-  return sources;
+  return sources.filter(s => !s.whole);
 }
 
 /**
@@ -735,6 +736,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
   const topicPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
   for (const plan of topicPlans) {
     const angles = await storyAngles(anglesClient, plan.query, plan.type === "horizon" ? "horizon" : "interest", recentTitles);
+    if (angles.length === 0) { console.log(`     ⚠️ No story angles for "${plan.query}" this run; trying again next run`); continue; }
     console.log(`  💡 Stories for "${plan.query}": ${angles.map(a => a.angle).join(" / ")}`);
 
     let hit: { url: string; text: string; angle: StoryAngle } | null = null;
@@ -759,6 +761,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
 
     if (hit) {
       sourced.push({ query: plan.query, type: plan.type, sourceUrl: hit.url, sourceText: hit.text, angle: hit.angle });
+      recentTitles.push(hit.angle.angle);
       continue;
     }
     if (!KNOWLEDGE_FALLBACK) {
@@ -769,6 +772,7 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
     if (angle) {
       console.log(`     ✍️  No page for any story about "${plan.query}"; writing "${angle.angle}" from knowledge (marked for review)`);
       sourced.push({ query: plan.query, type: plan.type, sourceUrl: null, sourceText: "", angle });
+      recentTitles.push(angle.angle);
     } else {
       console.log(`     ❌ No page for any story about "${plan.query}", and every story is already in the pool; nothing written today`);
     }
@@ -988,19 +992,39 @@ async function runSteps(result: BatchResult) {
   const blockedTopics = await sql`SELECT topic FROM blocked_topics`;
   const blockedSet = new Set(blockedTopics.map(b => (b.topic as string).toLowerCase()));
 
-  // Steps 3 and 4: source and write, one plan at a time, so a run that hits its time limit
-  // keeps every article it finished and the next tick's plan starts after them. The news plans
-  // go together (sourcing stops at the first good page) and first, so the day has its news.
-  const baseArticles: { id: number; title: string; topic: string; bodyText: string; sources: string[]; category: string }[] = [];
+  // Steps 3 to 5: source, write and adapt, one plan at a time, so a run that hits its time
+  // limit keeps every article it finished (at every level) and the next tick's plan starts after
+  // them. The news plans go together (sourcing stops at the first good page) and first, so the
+  // day has its news. The last stretch of the budget is kept for adapting leftovers and serving,
+  // so students get articles every run even while a long plan is still being written.
   let written = 0;
   const groups: ArticlePlan[][] = [...(newsPlans.length > 0 ? [newsPlans] : []), ...topicPlans.map(p => [p])];
   const total = groups.length;
 
-  async function writeArticle(t: SourcedTopic) {
+  async function adaptToLevels(base: { id: number; title: string; topic: string; bodyText: string; sources: string[]; category: string }) {
+    const tasks = [...levelsNeeded].filter(level => level !== BASE_LEVEL).map(level => ({ base, level }));
+    await runPool(tasks, ADAPT_CONCURRENCY, async ({ base, level }) => {
+      checkTime("adapt");
+      const adapted = await adaptArticleToLevel(base.title, base.bodyText, level);
+      if (adapted) {
+        await sql`
+          INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date)
+          VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources)}, ${adapted.estimatedReadTime}, ${base.category}, ${base.id}, ${today})
+        `;
+        result.adaptations++;
+        console.log(`     📐 L${level}`);
+      } else {
+        console.log(`     ❌ L${level} adaptation failed (the backfill step retries)`);
+      }
+    });
+  }
+
+  /** Writes and adapts the article; true when one was stored */
+  async function writeArticle(t: SourcedTopic): Promise<boolean> {
     console.log(`  ✍️  ${t.type}: ${t.query.substring(0, 50)}${t.angle ? ` ("${t.angle.angle}")` : ""}`);
     const article = await writeBaseArticle(t);
-    if (!article) { console.log(`     ❌ Failed to write`); return; }
-    if (blockedSet.has(article.topic.toLowerCase())) { console.log(`     🚫 Blocked topic`); return; }
+    if (!article) { console.log(`     ❌ Failed to write`); return false; }
+    if (blockedSet.has(article.topic.toLowerCase())) { console.log(`     🚫 Blocked topic`); return false; }
 
     const [inserted] = await sql`
       INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note)
@@ -1009,59 +1033,52 @@ async function runSteps(result: BatchResult) {
     `;
     result.baseArticles++;
     written++;
+    console.log(`     ✅ "${article.title}" (${t.sourceUrl ? `source: ${t.sourceUrl.substring(0, 50)}...` : "from knowledge, marked for review"})`);
     // The interest the batch searched for is the article's main topic; the rewrite's own tag is a fallback
     await quietly(tagCacheArticle(inserted.id, t.type === "news" ? [article.topic] : [t.query, article.topic], { client: anthropic }), "article tagging");
     await writeNotesFor(inserted.id, article.title, article.bodyText);
-    baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
     await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${t.query ?? null})`;
-    // The interest is featured as of today: a resumed run skips it, and tomorrow's plan rotates
-    // to the students' other interests first
-    if (t.type === "interest") {
-      const interest = t.query.toLowerCase();
-      await sql`
-        INSERT INTO interest_rotation (interest, last_featured_at, student_ids, updated_at)
-        VALUES (${interest}, CURRENT_DATE, ${interestMap.get(interest) || []}, NOW())
-        ON CONFLICT (interest) DO UPDATE SET
-          last_featured_at = EXCLUDED.last_featured_at,
-          student_ids = EXCLUDED.student_ids,
-          updated_at = NOW()
-      `;
-    }
-    console.log(`     ✅ "${article.title}" (${t.sourceUrl ? `source: ${t.sourceUrl.substring(0, 50)}...` : "from knowledge, marked for review"})`);
+    await adaptToLevels({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
+    return true;
+  }
+
+  /**
+   * The interest is done for today, written or not: a resumed run skips it, and tomorrow's plan
+   * rotates to the students' other interests first. Without this, an interest with no usable
+   * page would be searched again on every run of the day.
+   */
+  async function rotate(interest: string) {
+    await sql`
+      INSERT INTO interest_rotation (interest, last_featured_at, student_ids, updated_at)
+      VALUES (${interest}, CURRENT_DATE, ${interestMap.get(interest) || []}, NOW())
+      ON CONFLICT (interest) DO UPDATE SET
+        last_featured_at = EXCLUDED.last_featured_at,
+        student_ids = EXCLUDED.student_ids,
+        updated_at = NOW()
+    `;
   }
 
   for (let i = 0; i < groups.length; i++) {
-    checkTime("source");
-    console.log(`\n── [${i + 1}/${total}] ${groups[i][0].type === "news" ? "news" : `${groups[i][0].type}: ${groups[i][0].query}`} ──`);
-    const sourcedTopics = await sourceContent(groups[i], recentTopics);
+    if (Date.now() > deadline - SERVE_RESERVE_MS) {
+      console.log(`\n⏱️  Stopping before "${groups[i][0].query}" to leave time for adapting and serving; ${groups.length - i} plans wait for the next run.`);
+      result.status = "partial";
+      break;
+    }
+    const group = groups[i];
+    console.log(`\n── [${i + 1}/${total}] ${group[0].type === "news" ? "news" : `${group[0].type}: ${group[0].query}`} ──`);
+    const sourcedTopics = await sourceContent(group, recentTopics);
+    let stored = false;
     for (const t of sourcedTopics) {
       checkTime("rewrite");
-      await writeArticle(t);
+      if (await writeArticle(t)) stored = true;
+    }
+    if (group[0].type === "interest") {
+      if (!stored) console.log(`     ↻ Nothing written for "${group[0].query}" today; rotating to other interests`);
+      await rotate(group[0].query.toLowerCase());
     }
   }
 
   console.log(`\n📝 Generated ${written} base articles`);
-
-  // Step 5: Adapt to needed levels
-  console.log("\n📐 Adapting to reading levels...\n");
-
-  const adaptTasks = baseArticles.flatMap(base =>
-    [...levelsNeeded].filter(level => level !== BASE_LEVEL).map(level => ({ base, level }))
-  );
-  await runPool(adaptTasks, ADAPT_CONCURRENCY, async ({ base, level }) => {
-    checkTime("adapt");
-    const adapted = await adaptArticleToLevel(base.title, base.bodyText, level);
-    if (adapted) {
-      await sql`
-        INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date)
-        VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources)}, ${adapted.estimatedReadTime}, ${base.category}, ${base.id}, ${today})
-      `;
-      result.adaptations++;
-      console.log(`  ✅ "${base.title.substring(0, 40)}..." → L${level}`);
-    } else {
-      console.log(`  ❌ "${base.title.substring(0, 40)}..." → L${level}`);
-    }
-  });
 
   // Step 5b: Backfill any base articles missing level adaptations
   // (also finishes adaptations a previous, timed-out call didn't get to)
@@ -1070,7 +1087,7 @@ async function runSteps(result: BatchResult) {
   // Step 6: Serve to students
   result.served += await serveToStudents(students);
 
-  console.log(`\n✅ Batch complete! ${baseArticles.length} base articles × ${levelsNeeded.size} levels\n`);
+  console.log(`\n✅ Batch ${result.status}: ${written} base articles × ${levelsNeeded.size} levels this run\n`);
 }
 
 

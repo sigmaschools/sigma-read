@@ -49,7 +49,7 @@ async function main() {
 
   let targets: { id: number; title: string; reason: string }[];
   if (givenIds) {
-    const rows = await sql`SELECT id, title FROM article_cache WHERE id = ANY(${givenIds}) AND base_article_id IS NULL`;
+    const rows = await sql`SELECT id, title FROM article_cache WHERE id = ANY(${givenIds}) AND base_article_id IS NULL AND flagged = false`;
     targets = rows.map(r => ({ id: r.id as number, title: r.title as string, reason: "listed with --ids" }));
   } else {
     const rows = await sql`
@@ -90,8 +90,12 @@ async function main() {
 
   if (!apply) { console.log(`\n  Would flag ${versionIds.length} cache rows and remove ${unread.length} unread copies.\n`); return; }
 
-  await sql`UPDATE article_cache SET flagged = true WHERE id = ANY(${versionIds})`;
-  if (unread.length > 0) await sql`DELETE FROM articles WHERE id = ANY(${unread.map(u => u.id as number)})`;
+  // One transaction: the flags and the feed removals land together or not at all
+  const unreadIds = unread.map(u => u.id as number);
+  await sql.transaction([
+    sql`UPDATE article_cache SET flagged = true WHERE id = ANY(${versionIds})`,
+    ...(unreadIds.length > 0 ? [sql`DELETE FROM articles WHERE id = ANY(${unreadIds})`] : []),
+  ]);
   console.log(`\n  ✅ Flagged ${versionIds.length} cache rows and removed ${unread.length} unread feed copies.\n`);
 }
 

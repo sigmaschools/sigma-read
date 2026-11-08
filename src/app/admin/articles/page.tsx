@@ -153,11 +153,12 @@ export default function AdminArticlesPage() {
   async function markReviewed(e: React.MouseEvent, row: QueueRow) {
     e.stopPropagation();
     if (!confirm(`Mark "${row.title}" as fact-checked? The "check facts" badge goes away.`)) return;
-    await fetch("/api/admin/content", {
+    const res = await fetch("/api/admin/content", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: row.id, reviewed: true }),
     });
+    if (!res.ok) alert("Couldn't save that. Try again.");
     fetchData(tab, page);
   }
 
