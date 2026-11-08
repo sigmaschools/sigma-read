@@ -27,7 +27,7 @@ export const LEVEL_VOICE: Record<number, { kid: string; length: string }> = {
   3: { kid: "a 10- or 11-year-old (fifth or sixth grade)", length: "two or three sentences, about 25 to 55 words; why and how are fair game" },
   4: { kid: "a 12-year-old (seventh grade)", length: "two to four sentences, about 30 to 65 words; connections between ideas are fair game" },
   5: { kid: "a 13-year-old (eighth grade)", length: "two to four sentences, about 30 to 75 words; what the article implies is fair game" },
-  6: { kid: "a 14-year-old who reads well", length: "three or four sentences, about 35 to 85 words; nuance and bigger ideas are fair game, still light" },
+  6: { kid: "a 14-year-old who reads well", length: "three or four sentences, about 35 to 85 words; room for a thought of your own now and then, still light and on the article" },
 };
 
 export function levelVoice(level: number) {
