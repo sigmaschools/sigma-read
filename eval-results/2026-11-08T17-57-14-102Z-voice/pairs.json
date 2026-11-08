@@ -1,0 +1,35 @@
+[
+ {
+  "case": "jules/bee-dance/0",
+  "kid": "jules",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A's tutor dropped the task the moment the kid balked and offered 'Longest shimmy in the hive' instead, which got the kid laughing and riffing ('turn left go three miles'), while B opened with 'Not sure I'd call them dumb' and 'Convince me something dumb could pull that off', then ran the same 'Say you're a bee... Tell me...' shape nearly every turn.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 1,
+    "debateLines": 1,
+    "muddledLines": 1,
+    "worstLine": "Could be about their eyes, but look at that line in the second paragraph again, the one about why the other bees crowd around her. Anyway, you're the dancer."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "fun": 2,
+    "graderLines": 1,
+    "debateLines": 3,
+    "muddledLines": 1,
+    "worstLine": "The ants can make their own case another day. Here's what I can't get past: if she waggles a little to the right of straight up, the flowers are that same amount to the right of the sun. Convince me something dumb could pull that off."
+   }
+  }
+ }
+]

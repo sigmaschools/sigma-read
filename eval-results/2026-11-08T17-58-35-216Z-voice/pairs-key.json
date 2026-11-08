@@ -1,0 +1,110 @@
+[
+ {
+  "pair": 1,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 2,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 3,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 4,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 5,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 6,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 7,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 8,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 9,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 10,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 11,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 12,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 13,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 14,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 15,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 16,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 17,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 18,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ }
+]

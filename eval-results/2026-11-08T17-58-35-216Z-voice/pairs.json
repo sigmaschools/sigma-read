@@ -1,0 +1,596 @@
+[
+ {
+  "case": "nico/octopus/0",
+  "kid": "nico",
+  "article": "octopus",
+  "level": 1,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A follows the kid's 'my brother' idea into one running game that touches every fact in the article with varied prompts, while B repeats the 'Picture X and tell me Y' shape four times ('Picture a big octopus... tell me what it looks like', 'Say you're the octopus. Tell me...', 'Be the shark... tell me what you see', 'Picture it and tell me what you'd think').",
+   "a": {
+    "person": 5,
+    "keepTalking": 5,
+    "fun": 5,
+    "graderLines": 0,
+    "debateLines": 0,
+    "muddledLines": 0,
+    "worstLine": "Pick what you'd want to stick to if you had suction cups."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 3,
+    "fun": 3,
+    "graderLines": 1,
+    "debateLines": 0,
+    "muddledLines": 0,
+    "worstLine": "Picture it and tell me what you'd think."
+   }
+  }
+ },
+ {
+  "case": "nico/octopus/1",
+  "kid": "nico",
+  "article": "octopus",
+  "level": 1,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B follows the kid's booger joke, muses about its own one heart, and ends with 'I'm going to be picturing a big octopus booger squeezing through a fence for the rest of the day,' while A runs nearly every turn through the same 'Tell me / Walk me through / Pick a hole' imperative and slips toward convincing with 'Tell me what you'd say if a friend didn't believe you.'",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "fun": 3,
+    "graderLines": 0,
+    "debateLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Three. I thought I'd misread it too. One octopus, three hearts all beating, and blue blood moving through all of them. Tell me what you'd say if a friend didn't believe you."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 5,
+    "graderLines": 0,
+    "debateLines": 0,
+    "muddledLines": 0,
+    "worstLine": "none"
+   }
+  }
+ },
+ {
+  "case": "nico/lighthouse/0",
+  "kid": "nico",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B gets the kid laughing twice ('lol wiping with ur elbow', 'soot in ur nose haha') by running with the burp and adding its own silly reactions, while A opens by asking a 7-year-old to solve a problem the article never covers ('who made sure two lighthouses never got the same pattern?') and the kid answers 'idk'.",
+   "a": {
+    "person": 4,
+    "keepTalking": 3,
+    "fun": 3,
+    "graderLines": 1,
+    "debateLines": 0,
+    "muddledLines": 2,
+    "worstLine": "Here's what I'm still wondering: who made sure two lighthouses never got the same pattern? Tell me how you'd keep them from getting mixed up."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 5,
+    "fun": 5,
+    "graderLines": 0,
+    "debateLines": 0,
+    "muddledLines": 1,
+    "worstLine": "The real burp would get lost in the wind, though, so picture some poor keeper hauling a foghorn up a hundred steps to do it. Say what a sailor does when they spot your lighthouse at night."
+   }
+  }
+ },
+ {
+  "case": "nico/lighthouse/1",
+  "kid": "nico",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "slight",
+   "reason": "A varies its moves (would-you-rather, pick-one, the tutor's own favorite part) and rolls with the kid's tangents ('i can ride a bike', 'i dont like fish') with real humor, while B's first three turns are a scaffolded walk-through ('Walk me through what you do next', 'Tell me what you do with the ship') and every reply opens by echoing the kid's words; B's closing line about spotting the kid's lighthouse is the best single line in either chat, though.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 0,
+    "debateLines": 1,
+    "muddledLines": 0,
+    "worstLine": "Maybe, if the sailor got lost."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 3,
+    "fun": 3,
+    "graderLines": 1,
+    "debateLines": 0,
+    "muddledLines": 0,
+    "worstLine": "Say the list puts you right near the rocks. Tell me what you do with the ship."
+   }
+  }
+ },
+ {
+  "case": "maya/lighthouse/0",
+  "kid": "maya",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "A runs the same shape almost every turn ('Say X... Tell me Y', 'Describe', 'Walk me through', 'Pick which') and yanks the kid from sailors to keeper with 'Meanwhile the keeper's not even watching the sea', while B follows the kid's own threads (candle, keeper kid, naming, supply boat), varies its questions, and offers more of its own ('I'd row out just to see it', 'I picture one tiny flame bobbing up the dark stairs').",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "fun": 3,
+    "graderLines": 0,
+    "debateLines": 1,
+    "muddledLines": 1,
+    "worstLine": "Meanwhile the keeper's not even watching the sea. They're climbing more than a hundred steps several times a night to wind the weight back up. Describe your third climb of the night, around 3 a.m."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 1,
+    "debateLines": 1,
+    "muddledLines": 1,
+    "worstLine": "As far as I know, the people in charge gave lighthouses near each other different patterns, so that mix-up wouldn't happen."
+   }
+  }
+ },
+ {
+  "case": "maya/lighthouse/1",
+  "kid": "maya",
+  "article": "lighthouse",
+  "level": 2,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "B has real humor and reactions of its own ('I'm laughing at you dropping the crank', 'That kid would be rowing to town to quit') and no grading, while A runs a repeated '[reaction]. Walk me through / Pick / Tell me' shape with two 'walk me through what happens' comprehension checks and small evaluations like 'your rope plan sounds smart to me' and 'you're right'.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "fun": 3,
+    "graderLines": 3,
+    "debateLines": 2,
+    "muddledLines": 0,
+    "worstLine": "Say your legs give out and nobody winds the weight. Walk me through what a sailor sees out at sea."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 5,
+    "fun": 5,
+    "graderLines": 0,
+    "debateLines": 0,
+    "muddledLines": 1,
+    "worstLine": "Now picture Maya's lighthouse from the inside. Would you rather climb a hundred steps at 3 a.m. to wind the weight, or go out on the walkway in a storm to wipe salt off the glass?"
+   }
+  }
+ },
+ {
+  "case": "maya/bee-dance/0",
+  "kid": "maya",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A follows the kid's tangents (bumping bees, bored bees, antennae, Nobel), adds the tutor's own reactions ('I'd pay to watch that', 'I'd have been his first believer') and a playful bookshelf waggle, while B slides into debate mode with 'Make the case for whether that's a smart system or a flimsy one', 'Convince me you'd have believed him', and 'Walk me through how you'd prove the dance is really a map'.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 0,
+    "debateLines": 2,
+    "muddledLines": 1,
+    "worstLine": "It sounds like \"noble,\" but the article spells it Nobel."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "fun": 2,
+    "graderLines": 2,
+    "debateLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Make the case for whether that's a smart system or a flimsy one."
+   }
+  }
+ },
+ {
+  "case": "maya/bee-dance/1",
+  "kid": "maya",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "big",
+   "reason": "A runs the same \"Say X. Tell me/Make the case Y\" shape every turn and tips into debate with \"Convince me bees really are giving directions,\" \"a doubter might say the bees just follow her smell. Answer him,\" and \"Make your case to the town.\" B varies its prompts (\"Would you rather...\", \"Picture the moment she lands back\", \"Pick the move it shows\"), shares its own reactions (\"I'd at least want a thank-you\"), and stays playful with the kid.",
+   "a": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 2,
+    "debateLines": 4,
+    "muddledLines": 0,
+    "worstLine": "But a doubter might say the bees just follow her smell. Answer him."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 0,
+    "debateLines": 1,
+    "muddledLines": 1,
+    "worstLine": "A spin for the sun is fun, but it might get mixed up with the round dance for close flowers."
+   }
+  }
+ },
+ {
+  "case": "theo/bee-dance/0",
+  "kid": "theo",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "B keeps correcting and pushing the kid ('Make the case for why bees wouldn't bother', 'What he had, though, was a puzzle', 'But it's not just a dance', 'You left out how long to waggle, though') and ends with a topic hop into protecting patches, while A just rides along with the kid ('Same. Less dancing, and you still get the credit', 'I'd last about a week before I started naming them').",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 0,
+    "debateLines": 0,
+    "muddledLines": 0,
+    "worstLine": "Now say she waggles that way for a really long time. What does that tell you?"
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 1,
+    "debateLines": 4,
+    "muddledLines": 1,
+    "worstLine": "You left out how long to waggle, though, and the TV's only a few steps away, so maybe a round dance. Scientists still watch these dances today. If a bee has to dance a long time, her flowers are far, so the patches close to hives are worth protecting."
+   }
+  }
+ },
+ {
+  "case": "theo/bee-dance/1",
+  "kid": "theo",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A feels like two people enjoying the bee article ('like a song stuck on repeat', 'I'd want the close flowers every time') and ends with a warm callback to the kid's follow-whoever-leaves-first plan, while B slides into 'Convince me the crowd bee still has it easier' and 'Make the case that it was the dance and not their noses,' importing a smell objection the article never raises and ending nearly every turn with an imperative.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 1,
+    "debateLines": 1,
+    "muddledLines": 0,
+    "worstLine": "The sun part seems way harder to spot, though. He'd have to notice the dances shift as the sun moves across the sky. Say you're him and nobody believes you. How would you show them it's real?"
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 0,
+    "debateLines": 4,
+    "muddledLines": 1,
+    "worstLine": "Easier in the hive, maybe. But then you're the one who has to fly off and find a patch you've never seen, going only on what you felt in the dark. I'd be nervous about that part. Convince me the crowd bee still has it easier."
+   }
+  }
+ },
+ {
+  "case": "jules/bee-dance/0",
+  "kid": "jules",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "A opens with 'Walk me through how you'd figure out' and later 'Make the case for why someone back then would refuse to believe', drawing two 'why do i have to' pushbacks and repeating a 'Say you're X... describe Y' shape, while B rolls with the kid's ant tangent and bumped-dancer joke and lands the Nobel-ceremony waggle image the kid actually laughs at.",
+   "a": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 1,
+    "debateLines": 2,
+    "muddledLines": 0,
+    "worstLine": "Make the case for why someone back then would refuse to believe a bug could give directions."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 2,
+    "debateLines": 1,
+    "muddledLines": 1,
+    "worstLine": "You'd have fit right in with the people who didn't believe von Frisch at first. Say you're the scientist watching for years. What would finally make you believe bees can share directions?"
+   }
+  }
+ },
+ {
+  "case": "jules/bee-dance/1",
+  "kid": "jules",
+  "article": "bee-dance",
+  "level": 3,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "big",
+   "reason": "A follows the kid's own curiosity (the sun moving, the 'yes Linda' joke, Karl's years of watching) and the kid ends up laughing and asking questions, while B opens with 'Convince me,' keeps the doubter act after the kid balks twice, then does 'Make the case' again, getting 'why do i have to' three times.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 1,
+    "debateLines": 0,
+    "muddledLines": 0,
+    "worstLine": "The article doesn't say, but I think it's gravity. Close your eyes and you still know which way is down, right? Bees probably feel that too. Try it: eyes shut, point at the ceiling. That's how sure the bees are about \"up.\""
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 1,
+    "debateLines": 4,
+    "muddledLines": 1,
+    "worstLine": "You don't have to. I just figure if you can talk a doubter out of it, the idea's really yours. I'll make it easy and doubt first: I think the other bees just follow the dancer out the door and nobody's reading any map. Tell me what in the article makes that hard to believe."
+   }
+  }
+ },
+ {
+  "case": "ava/voyager/0",
+  "kid": "ava",
+  "article": "voyager",
+  "level": 5,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "A slides into debate mode with \"Convince me: what would it take...\" and \"Pick something about space you'd bet is wrong in today's textbooks, and defend it,\" then drifts off the article into a probe-design exercise with every turn shaped as reaction + \"Walk me through\"; B stays on the article with would-you-rather, the day-long photo wait, and the heartbeat, and the tutor keeps sharing its own reactions (\"I'd be pacing the whole time\").",
+   "a": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 1,
+    "debateLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Pick something about space you'd bet is wrong in today's textbooks, and defend it."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 1,
+    "debateLines": 1,
+    "muddledLines": 1,
+    "worstLine": "That's a good point about the heartbeat."
+   }
+  }
+ },
+ {
+  "case": "ava/voyager/1",
+  "kid": "ava",
+  "article": "voyager",
+  "level": 5,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "big",
+   "reason": "A stays playful and follows the kid's imagination (rain on the record, Jupiter 'too big to be a moon') with the tutor's own reactions like 'That would wreck my sleep', while B turns a fun article into a debate drill: 'convince the others it might not be a volcano', 'tell me if your argument still works', 'Make the case for why a textbook should change', and twice sends the kid back to reread and admit a mistake.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 3,
+    "debateLines": 2,
+    "muddledLines": 1,
+    "worstLine": "Orange and gross works for me too, though the article doesn't say what color Io is."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 2,
+    "debateLines": 6,
+    "muddledLines": 1,
+    "worstLine": "Look at the part about the day-long signal again, though, and check where Voyager 1 is when it takes that long. Then tell me if your argument still works for pictures sent from Jupiter."
+   }
+  }
+ },
+ {
+  "case": "sam/voyager/0",
+  "kid": "sam",
+  "article": "voyager",
+  "level": 5,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "A slides into the argumentative mode three turns running ('Make the case for keeping it on', 'Defend your instrument against Voyager 2's', 'Pick it and defend it') and even brings up Voyager 2 to counter the kid, while B follows the kid's own curiosity about Neptune, answers their questions plainly, and shares its own reactions ('I still can't picture slush that's hot'), despite a muddled Io turn and a few 'great guess' remarks.",
+   "a": {
+    "person": 3,
+    "keepTalking": 3,
+    "fun": 2,
+    "graderLines": 4,
+    "debateLines": 4,
+    "muddledLines": 0,
+    "worstLine": "One small problem: Voyager 2 crossed into interstellar space too, in 2018. If its version of your instrument still works, the other scientist could say yours is the redundant one. Defend your instrument against Voyager 2's."
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 3,
+    "debateLines": 0,
+    "muddledLines": 2,
+    "worstLine": "I'll admit the article doesn't say how long a slow trip to Neptune would take. It just shows how much the slingshot sped things up. The surprise I'd have wanted to be there for is Io: the first active volcanoes anyone ever saw that weren't on Earth. Picture being in the room when that image came in."
+   }
+  }
+ },
+ {
+  "case": "sam/voyager/1",
+  "kid": "sam",
+  "article": "voyager",
+  "level": 5,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "A stays on the article with the tutor's own reactions (pinball, 3 a.m. number-checking, 'maybe partly it was for the people making it') and ends warmly, while B drifts into outside heliosphere facts and slips into the argumentative mode with 'Make the case for a bubble with a fuzzy edge' and 'I'd push back a little on \"problem\"', drawing the kid's own complaints ('feels like a quiz lol', 'essay vibes'). A's flaw is a slightly repetitive 'Say/Picture X' shape and a hop to the texting analogy.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 2,
+    "debateLines": 1,
+    "muddledLines": 1,
+    "worstLine": "And for now it's still mailing postcards home, each one taking nearly a full day to arrive. Picture texting someone and waiting a whole day for each message to land."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 2,
+    "debateLines": 3,
+    "muddledLines": 1,
+    "worstLine": "Make the case for a bubble with a fuzzy edge."
+   }
+  }
+ },
+ {
+  "case": "sam/immune/0",
+  "kid": "sam",
+  "article": "immune",
+  "level": 6,
+  "run": 0,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "A",
+  "judgement": {
+   "winner": "B",
+   "margin": "clear",
+   "reason": "A commands every turn with the same shape and tips into debate (\"Make the case for why the body keeps only a small reserve\", \"Defend the job anyway\"), while B follows the kid's own questions, concedes gracefully (\"Fair, I'll let 'comforting' go\"), and has real reactions of its own, though its 'memo' prompt did land as a quiz.",
+   "a": {
+    "person": 3,
+    "keepTalking": 2,
+    "fun": 2,
+    "graderLines": 3,
+    "debateLines": 4,
+    "muddledLines": 0,
+    "worstLine": "Defend the job anyway: why is a yearly guess better than no flu shot at all?"
+   },
+   "b": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 2,
+    "debateLines": 0,
+    "muddledLines": 0,
+    "worstLine": "Say you could send your immune system one memo before tomorrow's lunch. What's in it?"
+   }
+  }
+ },
+ {
+  "case": "sam/immune/1",
+  "kid": "sam",
+  "article": "immune",
+  "level": 6,
+  "run": 1,
+  "base": "sigma-v1",
+  "other": "sigma-opus-low",
+  "baseIs": "B",
+  "judgement": {
+   "winner": "A",
+   "margin": "clear",
+   "reason": "B runs the argumentative routine almost every turn ('Make the case for whether \"remembering\" is even the right word', 'Defend where you'd draw the line', 'Convince me it's a worse design'), turning a fun article into a philosophy seminar on what memory means; A stays playful and follows the kid's security-guard riff, though it falls into a repetitive 'Picture X...' shape and one outright quiz the kid calls out.",
+   "a": {
+    "person": 4,
+    "keepTalking": 4,
+    "fun": 4,
+    "graderLines": 3,
+    "debateLines": 1,
+    "muddledLines": 0,
+    "worstLine": "Guess which group of people a bad year hits hardest, based on how the guards work."
+   },
+   "b": {
+    "person": 3,
+    "keepTalking": 3,
+    "fun": 2,
+    "graderLines": 4,
+    "debateLines": 5,
+    "muddledLines": 0,
+    "worstLine": "I'd call that clumsy rather than depressing. Convince me it's a worse design than one that could rewrite its own keys."
+   }
+  }
+ }
+]
