@@ -62,16 +62,12 @@ export const NEWS_TOPICS: { query: string; science: boolean }[] = [
   { query: "medical breakthrough", science: true },
 ];
 
-export type SourceKind = "grokipedia" | "explainers";
-
 /**
- * Which source an interest or horizon plan tries first. Plans alternate, so about half of each
- * day's articles come from the explainer sites instead of all from Grokipedia; each falls back
- * to the other, then to the open web.
+ * Where a story angle (story-angles.ts) is searched for first: the explainer sites plus the
+ * kids' news sites, which carry stories by nature. Grokipedia is the last resort, and only a
+ * page about the story itself; the open web comes in between.
  */
-export function sourceOrder(planIndex: number): SourceKind[] {
-  return planIndex % 2 === 0 ? ["explainers", "grokipedia"] : ["grokipedia", "explainers"];
-}
+export const STORY_DOMAINS = [...new Set([...EXPLAINER_DOMAINS, ...KID_NEWS_DOMAINS])];
 
 /** A Grokipedia `/page/...` link that is a real page, not a script template caught by the link scan */
 export function isGrokipediaPagePath(path: string): boolean {

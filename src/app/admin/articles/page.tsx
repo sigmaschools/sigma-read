@@ -13,6 +13,7 @@ interface QueueRow {
   generatedDate: string | null;
   sourceUrl: string | null;
   flagged: boolean;
+  reviewNote: string | null;
   createdAt: string;
   levels: Array<{ id: number; level: number }>;
 }
@@ -342,6 +343,7 @@ export default function AdminArticlesPage() {
                         ? new Date(row.generatedDate + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })
                         : new Date(row.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </span>
+                    {row.reviewNote && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700" title={row.reviewNote}>check facts</span>}
                     {row.flagged && <span className="text-[10px] text-red-400">blocked</span>}
                     <button
                       onClick={(e) => handleFlagClick(e, row)}

@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { EXPLAINER_DOMAINS, KID_NEWS_DOMAINS, NEWS_DOMAINS, isGrokipediaPagePath, plansToRun, sourceOrder } from "./sources";
+import { EXPLAINER_DOMAINS, KID_NEWS_DOMAINS, NEWS_DOMAINS, STORY_DOMAINS, isGrokipediaPagePath, plansToRun } from "./sources";
 
-// Plans alternate their first source, and each tries both
-assert.deepEqual(sourceOrder(0), ["explainers", "grokipedia"]);
-assert.deepEqual(sourceOrder(1), ["grokipedia", "explainers"]);
-assert.deepEqual(sourceOrder(2), sourceOrder(0));
+// Story searches cover the explainer and kids' news sites, each once
+for (const d of [...EXPLAINER_DOMAINS, ...KID_NEWS_DOMAINS]) assert.ok(STORY_DOMAINS.includes(d), d);
+assert.equal(new Set(STORY_DOMAINS).size, STORY_DOMAINS.length);
 
 // Script templates caught by the link scan are not pages
 assert.equal(isGrokipediaPagePath("/page/Engineering"), true);
@@ -29,7 +28,7 @@ assert.deepEqual(plansToRun(day, 2, false).map(p => p.query), ["a", "b"]);
 assert.deepEqual(plansToRun(day, 0, true), []);
 
 // Domain lists are bare hostnames (allowed_domains takes no scheme or path), with no repeats
-for (const list of [KID_NEWS_DOMAINS, NEWS_DOMAINS, EXPLAINER_DOMAINS]) {
+for (const list of [KID_NEWS_DOMAINS, NEWS_DOMAINS, EXPLAINER_DOMAINS, STORY_DOMAINS]) {
   for (const d of list) assert.match(d, /^[a-z0-9.-]+\.[a-z]+$/, d);
   assert.equal(new Set(list).size, list.length);
 }

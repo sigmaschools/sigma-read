@@ -11,13 +11,13 @@
  * Process:
  * 1. Analyze active students: interests, reading levels, aggregate interest pool
  * 2. Plan daily mix: 60% interest / 20% news / 20% horizon per student
- * 3. Source content: web search → fetch → content filter → pick best source
- * 4. Rewrite: Claude Sonnet rewrites source content at L4
+ * 3. Source content: interest → story angles → web search → fetch → content filter and story gate
+ * 4. Write: the writer model tells the story from the page at L4 (or from its own knowledge, marked for review, when no page fits)
  * 5. Adapt each article to all needed reading levels using Sonnet
  * 6. Fill each student's buffer to 5 unread articles
  * 7. Flag expired articles
  *
- * Every article is grounded in a real web source (source_url in article_cache).
+ * Almost every article is grounded in a real web source (source_url in article_cache); the rest carry a review_note.
  * Shared pool — one base article serves all students at a given level.
  * Students never see the same article twice (tracked via student_article_history).
  */
@@ -31,13 +31,14 @@ import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
 import { MODELS, requestSettings } from "../models";
-import { BASE_LEVEL, rewriteFromSource as writeBase, adaptArticleToLevel as writeAdaptation, type SourcedTopic } from "./article-writer";
+import { BASE_LEVEL, rewriteFromSource as writeBase, writeFromKnowledge as writeUnsourced, adaptArticleToLevel as writeAdaptation, type BaseArticle, type SourcedTopic } from "./article-writer";
+import { storyAngles, type StoryAngle } from "./story-angles";
 import { findDuplicate, type ExistingArticle } from "./dedup";
 import { writeGuideNotes } from "../tutor/guide-notes";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
 import { recentArticles, recentTopics } from "../recent-reading";
-import { interestCap, pickInterests } from "./plan-interests";
-import { EXPLAINER_DOMAINS, KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, isGrokipediaPagePath, plansToRun, sourceOrder } from "./sources";
+import { pickInterests } from "./plan-interests";
+import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipediaPagePath, plansToRun } from "./sources";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -47,10 +48,26 @@ const DEDUP_DAYS = 60;
 
 const sql = neon(DATABASE_URL);
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-/** Model and settings for the small steps: picking, filtering, searching, suggesting topics */
+/** Model and settings for the mechanical steps: running a web search */
 const LIGHT = { model: MODELS.light, ...requestSettings(MODELS.light, "light") };
+/**
+ * Model and settings for judgement calls: is this page about the story, is there a story in it,
+ * what is next to a student's interests. These decide what kids read, so they get the standard
+ * model, not the cheapest one (quality over cost, user decision 2026-11-08).
+ */
+const JUDGE = { model: MODELS.standard, ...requestSettings(MODELS.standard, "standard") };
 
-const rewriteFromSource = (topic: SourcedTopic) => writeBase(tracked(anthropic, "batch_rewrite"), topic);
+/**
+ * When no page about any of an interest's stories can be found, the article is written from the
+ * model's own knowledge and marked for review. Set ARTICLE_KNOWLEDGE_FALLBACK=off to write
+ * only from pages (the interest then gets nothing that day).
+ */
+const KNOWLEDGE_FALLBACK = process.env.ARTICLE_KNOWLEDGE_FALLBACK !== "off";
+const UNSOURCED_NOTE = "No web page fit this story, so it was written from the model's own knowledge. Check the facts.";
+
+/** The base article for a sourced topic: a rewrite of its page, or, with no page, written from knowledge */
+const writeBaseArticle = (topic: SourcedTopic): Promise<BaseArticle | null> =>
+  topic.sourceUrl ? writeBase(tracked(anthropic, "batch_rewrite"), topic) : writeUnsourced(tracked(anthropic, "batch_write"), topic);
 const adaptArticleToLevel = (title: string, body: string, level: number) =>
   writeAdaptation(tracked(anthropic, "batch_adapt"), title, body, level);
 /** Sigma's prep notes for a new base article, stored on its row; a failure leaves the tutor without notes, never without an article */
@@ -195,21 +212,23 @@ async function planDailyArticles(
     r.last_featured_at ? new Date(r.last_featured_at as string) : null,
   ]));
 
-  // Per student: their top-3 least-recently-used interests. Articles are shared, so the day's
-  // picks cover as many students as possible with as few articles as possible (plan-interests.ts).
-  const wants = students.map(student => {
-    const interests = studentInterests.get(student.id) || [];
-    // Sort by last_featured_at ascending (NULL = never = highest priority)
-    return [...interests].sort((a, b) => {
-      const aDate = lastFeaturedMap.get(a);
-      const bDate = lastFeaturedMap.get(b);
-      const aTime = aDate ? aDate.getTime() : 0;
-      const bTime = bDate ? bDate.getTime() : 0;
-      return aTime - bTime;
-    }).slice(0, 3);
-  });
-  const pickedInterests = new Set(pickInterests(wants, interestCap(students.length)));
-  console.log(`  🎯 Selected interests (${pickedInterests.size} for ${students.length} students, shared): ${[...pickedInterests].join(', ')}`);
+  // Per student: their top-3 least-recently-featured interests, all of them written today (no
+  // cap: quality and personal fit over cost). The order matters when the batch runs out of time
+  // and resumes: every student's first interest is written before anyone's second
+  // (plan-interests.ts), and students whose interests have waited longest go first, with a
+  // shuffle so ties don't favour the same students.
+  const featured = (interest: string) => lastFeaturedMap.get(interest)?.getTime() ?? 0;
+  const wants = students
+    .map(student => {
+      const interests = studentInterests.get(student.id) || [];
+      // NULL = never featured = highest priority
+      return [...interests].sort((a, b) => featured(a) - featured(b)).slice(0, 3);
+    })
+    .map(w => ({ w, latest: Math.max(0, ...w.map(featured)), r: Math.random() }))
+    .sort((a, b) => a.latest - b.latest || a.r - b.r)
+    .map(x => x.w);
+  const pickedInterests = new Set(pickInterests(wants));
+  console.log(`  🎯 Today's interests (${pickedInterests.size} for ${students.length} students): ${[...pickedInterests].join(', ')}`);
 
   // Deduplicate: each interest appears at most once in plans
   for (const interest of pickedInterests) {
@@ -249,7 +268,7 @@ async function planDailyArticles(
 
     try {
       const response = await tracked(anthropic, "batch_adjacent").messages.create({
-        ...LIGHT,
+        ...JUDGE,
         max_tokens: 500,
         messages: [{
           role: "user",
@@ -353,35 +372,33 @@ async function fetchGrokipediaArticle(url: string): Promise<string | null> {
 /**
  * Search results come back in the site's order, so "soccer" can lead with a TV channel,
  * "animals" with a novel and "games" with "Girls games". Haiku keeps only the pages about the
- * topic itself, best first, and names the general page on the topic when the search missed it
- * (tried first; a page that doesn't exist just fails to fetch). If the check fails or its reply
- * can't be read, the results are kept as they were.
+ * story itself, best first (the standard model; Haiku before 2026-11-09). A general overview page is never added: the search is for one
+ * story (story-angles.ts), and an overview gives an overview article. If the check fails or its
+ * reply can't be read, the results are kept as they were.
  */
 async function onTopicResults(query: string, results: SearchResult[]): Promise<SearchResult[]> {
   const candidates = results.slice(0, 12);
   try {
     const response = await tracked(anthropic, "batch_source_pick").messages.create({
-      ...LIGHT,
+      ...JUDGE,
       max_tokens: 200,
       messages: [{
         role: "user",
-        content: `A student aged 8-14 wants to read about: "${query}"
+        content: `A reading app for kids aged 8-14 wants a page to write a short article from. The story it is after: "${query}"
 
-Encyclopedia pages found:
+Pages found:
 ${candidates.map((r, i) => `${i + 1}. ${r.title}`).join("\n") || "(none)"}
 
-Which pages are about "${query}" itself, as the student most likely means it? Leave out:
-- pages about something that only shares the name (a book, film, album, song, TV channel, company, team or person), unless that is clearly what "${query}" names
-- pages about a narrow corner of the topic (one event, one niche, or one group of people), when "${query}" is broad
-Best first.
+Which pages are about "${query}" itself, or carry that story? Leave out:
+- pages about something that only shares a name (a book, film, album, song, TV channel, company, team or person), unless that is clearly what "${query}" names
+- general overview pages on the whole subject ("Animal", "History", "Cooking", "Video game") that would only give an overview
+Best first; an empty list if none fit.
 
-If "${query}" is a broad word (not the name of one thing, like a game, company, team or person) and none of the listed pages is the main encyclopedia page on it, also give that page's usual title, e.g. "Video game" for "games" or "Animal" for "animals".
-
-Reply with only JSON, e.g. {"pages": [3, 1]} or {"pages": [], "general": "Video game"}.`,
+Reply with only JSON, e.g. {"pages": [3, 1]} or {"pages": []}.`,
       }],
     });
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-    const picked = parseSourcePick(text, candidates, query);
+    const picked = parseSourcePick(text, candidates);
     if (!picked) return results;
     if (picked.length !== candidates.length || picked.some((r, i) => r.url !== candidates[i].url)) {
       console.log(`     🎯 On topic for "${query}": ${picked.map(r => r.title).join(", ") || "none"}`);
@@ -509,14 +526,14 @@ async function filterSources<T extends { url: string; text: string }>(
 ): Promise<T[]> {
   if (sources.length === 0) return [];
 
-  // Batch filter with Haiku for cost efficiency
+  // One call judges the whole batch of pages
   const summaries = sources.map((s, i) =>
     `[${i}] ${s.url}\n${s.text.substring(0, 500)}`
   ).join("\n\n");
 
   try {
     const response = await tracked(anthropic, "batch_filter").messages.create({
-      ...LIGHT,
+      ...JUDGE,
       max_tokens: 500,
       messages: [{
         role: "user",
@@ -525,6 +542,7 @@ async function filterSources<T extends { url: string; text: string }>(
 Review these article summaries. REJECT any that:
 1. PRIMARILY discuss: ${CONTENT_BLOCKLIST}
 2. Are NOT actual articles — reject homepages, marketing/promotional copy, product pages, "about us" pages, app descriptions, podcast landing pages, or any page that is selling/promoting a service rather than reporting information
+3. Have no story in them — reject a general overview or definition of a whole subject (an encyclopedia entry on "Animal", "History", "Business", "Cooking", "Video game"), a list of types, or a page that is all background and no particular creature, person, event, machine, number or question. KEEP pages about one specific thing with concrete details, even when they are encyclopedia pages
 
 IMPORTANT — do NOT reject articles about:
 - Video games, strategy games, or esports (even if they involve in-game combat)
@@ -533,7 +551,7 @@ IMPORTANT — do NOT reject articles about:
 - History topics that mention past conflicts in an educational context
 - Firefighting, emergency services, or rescue operations
 
-KEEP real articles with factual, informative content. Only reject when the PRIMARY focus is on the blocklist topics above.
+KEEP real articles with factual, informative content and something specific in them. Only reject on rule 1 when the PRIMARY focus is on the blocklist topics above.
 
 ${summaries}
 
@@ -615,10 +633,10 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
     return true;
   }
 
-  /** Content filter for pages from the open web and the curated sites (Grokipedia pages skip it) */
+  /** Content filter and story gate for every page, Grokipedia's included (an overview page is rejected here) */
   async function suitable(url: string, text: string): Promise<boolean> {
     const kept = await filterSources([{ url, text }]);
-    if (kept.length === 0) console.log(`     🚫 Not suitable for students: ${url.substring(0, 60)}`);
+    if (kept.length === 0) console.log(`     🚫 Not suitable (unsafe, not an article, or no story in it): ${url.substring(0, 60)}`);
     return kept.length > 0;
   }
 
@@ -634,70 +652,76 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
     return null;
   }
 
-  /** A Grokipedia page for the plan, or null */
-  async function fromGrokipedia(plan: ArticlePlan): Promise<{ url: string; text: string } | null> {
-    console.log(`  📖 Grokipedia: "${plan.query}" (${plan.type})`);
-    const results = await onTopicResults(plan.query, await grokipediaSearch(plan.query));
+  /** A Grokipedia page about the story, or null. Specific pages only; the overview page on the subject is never taken. */
+  async function fromGrokipedia(plan: ArticlePlan, angle: StoryAngle): Promise<{ url: string; text: string } | null> {
+    console.log(`  📖 Grokipedia: "${angle.query}" (${plan.type}: ${plan.query})`);
+    const results = await onTopicResults(angle.query, await grokipediaSearch(angle.query));
     if (results.length === 0) { console.log(`     ⚠️ No on-topic Grokipedia results`); return null; }
-
-    // Pick a result not recently used for angle variety
-    for (const result of results.slice(0, 8)) {
+    for (const result of results.slice(0, 6)) {
       if (usedUrls.has(result.url) || urlsInFlight.has(result.url) || recentTopics.has(result.title.toLowerCase())) continue;
       const text = await fetchGrokipediaArticle(result.url);
-      if (text && await accept(plan, result.title, result.url, text)) {
+      if (!text) continue;
+      if (!(await suitable(result.url, text))) continue;
+      if (await accept(plan, result.title, result.url, text)) {
         console.log(`     ✅ ${result.title} (${result.url.substring(0, 55)}...)`);
         return { url: result.url, text };
       }
     }
-
-    // If all recent-filtered results failed, try the first result only if URL not already used
-    const fallback = results[0];
-    if (usedUrls.has(fallback.url) || urlsInFlight.has(fallback.url)) {
-      console.log(`     ⚠️ Skipping fallback — URL already used: ${fallback.url.substring(0, 55)}...`);
-      return null;
-    }
-    const text = await fetchGrokipediaArticle(fallback.url);
-    if (!text) { console.log(`     ⚠️ Could not fetch any Grokipedia article`); return null; }
-    if (await accept(plan, fallback.title, fallback.url, text)) {
-      console.log(`     ✅ ${fallback.title} (${fallback.url.substring(0, 55)}...)`);
-      return { url: fallback.url, text };
-    }
     return null;
   }
 
-  /** A page from the kids' science, nature and history sites, or null */
-  async function fromExplainers(plan: ArticlePlan): Promise<{ url: string; text: string } | null> {
-    console.log(`  🔎 Explainer sites: "${plan.query}" (${plan.type})`);
-    // Same on-topic check as Grokipedia ("soccer" on NASA's site is not a soccer article); a
-    // general Grokipedia page it names is left for the Grokipedia step
-    const found = await webSearch(plan.query, { domains: EXPLAINER_DOMAINS });
-    const results = (await onTopicResults(plan.query, found))
+  /** A page about the story from the kids' explainer and news sites, or null */
+  async function fromStorySites(plan: ArticlePlan, angle: StoryAngle): Promise<{ url: string; text: string } | null> {
+    console.log(`  🔎 Story sites: "${angle.query}" (${plan.type}: ${plan.query})`);
+    const found = await webSearch(angle.query, { domains: STORY_DOMAINS });
+    const results = (await onTopicResults(angle.query, found))
       .filter(r => !r.url.includes("grokipedia.com") && !recentTopics.has(r.title.toLowerCase()));
     const hit = await firstGoodResult(plan, results, 4);
     if (hit) console.log(`     ✅ ${hit.url.substring(0, 70)}`);
-    else console.log(`     ⚠️ Nothing usable on the explainer sites`);
+    else console.log(`     ⚠️ Nothing usable on the story sites`);
     return hit;
   }
 
-  // ─── Interest & Horizon: explainer sites and Grokipedia, alternating ──────
+  // ─── Interest & Horizon: stories, not topics ───────────────────────────────
+  // Each interest becomes a few specific stories (story-angles.ts). For each story in turn: the
+  // kids' explainer and news sites, then the open web, then a specific Grokipedia page. With no
+  // page for any story, the first story is written from the model's own knowledge (marked for
+  // review) when the fallback is on; otherwise the interest gets nothing today.
 
+  const recentTitles = existing.filter(e => e.id > 0).map(e => e.title);
+  const anglesClient = tracked(anthropic, "batch_angles");
   const topicPlans = plans.filter(p => p.type === "interest" || p.type === "horizon");
-  const firstSource = Math.floor(Math.random() * 2); // so the horizon slot doesn't always get the same source
-  for (let i = 0; i < topicPlans.length; i++) {
-    const plan = topicPlans[i];
-    let hit: { url: string; text: string } | null = null;
-    for (const kind of sourceOrder(i + firstSource)) {
-      hit = kind === "grokipedia" ? await fromGrokipedia(plan) : await fromExplainers(plan);
-      if (hit) break;
+  for (const plan of topicPlans) {
+    const angles = await storyAngles(anglesClient, plan.query, plan.type === "horizon" ? "horizon" : "interest", recentTitles);
+    console.log(`  💡 Stories for "${plan.query}": ${angles.map(a => a.angle).join(" / ")}`);
+
+    let hit: { url: string; text: string; angle: StoryAngle } | null = null;
+    for (const angle of angles) {
+      const page = await fromStorySites(plan, angle);
+      if (page) { hit = { ...page, angle }; break; }
+    }
+    if (!hit) {
+      for (const angle of angles) {
+        console.log(`     ⚠️ Trying the open web for "${angle.query}"...`);
+        const page = await firstGoodResult(plan, await webSearch(`${angle.query} article`), 3);
+        if (page) { hit = { ...page, angle }; console.log(`     ✅ Web search: ${page.url.substring(0, 60)}...`); break; }
+      }
+    }
+    if (!hit) {
+      for (const angle of angles) {
+        const page = await fromGrokipedia(plan, angle);
+        if (page) { hit = { ...page, angle }; break; }
+      }
     }
 
-    // Nothing from either: open web search
-    if (!hit) {
-      console.log(`     ⚠️ Trying open web search...`);
-      hit = await firstGoodResult(plan, await webSearch(`${plan.query} article`), 3);
-      if (hit) console.log(`     ✅ Web search fallback: ${hit.url.substring(0, 60)}...`);
+    if (hit) {
+      sourced.push({ query: plan.query, type: plan.type, sourceUrl: hit.url, sourceText: hit.text, angle: hit.angle });
+    } else if (KNOWLEDGE_FALLBACK) {
+      console.log(`     ✍️  No page for any story about "${plan.query}"; writing "${angles[0].angle}" from knowledge (marked for review)`);
+      sourced.push({ query: plan.query, type: plan.type, sourceUrl: null, sourceText: "", angle: angles[0] });
+    } else {
+      console.log(`     ❌ No page for any story about "${plan.query}"; nothing written today`);
     }
-    if (hit) sourced.push({ query: plan.query, type: plan.type, sourceUrl: hit.url, sourceText: hit.text });
   }
 
   // ─── News: kid news sites, then science news sites, then the open web ─────
@@ -722,8 +746,9 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
   } else if (newsPlans.length > 0 && newsCount === 0) {
     console.error(`  ❌ No news article today: no suitable page among ${newsPlans.length} news searches.`);
   }
-  const fromGrok = sourced.filter(s => s.sourceUrl.includes("grokipedia.com")).length;
-  console.log(`\n  ✅ ${sourced.length} sources ready for rewriting (${fromGrok} grokipedia, ${sourced.length - fromGrok - newsCount} other sites, ${newsCount} news)`);
+  const fromGrok = sourced.filter(s => s.sourceUrl?.includes("grokipedia.com")).length;
+  const unsourced = sourced.filter(s => s.sourceUrl === null).length;
+  console.log(`\n  ✅ ${sourced.length} ready for writing (${sourced.length - fromGrok - newsCount - unsourced} story sites and web, ${fromGrok} grokipedia, ${newsCount} news, ${unsourced} from knowledge)`);
   return sourced;
 }
 
@@ -885,9 +910,14 @@ async function runSteps(result: BatchResult) {
     await syncToCompass(students.map(s => s.id as number));
   })(), "batch upkeep");
 
-  // Check if we already have base articles from a partial run today
-  // Interest articles (3 for one student, more as students are added) + 1 news + 1 horizon
-  const TARGET_BASE_ARTICLES = interestCap(students.length) + 2;
+  // Step 2: Plan daily mix
+  const plans = await planDailyArticles(interestMap, students, recentTopics, studentInterests);
+
+  // Check if we already have base articles from a partial run today. The day's target is every
+  // planned interest and horizon story plus one news article (the news plans are alternatives).
+  // There is no cap on the count: a specific story for each student's own interests is the
+  // product, and a smaller shared set of broad articles is what lost students in Nov 2026.
+  const TARGET_BASE_ARTICLES = plans.filter(p => p.type !== "news").length + 1;
   const [existingToday] = await sql`
     SELECT COUNT(*) as c FROM article_cache
     WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false
@@ -906,9 +936,6 @@ async function runSteps(result: BatchResult) {
   if (existingBaseCount > 0) {
     console.log(`📋 Found ${existingBaseCount} base articles from earlier run. Generating ${articlesNeeded} more.`);
   }
-
-  // Step 2: Plan daily mix
-  const plans = await planDailyArticles(interestMap, students, recentTopics, studentInterests);
 
   // Limit to what we actually need, keeping the news slot unless an earlier run today wrote the news
   const [newsToday] = await sql`
@@ -934,13 +961,13 @@ async function runSteps(result: BatchResult) {
     const t = sourcedTopics[i];
     console.log(`  ✍️  [${i + 1}/${sourcedTopics.length}] ${t.type}: ${t.query.substring(0, 50)}...`);
 
-    const article = await rewriteFromSource(t);
-    if (!article) { console.log(`     ❌ Failed to rewrite`); continue; }
+    const article = await writeBaseArticle(t);
+    if (!article) { console.log(`     ❌ Failed to write`); continue; }
     if (blockedSet.has(article.topic.toLowerCase())) { console.log(`     🚫 Blocked topic`); continue; }
 
     const [inserted] = await sql`
-      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url)
-      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${t.sourceUrl}, ${t.sourceUrl})
+      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note)
+      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${t.sourceUrl}, ${t.sourceUrl}, ${t.sourceUrl ? null : UNSOURCED_NOTE})
       RETURNING id
     `;
     result.baseArticles++;
@@ -949,10 +976,10 @@ async function runSteps(result: BatchResult) {
     await writeNotesFor(inserted.id, article.title, article.bodyText);
     baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
     await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${t.query ?? null})`;
-    console.log(`     ✅ "${article.title}" (source: ${t.sourceUrl.substring(0, 50)}...)`);
+    console.log(`     ✅ "${article.title}" (${t.sourceUrl ? `source: ${t.sourceUrl.substring(0, 50)}...` : "from knowledge, marked for review"})`);
   }
 
-  console.log(`\n📝 Generated ${baseArticles.length} base articles from real sources`);
+  console.log(`\n📝 Generated ${baseArticles.length} base articles`);
 
   // Step 5: Adapt to needed levels
   console.log("\n📐 Adapting to reading levels...\n");
@@ -1002,14 +1029,14 @@ async function runSteps(result: BatchResult) {
   // Step 6: Serve to students
   result.served += await serveToStudents(students);
 
-  console.log(`\n✅ Batch complete! ${baseArticles.length} source-backed articles × ${levelsNeeded.size} levels\n`);
+  console.log(`\n✅ Batch complete! ${baseArticles.length} base articles × ${levelsNeeded.size} levels\n`);
 }
 
 
 // ─── One interest article on demand (new students' first articles) ───────────
 
 /**
- * Writes one source-backed article about `interest` the same way the batch does: source,
+ * Writes one article about `interest` the same way the batch does: story angles, source,
  * rewrite at the base level, tag, then adapt to `level`. Both versions go into the shared cache,
  * so later students can be served them too. Returns the cache id at `level`, or null if no
  * source was found or a step failed.
@@ -1033,14 +1060,14 @@ export async function writeInterestArticle(interest: string, level: number): Pro
       return await atLevel(duplicateOf, level);
     }
 
-    const article = await rewriteFromSource(sourced);
+    const article = await writeBaseArticle(sourced);
     if (!article?.bodyText) return null;
     const blocked = await sql`SELECT 1 FROM blocked_topics WHERE LOWER(topic) = ${article.topic.toLowerCase()} LIMIT 1`;
     if (blocked.length > 0) return null;
 
     const [base] = await sql`
-      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url)
-      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl})
+      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note)
+      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl}, ${sourced.sourceUrl ? null : UNSOURCED_NOTE})
       RETURNING id
     `;
     await quietly(tagCacheArticle(base.id, [interest, article.topic], { client: anthropic }), "article tagging");

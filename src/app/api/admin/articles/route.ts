@@ -57,6 +57,7 @@ async function handleQueue({ page, category, offset, params }: { page: number; c
     generatedDate: schema.articleCache.generatedDate,
     sourceUrl: schema.articleCache.sourceUrl,
     flagged: schema.articleCache.flagged,
+    reviewNote: schema.articleCache.reviewNote,
     createdAt: schema.articleCache.createdAt,
   }).from(schema.articleCache)
     .where(where)
