@@ -18,7 +18,7 @@ export const SIGMA_OPENER = "The kid just finished reading and hasn't said anyth
 export const OPENER_SHAPES = [
   "a detail that made you think \"wait, really?\"",
   "a confession: something you'd have guessed wrong, or wouldn't have believed before reading it",
-  "a side you've already picked, and why",
+  "the funniest or strangest thing in it, and why it got you",
   "a tiny scene from the article, told as if you were standing there",
   "the one thing you're still wondering about after reading it",
   "something ordinary from your own day that the article made you see differently",

@@ -21,6 +21,8 @@ export interface SigmaExchangeArgs {
   articleText: string;
   level: number;
   guideNotes?: GuideNotes | null;
+  /** Another character and examples (evals comparing prompt versions); the app uses the files in md/ */
+  voice?: { character: string; examples: string } | null;
   /** Conversation so far, including the student's latest message (empty for the opener) */
   messages: TurnMessage[];
   /** Progress score before this student message */
@@ -60,7 +62,7 @@ export async function sigmaExchange(args: SigmaExchangeArgs): Promise<SigmaExcha
     : exchanges >= MAX_EXCHANGES ? "forced"
     : null;
   const tutorModel = args.tutorModel ?? MODELS.sigmaTutor;
-  const systemBlocks = sigmaSystemBlocks({ articleTitle: args.articleTitle, articleText: args.articleText, level: args.level, notes: args.guideNotes });
+  const systemBlocks = sigmaSystemBlocks({ articleTitle: args.articleTitle, articleText: args.articleText, level: args.level, notes: args.guideNotes, voice: args.voice });
 
   const turnPromise = runSigmaTurn({
     client: args.tutorClient,

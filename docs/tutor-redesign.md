@@ -10,7 +10,7 @@ Conversations went dry after the tutor moved from Claude Opus 4.6 to Claude Sonn
 
 | | Classic (`src/lib/prompts` + `conversation-turn.ts`) | Sigma (`src/lib/tutor/`) |
 |---|---|---|
-| Who Sigma is | One line ("older sibling energy") plus ~60 rules | A character (`md/character.md`): a young teacher in their twenties, steady, plain-spoken, takes the kid seriously, no slang, no hype; three example conversations (`md/examples.md`); eight hard rules |
+| Who Sigma is | One line ("older sibling energy") plus ~60 rules | A character (`md/character.md`): a young teacher in their twenties, warm, easygoing, delighted by the article, no slang, no hype, never a debate partner; three example conversations (`md/examples.md`); nine hard rules |
 | What Sigma knows | The article | The article plus **prep notes** written once per base article by the writer model (`guide-notes.ts`): ideas worth talking about with Sigma's own take, vivid details, likely confusions with what the article says, good moves. Stored in `article_cache.guide_notes` on the base row; the morning batch writes them, and a catch-up cron (`/api/cron/guide-notes`, every 15 minutes) fills any base article without notes; `scripts/backfill-guide-notes.ts` does the same by hand |
 | The reply | JSON `{message, progressDelta}`, structured output, thinking off | Plain text, streamed to the student as it is written (`turn.ts`); thinking on at low effort |
 | The opener | Fixed instruction | Drawn per conversation (`sigmaOpener` in `turn.ts`): a starting point from the prep notes and one of six ways in, so two kids reading the same article don't get the same first message. Added after the 7 Nov eval measured 24–40% repeated openers with notes |
@@ -31,9 +31,9 @@ The chat route answers with server-sent events when the client sends `Accept: te
 
 ## Evaluating
 
-`npm run eval:voice` (`scripts/eval-voice.ts`) runs realistic simulated kids (`scripts/eval/kid-sim.ts`: short, lowercase, typos, "idk", jokes, questions back, one confidently wrong idea) against each setup on level-matched articles, then compares each setup with the base setup blind and pairwise ("which conversation would this kid rather keep having?") and measures the dryness patterns from the live transcripts (`scripts/eval/voice-metrics.ts`: "tell me" rate, grader's remarks, repeated openers and moves, exclamation rate, length variety). It writes `summary.md`, `pairs.md` (blind pairs for a person to pick from) and `pairs-key.json`. The person's picks decide; the judge is the tiebreaker.
+`npm run eval:voice` (`scripts/eval-voice.ts`) runs realistic simulated kids (`scripts/eval/kid-sim.ts`: short, lowercase, typos, "idk", jokes, questions back, one confidently wrong idea, a contrarian who says "name one") against each setup on level-matched articles, then compares each setup with the base setup blind and pairwise ("which conversation would this kid rather keep having, and which would make them want to read another article tomorrow?", with a 1-5 rating for light and fun) and measures the dryness patterns from the live transcripts (`scripts/eval/voice-metrics.ts`: "tell me" rate, grader's remarks, repeated openers and moves, exclamation rate, length variety, debate moves such as "make the case", corrections). It writes `summary.md`, `pairs.md` (blind pairs for a person to pick from) and `pairs-key.json`. The person's picks decide; the judge is the tiebreaker.
 
-Setups: `today` (classic, Sonnet 5.5 thinking off), `before` (classic, Opus 4.6), `classic-opus-low`, `sigma-sonnet-low`, `sigma-opus-low`, `sigma-opus-medium`, `sigma-fable-low`, `sigma-opus-low-nonotes`. Pass `--judge=` when the judge model is also a candidate.
+Setups: `today` (classic, Sonnet 5.5 thinking off), `before` (classic, Opus 4.6), `classic-opus-low`, `sigma-sonnet-low`, `sigma-opus-low`, `sigma-opus-medium`, `sigma-fable-low`, `sigma-opus-low-nonotes`, `sigma-v1` (the 7 Nov character and examples from `scripts/eval/sigma-v1/`, so a prompt change can be measured against the one it replaces). Pass `--judge=` when the judge model is also a candidate.
 
 ## Results (7 November 2026)
 
@@ -51,3 +51,14 @@ Two runs in the cloud, 96 conversations, kids played by Claude Sonnet 4.6, each 
 | sigma, Fable 5.1, low | 16–0 | 4.4 | 4.1 | 0 | 22% | 4% | 24% | 2.7 s | $0.199 |
 
 Cost is tutor plus observer with prompt caching as the API reported it; prep notes added about $0.02 per article, once for every reader. Opus 5.5 at low effort was chosen: never lost, one rewrite in 16 conversations, within the $0.15 budget; Fable read the same for two thirds more. Caveats: Opus 5.5 was both judge and a candidate (Sonnet and Fable won almost as often under it, so the direction holds, the Opus–Sonnet gap is less certain), and the kids are simulated. The one pattern that got worse was the repeated opener: with prep notes, every conversation on an article opened from the same idea. `sigmaOpener` now draws the starting point and the way in per conversation; not yet re-measured.
+
+## 8 November: lighter
+
+The first real conversation on the shipped Sigma (a seventh grader, an encyclopedia-style article about animals) read as an argument. Four of seven turns ended in "Make the case…", every turn corrected something, the tutor brought in claims from outside the article (biomass, the Aral Sea, politicians) and lost the article itself. The debate register was by design: the 7 Nov character called for an opinion with a reason every turn and the prep notes asked for "a side to argue", the examples modelled "Argue the other side", and the eval judged "sounds like a person", which a debater does.
+
+The standard is now: light-hearted and fun, not deeply challenging. The goal is a kid who wants to read another article tomorrow and practises comprehension on the way. Changes:
+
+- `md/character.md` and `md/examples.md`: warm and easygoing, delighted by the article; opinions as preferences, never positions; one easy move per turn (pick a favourite, picture a scene, what would you do, would you rather); a correction only for a misreading of the article, once per conversation; no debating at all (hard rule 3).
+- `guide-notes.ts`: prep notes collect "wait, really?" moments and playful moves, no sides, no "why it matters". Production notes are regenerated by clearing `guide_notes` on the base rows; the 15-minute catch-up cron rewrites them.
+- `observer.ts`: the steer keeps the talk light and on the page ("they're arguing; don't take the bait"), and never asks Sigma to push back or go deeper.
+- Eval: `debate` and `corrects` metrics, a `fun` rating and debate lines in the judge, a contrarian kid (`jules`), and the `sigma-v1` setup so the new prompts are measured against the shipped ones.

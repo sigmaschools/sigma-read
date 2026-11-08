@@ -16,6 +16,8 @@ export interface SigmaPromptArgs {
   articleText: string;
   level: number;
   notes?: GuideNotes | null;
+  /** Another character and examples, for evals that compare prompt versions; the app uses md/ */
+  voice?: { character: string; examples: string } | null;
 }
 
 /** How Sigma pitches each reading level: who the kid is and roughly how long a message runs */
@@ -25,7 +27,7 @@ export const LEVEL_VOICE: Record<number, { kid: string; length: string }> = {
   3: { kid: "a 10- or 11-year-old (fifth or sixth grade)", length: "two or three sentences, about 25 to 55 words; why and how are fair game" },
   4: { kid: "a 12-year-old (seventh grade)", length: "two to four sentences, about 30 to 65 words; connections between ideas are fair game" },
   5: { kid: "a 13-year-old (eighth grade)", length: "two to four sentences, about 30 to 75 words; what the article implies is fair game" },
-  6: { kid: "a 14-year-old who reads well", length: "three or four sentences, about 35 to 85 words; nuance, competing views and pushback are fair game" },
+  6: { kid: "a 14-year-old who reads well", length: "three or four sentences, about 35 to 85 words; nuance and bigger ideas are fair game, still light" },
 };
 
 export function levelVoice(level: number) {
@@ -50,7 +52,7 @@ export function formatNotes(notes: GuideNotes): string {
 /** The two system blocks, in order; put cache_control on each */
 export function sigmaSystemBlocks(args: SigmaPromptArgs): [string, string] {
   const voice = levelVoice(args.level);
-  const stable = `${characterMd.trim()}\n\n${examplesMd.trim()}`;
+  const stable = `${(args.voice?.character ?? characterMd).trim()}\n\n${(args.voice?.examples ?? examplesMd).trim()}`;
   const article = [
     `THIS CONVERSATION`,
     `You're talking with ${voice.kid}. Pitch everything to them: ${voice.length}. Length comes from their age and the moment, not from a count; a quiet kid gets a shorter message, a kid on a roll can get a longer one.`,
