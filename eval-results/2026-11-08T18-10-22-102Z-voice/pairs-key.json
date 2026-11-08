@@ -1,0 +1,56 @@
+[
+ {
+  "pair": 1,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 2,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 3,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 4,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 5,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 6,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ },
+ {
+  "pair": 7,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 8,
+  "A": "sigma-v1",
+  "B": "sigma-opus-low",
+  "judge": "B"
+ },
+ {
+  "pair": 9,
+  "A": "sigma-opus-low",
+  "B": "sigma-v1",
+  "judge": "A"
+ }
+]

@@ -1,0 +1,36 @@
+
+> sigma-reader-app@0.1.0 eval:voice
+> tsx --require ./scripts/md-require.cjs scripts/eval-voice.ts --configs=sigma-v1,sigma-opus-low --runs=1
+
+Running 18 conversations (9 cases x 2 setups) → eval-results/2026-11-08T18-10-22-102Z-voice
+  sigma-opus-low nico/octopus r0: 8 exchanges, forced, tell-me 0%, debate 0%, $0.111
+  sigma-opus-low nico/lighthouse r0: 8 exchanges, forced, tell-me 11%, debate 0%, $0.111
+  sigma-v1 nico/octopus r0: 8 exchanges, forced, tell-me 11%, debate 0%, $0.092
+  sigma-v1 nico/lighthouse r0: 8 exchanges, forced, tell-me 22%, debate 0%, $0.105
+  sigma-opus-low maya/lighthouse r0: 8 exchanges, forced, tell-me 0%, debate 0%, $0.120
+  sigma-v1 maya/lighthouse r0: 8 exchanges, forced, tell-me 11%, debate 11%, $0.124
+  sigma-opus-low maya/bee-dance r0: 8 exchanges, forced, tell-me 0%, debate 0%, $0.134
+  sigma-v1 maya/bee-dance r0: 8 exchanges, forced, tell-me 11%, debate 33%, $0.140
+  sigma-v1 theo/bee-dance r0: 5 exchanges, earned, tell-me 17%, debate 33%, $0.059
+  sigma-opus-low theo/bee-dance r0: 8 exchanges, forced, tell-me 0%, debate 0%, $0.104
+  sigma-v1 jules/bee-dance r0: 7 exchanges, earned, tell-me 13%, debate 25%, $0.103
+  sigma-opus-low jules/bee-dance r0: 8 exchanges, earned, tell-me 0%, debate 0%, $0.108
+  sigma-v1 ava/voyager r0: 8 exchanges, forced, tell-me 11%, debate 22%, $0.139
+  sigma-opus-low ava/voyager r0: 8 exchanges, forced, tell-me 0%, debate 0%, $0.137
+  sigma-v1 sam/voyager r0: 5 exchanges, earned, tell-me 0%, debate 50%, $0.084
+  sigma-opus-low sam/voyager r0: 8 exchanges, forced, tell-me 0%, debate 0%, $0.136
+  sigma-v1 sam/immune r0: 6 exchanges, earned, tell-me 14%, debate 29%, $0.105
+  sigma-opus-low sam/immune r0: 8 exchanges, forced, tell-me 0%, debate 0%, $0.147
+Judging 9 pairs with claude-fable-5-1
+  sigma-opus-low vs sigma-v1 nico/lighthouse/0: sigma-opus-low (clear)
+  sigma-opus-low vs sigma-v1 maya/bee-dance/0: sigma-opus-low (big)
+  sigma-opus-low vs sigma-v1 nico/octopus/0: sigma-opus-low (clear)
+  sigma-opus-low vs sigma-v1 maya/lighthouse/0: sigma-opus-low (clear)
+  sigma-opus-low vs sigma-v1 theo/bee-dance/0: sigma-opus-low (clear)
+  sigma-opus-low vs sigma-v1 jules/bee-dance/0: sigma-opus-low (clear)
+  sigma-opus-low vs sigma-v1 sam/voyager/0: sigma-opus-low (big)
+  sigma-opus-low vs sigma-v1 ava/voyager/0: sigma-opus-low (clear)
+  sigma-opus-low vs sigma-v1 sam/immune/0: sigma-opus-low (clear)
+
+Summary: eval-results/2026-11-08T18-10-22-102Z-voice/summary.md
+Blind pairs for a person: eval-results/2026-11-08T18-10-22-102Z-voice/pairs.md
