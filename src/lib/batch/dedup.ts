@@ -66,7 +66,8 @@ export async function findDuplicate(
 
   const list = existing.slice(0, 300);
   try {
-    const response = await client.messages.create(forJob("light", {
+    // The standard model: a wrong "duplicate" throws away a good story, a miss repeats one
+    const response = await client.messages.create(forJob("standard", {
       max_tokens: 100,
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
       messages: [{

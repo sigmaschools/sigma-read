@@ -62,34 +62,15 @@ export const NEWS_TOPICS: { query: string; science: boolean }[] = [
   { query: "medical breakthrough", science: true },
 ];
 
-export type SourceKind = "grokipedia" | "explainers";
-
 /**
- * Which source an interest or horizon plan tries first. Plans alternate, so about half of each
- * day's articles come from the explainer sites instead of all from Grokipedia; each falls back
- * to the other, then to the open web.
+ * Where a story angle (story-angles.ts) is searched for first: the explainer sites plus the
+ * kids' news sites, which carry stories by nature. Grokipedia is the last resort, and only a
+ * page about the story itself; the open web comes in between.
  */
-export function sourceOrder(planIndex: number): SourceKind[] {
-  return planIndex % 2 === 0 ? ["explainers", "grokipedia"] : ["grokipedia", "explainers"];
-}
+export const STORY_DOMAINS = [...new Set([...EXPLAINER_DOMAINS, ...KID_NEWS_DOMAINS])];
 
 /** A Grokipedia `/page/...` link that is a real page, not a script template caught by the link scan */
 export function isGrokipediaPagePath(path: string): boolean {
   // Apostrophes stay ("Newton's_laws_of_motion"); the template has spaces
   return /^\/page\/[^\s"<>]+$/.test(path);
-}
-
-/**
- * The day's plans to source, at most `articlesNeeded` articles. News plans are fallbacks for one
- * article (sourcing stops at the first good page), so they all go in, and one slot is kept for
- * news when `needNews` (no news article yet today). Interest and horizon plans fill the rest.
- * Before this, interests filled the target first and only one news search ran, so a single
- * rejected page meant no news that day.
- */
-export function plansToRun<P extends { type: "interest" | "news" | "horizon" }>(plans: P[], articlesNeeded: number, needNews: boolean): P[] {
-  if (articlesNeeded <= 0) return [];
-  const topics = plans.filter(p => p.type !== "news");
-  const news = needNews ? plans.filter(p => p.type === "news") : [];
-  const topicSlots = Math.max(0, articlesNeeded - (news.length > 0 ? 1 : 0));
-  return [...topics.slice(0, topicSlots), ...news];
 }
