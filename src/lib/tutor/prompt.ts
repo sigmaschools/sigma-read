@@ -35,7 +35,10 @@ export function levelVoice(level: number) {
 }
 
 export function formatNotes(notes: GuideNotes): string {
-  const lines: string[] = ["YOUR NOTES FROM READING IT (your own reactions, written before the chat; use them when they fit, don't recite them)"];
+  const lines: string[] = [
+    "YOUR NOTES FROM READING IT (your own reactions, written before the chat; use them when they fit, don't recite them)",
+    "These notes come from the full article. The kid's version above may leave a detail out: if something in these notes isn't in the article text above, don't bring it up.",
+  ];
   if (notes.worthTalkingAbout?.length) {
     lines.push("Worth talking about:");
     for (const w of notes.worthTalkingAbout) lines.push(`- ${w.idea} (your take: ${w.take})`);
