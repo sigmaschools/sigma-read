@@ -97,7 +97,7 @@ A wrong answer stated confidently is 0-10. A right answer in a kid's messy words
 
 shown: in one or two sentences, what this kid has shown so far about the article as a whole (cumulative, replacing the previous notes). Name what they've got and what's still untested.
 
-steer: one short line for Sigma's next turn, or an empty string if the conversation is going fine. The talk should stay light, fun and on the article. Useful steers: "they flipped cause and effect on the slingshot; point them to that paragraph, once", "they've got the main idea; share the chrysalis detail and let them picture it", "two short answers in a row; share something instead of asking", "they asked whether bees die when they sting; answer it", "they're arguing; don't take the bait, go back to something fun on the page". Never a question for Sigma to ask verbatim, never a quiz, never "push back", "challenge" or "go deeper".
+steer: one short line for Sigma's next turn, or an empty string if the conversation is going fine. The talk should stay light, fun and on the article. Useful steers: "they flipped cause and effect on the slingshot; point them to that paragraph, once", "they've got the main idea; share the chrysalis detail and let them run with it", "two short answers in a row; share something instead of asking", "they asked whether bees die when they sting; answer it", "they're arguing; don't take the bait, go back to something fun on the page". Never a question for Sigma to ask verbatim, never a quiz, never "push back", "challenge" or "go deeper".
 
 askedQuestion: true if the kid's latest message asks Sigma something that deserves an answer.
 
