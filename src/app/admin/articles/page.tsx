@@ -150,6 +150,17 @@ export default function AdminArticlesPage() {
     setPreview(data);
   }
 
+  async function markReviewed(e: React.MouseEvent, row: QueueRow) {
+    e.stopPropagation();
+    if (!confirm(`Mark "${row.title}" as fact-checked? The "check facts" badge goes away.`)) return;
+    await fetch("/api/admin/content", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: row.id, reviewed: true }),
+    });
+    fetchData(tab, page);
+  }
+
   function handleFlagClick(e: React.MouseEvent, row: QueueRow) {
     e.stopPropagation();
     setFlagConfirm({ id: row.id, topic: row.topic, flagged: row.flagged });
@@ -343,7 +354,7 @@ export default function AdminArticlesPage() {
                         ? new Date(row.generatedDate + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })
                         : new Date(row.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </span>
-                    {row.reviewNote && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700" title={row.reviewNote}>check facts</span>}
+                    {row.reviewNote && <button onClick={e => markReviewed(e, row)} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100" title={`${row.reviewNote} Click when you have checked them.`}>check facts</button>}
                     {row.flagged && <span className="text-[10px] text-red-400">blocked</span>}
                     <button
                       onClick={(e) => handleFlagClick(e, row)}

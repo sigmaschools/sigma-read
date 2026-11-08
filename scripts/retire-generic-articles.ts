@@ -13,8 +13,12 @@
 import { neon } from "@neondatabase/serverless";
 
 const apply = process.argv.includes("--apply");
-const idsArg = process.argv[process.argv.indexOf("--ids") + 1];
-const givenIds = process.argv.includes("--ids") && idsArg ? idsArg.split(",").map(s => parseInt(s.trim(), 10)).filter(n => n > 0) : null;
+const idsArg = process.argv.includes("--ids") ? process.argv[process.argv.indexOf("--ids") + 1] : undefined;
+const givenIds = idsArg === undefined ? null : idsArg.split(",").map(s => parseInt(s.trim(), 10)).filter(n => n > 0);
+if (process.argv.includes("--ids") && (!givenIds || givenIds.length === 0)) {
+  console.error("--ids needs a comma-separated list of article_cache ids, e.g. --ids 12,34");
+  process.exit(1);
+}
 
 const SINCE = "2026-10-29"; // the first day of the shared-pool planner
 
@@ -26,11 +30,17 @@ export function grokipediaSubject(url: string | null): string | null {
   return decodeURIComponent(m[1]).replace(/_/g, " ").trim().toLowerCase();
 }
 
-/** An overview page: the interest itself, or a one-word subject, as opposed to a specific story */
+/**
+ * An overview page: the page on the interest itself ("Animal" for "animals", "Cooking" for
+ * "cooking"), as opposed to a specific page. A one-word subject alone is not enough ("Wombat",
+ * "Minecraft" are specific); the dry run lists every Grokipedia-sourced article so an admin can
+ * add the rest with --ids.
+ */
 export function isOverviewPage(subject: string, query: string | null): boolean {
   const q = (query ?? "").trim().toLowerCase();
-  if (q && (subject === q || subject === `${q}s` || `${subject}s` === q)) return true;
-  return subject.split(/\s+/).length === 1;
+  if (!q) return false;
+  const base = (w: string) => w.replace(/\s*\((.*)\)$/, "").replace(/s$/, "");
+  return base(subject) === base(q);
 }
 
 async function main() {
@@ -65,12 +75,13 @@ async function main() {
   const baseIds = targets.map(t => t.id);
   const versions = await sql`SELECT id FROM article_cache WHERE id = ANY(${baseIds}) OR base_article_id = ANY(${baseIds})`;
   const versionIds = versions.map(v => v.id as number);
+  // Unread copies nothing else points at (reading_sessions and article_favorites are the only
+  // tables that reference articles.id; conversations hang off reading_sessions)
   const unread = await sql`
     SELECT a.id, a.student_id, a.title FROM articles a
     WHERE a.source_cache_id = ANY(${versionIds}) AND a.read = false
       AND NOT EXISTS (SELECT 1 FROM reading_sessions s WHERE s.article_id = a.id)
       AND NOT EXISTS (SELECT 1 FROM article_favorites f WHERE f.article_id = a.id)
-      AND NOT EXISTS (SELECT 1 FROM article_ratings r WHERE r.article_id = a.id)
   `;
 
   console.log(`\n  ${targets.length} base articles (${versionIds.length} versions with adaptations), ${unread.length} unread feed copies:`);

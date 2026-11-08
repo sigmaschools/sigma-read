@@ -38,7 +38,7 @@ import { writeGuideNotes } from "../tutor/guide-notes";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
 import { recentArticles, recentTopics } from "../recent-reading";
 import { pickInterests } from "./plan-interests";
-import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipediaPagePath, plansToRun } from "./sources";
+import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipediaPagePath } from "./sources";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -65,9 +65,19 @@ const JUDGE = { model: MODELS.standard, ...requestSettings(MODELS.standard, "sta
 const KNOWLEDGE_FALLBACK = process.env.ARTICLE_KNOWLEDGE_FALLBACK !== "off";
 const UNSOURCED_NOTE = "No web page fit this story, so it was written from the model's own knowledge. Check the facts.";
 
-/** The base article for a sourced topic: a rewrite of its page, or, with no page, written from knowledge */
-const writeBaseArticle = (topic: SourcedTopic): Promise<BaseArticle | null> =>
-  topic.sourceUrl ? writeBase(tracked(anthropic, "batch_rewrite"), topic) : writeUnsourced(tracked(anthropic, "batch_write"), topic);
+/**
+ * The base article for a sourced topic: a rewrite of its page, or, with no page, written from
+ * knowledge. A page passed the content filter before it was used; an article written from
+ * knowledge has no page, so the finished text goes through the same check instead.
+ */
+async function writeBaseArticle(topic: SourcedTopic): Promise<BaseArticle | null> {
+  if (topic.sourceUrl) return writeBase(tracked(anthropic, "batch_rewrite"), topic);
+  const article = await writeUnsourced(tracked(anthropic, "batch_write"), topic);
+  if (!article) return null;
+  const kept = await filterSources([{ url: `knowledge:${topic.query}`, text: `${article.title}\n\n${article.bodyText}`, whole: true }]);
+  if (kept.length === 0) { console.log(`     🚫 Article written from knowledge failed the content check: "${article.title}"`); return null; }
+  return article;
+}
 const adaptArticleToLevel = (title: string, body: string, level: number) =>
   writeAdaptation(tracked(anthropic, "batch_adapt"), title, body, level);
 /** Sigma's prep notes for a new base article, stored on its row; a failure leaves the tutor without notes, never without an article */
@@ -213,22 +223,27 @@ async function planDailyArticles(
   ]));
 
   // Per student: their top-3 least-recently-featured interests, all of them written today (no
-  // cap: quality and personal fit over cost). The order matters when the batch runs out of time
-  // and resumes: every student's first interest is written before anyone's second
-  // (plan-interests.ts), and students whose interests have waited longest go first, with a
-  // shuffle so ties don't favour the same students.
+  // cap: quality and personal fit over cost). An interest already written today (by an earlier
+  // run that hit its time limit, or a new student's starter article) is left out, so a resumed
+  // run picks up where the last one stopped. The order matters for the same reason: every
+  // student's first interest is written before anyone's second (plan-interests.ts), and students
+  // whose interests have waited longest go first, with a shuffle so ties don't favour the same
+  // students.
+  const writtenToday = new Set((await sql`SELECT interest FROM interest_rotation WHERE last_featured_at = CURRENT_DATE`).map(r => (r.interest as string).toLowerCase()));
   const featured = (interest: string) => lastFeaturedMap.get(interest)?.getTime() ?? 0;
+  // Today's writes take the student's slots first, so a resumed run doesn't move on to a fourth interest
+  const rank = (interest: string) => writtenToday.has(interest) ? -1 : featured(interest);
   const wants = students
     .map(student => {
-      const interests = studentInterests.get(student.id) || [];
+      const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim());
       // NULL = never featured = highest priority
-      return [...interests].sort((a, b) => featured(a) - featured(b)).slice(0, 3);
+      return [...interests].sort((a, b) => rank(a) - rank(b)).slice(0, 3).filter(i => !writtenToday.has(i));
     })
     .map(w => ({ w, latest: Math.max(0, ...w.map(featured)), r: Math.random() }))
     .sort((a, b) => a.latest - b.latest || a.r - b.r)
     .map(x => x.w);
   const pickedInterests = new Set(pickInterests(wants));
-  console.log(`  🎯 Today's interests (${pickedInterests.size} for ${students.length} students): ${[...pickedInterests].join(', ')}`);
+  console.log(`  🎯 Today's interests (${pickedInterests.size} for ${students.length} students${writtenToday.size > 0 ? `, ${writtenToday.size} written earlier today` : ""}): ${[...pickedInterests].join(', ')}`);
 
   // Deduplicate: each interest appears at most once in plans
   for (const interest of pickedInterests) {
@@ -243,6 +258,17 @@ async function planDailyArticles(
   // From the interest graph: topics next to each student's strongest interests that they
   // haven't shown a view on yet (top 3 each). Students without graph data use their
   // model-suggested adjacent interests, computed once and stored.
+  // Written once a day: a resumed run that already has today's horizon article skips this.
+  const [horizonToday] = await sql`
+    SELECT 1 FROM article_cache
+    WHERE generated_date = CURRENT_DATE AND base_article_id IS NULL AND category = 'general' AND flagged = false
+    LIMIT 1
+  `;
+  if (horizonToday) {
+    console.log(`  🧭 Horizon article already written today`);
+    console.log(`  📊 Plan: ${plans.filter(p => p.type === "interest").length} interest, ${plans.filter(p => p.type === "news").length} news, 0 horizon`);
+    return plans;
+  }
   const graphHorizons: string[] = [];
   const allAdjacentInterests: string[] = [];
   const studentsNeedingAdjacent: Student[] = [];
@@ -521,14 +547,15 @@ async function fetchSourceText(url: string): Promise<string | null> {
 
 const CONTENT_BLOCKLIST = "real-world war or armed conflict, graphic violence, murder, crime, partisan politics, religion, sexuality, gender identity, drugs, alcohol, self-harm, abortion";
 
-async function filterSources<T extends { url: string; text: string }>(
+async function filterSources<T extends { url: string; text: string; whole?: boolean }>(
   sources: T[]
 ): Promise<T[]> {
   if (sources.length === 0) return [];
 
-  // One call judges the whole batch of pages
+  // One call judges the whole batch of pages: their openings, or the whole text when asked
+  // (a finished article written without a source page)
   const summaries = sources.map((s, i) =>
-    `[${i}] ${s.url}\n${s.text.substring(0, 500)}`
+    `[${i}] ${s.url}\n${s.whole ? s.text : s.text.substring(0, 500)}`
   ).join("\n\n");
 
   try {
@@ -685,8 +712,23 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
   // ─── Interest & Horizon: stories, not topics ───────────────────────────────
   // Each interest becomes a few specific stories (story-angles.ts). For each story in turn: the
   // kids' explainer and news sites, then the open web, then a specific Grokipedia page. With no
-  // page for any story, the first story is written from the model's own knowledge (marked for
-  // review) when the fallback is on; otherwise the interest gets nothing today.
+  // page for any story, the first story that isn't already in the pool is written from the
+  // model's own knowledge (marked for review) when the fallback is on; otherwise the interest
+  // gets nothing today.
+
+  /** The first of the angles that doesn't duplicate an article in the pool (or one chosen earlier in this call), or null */
+  async function freshAngle(plan: ArticlePlan, angles: StoryAngle[]): Promise<StoryAngle | null> {
+    for (const angle of angles) {
+      const dup = await findDuplicate(dedupClient, { title: angle.angle, text: angle.why }, existing);
+      if (dup === null) {
+        existing.unshift({ id: --pending, title: angle.angle });
+        return angle;
+      }
+      console.log(`     ♻️ "${angle.angle}" would duplicate "${existing.find(e => e.id === dup)?.title}", skipping`);
+      if (dup > 0) opts.onDuplicate?.(plan.query, dup);
+    }
+    return null;
+  }
 
   const recentTitles = existing.filter(e => e.id > 0).map(e => e.title);
   const anglesClient = tracked(anthropic, "batch_angles");
@@ -703,7 +745,8 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
     if (!hit) {
       for (const angle of angles) {
         console.log(`     ⚠️ Trying the open web for "${angle.query}"...`);
-        const page = await firstGoodResult(plan, await webSearch(`${angle.query} article`), 3);
+        const results = await onTopicResults(angle.query, await webSearch(`${angle.query} article`));
+        const page = await firstGoodResult(plan, results.filter(r => !recentTopics.has(r.title.toLowerCase())), 3);
         if (page) { hit = { ...page, angle }; console.log(`     ✅ Web search: ${page.url.substring(0, 60)}...`); break; }
       }
     }
@@ -716,11 +759,18 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
 
     if (hit) {
       sourced.push({ query: plan.query, type: plan.type, sourceUrl: hit.url, sourceText: hit.text, angle: hit.angle });
-    } else if (KNOWLEDGE_FALLBACK) {
-      console.log(`     ✍️  No page for any story about "${plan.query}"; writing "${angles[0].angle}" from knowledge (marked for review)`);
-      sourced.push({ query: plan.query, type: plan.type, sourceUrl: null, sourceText: "", angle: angles[0] });
-    } else {
+      continue;
+    }
+    if (!KNOWLEDGE_FALLBACK) {
       console.log(`     ❌ No page for any story about "${plan.query}"; nothing written today`);
+      continue;
+    }
+    const angle = await freshAngle(plan, angles);
+    if (angle) {
+      console.log(`     ✍️  No page for any story about "${plan.query}"; writing "${angle.angle}" from knowledge (marked for review)`);
+      sourced.push({ query: plan.query, type: plan.type, sourceUrl: null, sourceText: "", angle });
+    } else {
+      console.log(`     ❌ No page for any story about "${plan.query}", and every story is already in the pool; nothing written today`);
     }
   }
 
@@ -913,57 +963,44 @@ async function runSteps(result: BatchResult) {
   // Step 2: Plan daily mix
   const plans = await planDailyArticles(interestMap, students, recentTopics, studentInterests);
 
-  // Check if we already have base articles from a partial run today. The day's target is every
-  // planned interest and horizon story plus one news article (the news plans are alternatives).
-  // There is no cap on the count: a specific story for each student's own interests is the
-  // product, and a smaller shared set of broad articles is what lost students in Nov 2026.
-  const TARGET_BASE_ARTICLES = plans.filter(p => p.type !== "news").length + 1;
-  const [existingToday] = await sql`
-    SELECT COUNT(*) as c FROM article_cache
-    WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false
+  // The plan already leaves out what an earlier run today wrote (interests in today's rotation,
+  // the horizon article); the news plans are alternatives for one article, kept only while
+  // there is no news article today. There is no cap on the count: a specific story for each
+  // student's own interests is the product, and a smaller shared set of broad articles is what
+  // lost students in Nov 2026.
+  const [newsToday] = await sql`
+    SELECT 1 FROM article_cache
+    WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false AND category = 'news'
+    LIMIT 1
   `;
-  const existingBaseCount = parseInt(existingToday.c as string);
+  const topicPlans = plans.filter(p => p.type !== "news");
+  const newsPlans = newsToday ? [] : plans.filter(p => p.type === "news");
 
-  if (existingBaseCount >= TARGET_BASE_ARTICLES) {
-    console.log(`✅ Already have ${existingBaseCount} base articles for today. Skipping generation.`);
+  if (topicPlans.length === 0 && newsPlans.length === 0) {
+    console.log(`✅ Today's articles were all written earlier. Skipping generation.`);
     result.adaptations += await backfillAdaptations(levelsNeeded);
     result.served += await serveToStudents(students);
     console.log(`\n✅ Batch complete (served existing articles)\n`);
     return;
   }
+  console.log(`📋 To write: ${topicPlans.length} stories${newsPlans.length > 0 ? " and the news" : " (news written earlier today)"}`);
 
-  const articlesNeeded = TARGET_BASE_ARTICLES - existingBaseCount;
-  if (existingBaseCount > 0) {
-    console.log(`📋 Found ${existingBaseCount} base articles from earlier run. Generating ${articlesNeeded} more.`);
-  }
-
-  // Limit to what we actually need, keeping the news slot unless an earlier run today wrote the news
-  const [newsToday] = await sql`
-    SELECT COUNT(*) as c FROM article_cache
-    WHERE generated_date = ${today} AND base_article_id IS NULL AND flagged = false AND category = 'news'
-  `;
-  const plansToSource = plansToRun(plans, articlesNeeded, parseInt(newsToday.c as string) === 0);
-
-  // Step 3: Source content from the web
-  const sourcedTopics = await sourceContent(plansToSource, recentTopics);
-
-  // Filter out blocked topics
   const blockedTopics = await sql`SELECT topic FROM blocked_topics`;
   const blockedSet = new Set(blockedTopics.map(b => (b.topic as string).toLowerCase()));
 
-  console.log(`\n📝 Rewriting ${sourcedTopics.length} sourced articles...\n`);
-
-  // Step 4: Rewrite from sources
+  // Steps 3 and 4: source and write, one plan at a time, so a run that hits its time limit
+  // keeps every article it finished and the next tick's plan starts after them. The news plans
+  // go together (sourcing stops at the first good page) and first, so the day has its news.
   const baseArticles: { id: number; title: string; topic: string; bodyText: string; sources: string[]; category: string }[] = [];
+  let written = 0;
+  const groups: ArticlePlan[][] = [...(newsPlans.length > 0 ? [newsPlans] : []), ...topicPlans.map(p => [p])];
+  const total = groups.length;
 
-  for (let i = 0; i < sourcedTopics.length; i++) {
-    checkTime("rewrite");
-    const t = sourcedTopics[i];
-    console.log(`  ✍️  [${i + 1}/${sourcedTopics.length}] ${t.type}: ${t.query.substring(0, 50)}...`);
-
+  async function writeArticle(t: SourcedTopic) {
+    console.log(`  ✍️  ${t.type}: ${t.query.substring(0, 50)}${t.angle ? ` ("${t.angle.angle}")` : ""}`);
     const article = await writeBaseArticle(t);
-    if (!article) { console.log(`     ❌ Failed to write`); continue; }
-    if (blockedSet.has(article.topic.toLowerCase())) { console.log(`     🚫 Blocked topic`); continue; }
+    if (!article) { console.log(`     ❌ Failed to write`); return; }
+    if (blockedSet.has(article.topic.toLowerCase())) { console.log(`     🚫 Blocked topic`); return; }
 
     const [inserted] = await sql`
       INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note)
@@ -971,15 +1008,39 @@ async function runSteps(result: BatchResult) {
       RETURNING id
     `;
     result.baseArticles++;
+    written++;
     // The interest the batch searched for is the article's main topic; the rewrite's own tag is a fallback
     await quietly(tagCacheArticle(inserted.id, t.type === "news" ? [article.topic] : [t.query, article.topic], { client: anthropic }), "article tagging");
     await writeNotesFor(inserted.id, article.title, article.bodyText);
     baseArticles.push({ id: inserted.id, title: article.title, topic: article.topic, bodyText: article.bodyText, sources: article.sources, category: article.category });
     await sql`INSERT INTO generated_topics (topic, category, generated_date, query) VALUES (${article.topic}, ${article.category}, ${today}, ${t.query ?? null})`;
+    // The interest is featured as of today: a resumed run skips it, and tomorrow's plan rotates
+    // to the students' other interests first
+    if (t.type === "interest") {
+      const interest = t.query.toLowerCase();
+      await sql`
+        INSERT INTO interest_rotation (interest, last_featured_at, student_ids, updated_at)
+        VALUES (${interest}, CURRENT_DATE, ${interestMap.get(interest) || []}, NOW())
+        ON CONFLICT (interest) DO UPDATE SET
+          last_featured_at = EXCLUDED.last_featured_at,
+          student_ids = EXCLUDED.student_ids,
+          updated_at = NOW()
+      `;
+    }
     console.log(`     ✅ "${article.title}" (${t.sourceUrl ? `source: ${t.sourceUrl.substring(0, 50)}...` : "from knowledge, marked for review"})`);
   }
 
-  console.log(`\n📝 Generated ${baseArticles.length} base articles`);
+  for (let i = 0; i < groups.length; i++) {
+    checkTime("source");
+    console.log(`\n── [${i + 1}/${total}] ${groups[i][0].type === "news" ? "news" : `${groups[i][0].type}: ${groups[i][0].query}`} ──`);
+    const sourcedTopics = await sourceContent(groups[i], recentTopics);
+    for (const t of sourcedTopics) {
+      checkTime("rewrite");
+      await writeArticle(t);
+    }
+  }
+
+  console.log(`\n📝 Generated ${written} base articles`);
 
   // Step 5: Adapt to needed levels
   console.log("\n📐 Adapting to reading levels...\n");
@@ -1005,26 +1066,6 @@ async function runSteps(result: BatchResult) {
   // Step 5b: Backfill any base articles missing level adaptations
   // (also finishes adaptations a previous, timed-out call didn't get to)
   result.adaptations += await backfillAdaptations(levelsNeeded);
-
-  // Step 5c: Update interest_rotation for every interest actually used in this batch
-  const usedInterestQueries = sourcedTopics
-    .filter(t => t.type === "interest")
-    .map(t => t.query.toLowerCase());
-  if (usedInterestQueries.length > 0) {
-    console.log("\n🔄 Updating interest_rotation...");
-    for (const interest of usedInterestQueries) {
-      const studentIdsForInterest = interestMap.get(interest) || [];
-      await sql`
-        INSERT INTO interest_rotation (interest, last_featured_at, student_ids, updated_at)
-        VALUES (${interest}, CURRENT_DATE, ${studentIdsForInterest}, NOW())
-        ON CONFLICT (interest) DO UPDATE SET
-          last_featured_at = EXCLUDED.last_featured_at,
-          student_ids = EXCLUDED.student_ids,
-          updated_at = NOW()
-      `;
-    }
-    console.log(`  ✅ Updated ${usedInterestQueries.length} interests in rotation table`);
-  }
 
   // Step 6: Serve to students
   result.served += await serveToStudents(students);
