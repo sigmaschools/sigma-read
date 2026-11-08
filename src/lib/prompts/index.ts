@@ -201,7 +201,7 @@ export function springConversationPrompt(articleText: string, level: number, art
     : articleLiked === false
     ? sectionDisliked.trimEnd() + "\n\n"
     : "";
-  const questionTypeInstructions = level <= 2 ? springQuestionLow.trimEnd() : level <= 4 ? springQuestionMid.trimEnd() : springQuestionHigh.trimEnd();
+  const questionTypeInstructions = level <= 2 ? interpolate(springQuestionLow.trimEnd(), { level }) : level <= 4 ? springQuestionMid.trimEnd() : springQuestionHigh.trimEnd();
   return interpolate(springBaseMd.trimEnd(), {
     levelContext: springLevelContext[level] || springLevelContext[3],
     likedSection,

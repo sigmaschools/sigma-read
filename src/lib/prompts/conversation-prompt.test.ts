@@ -22,6 +22,17 @@ async function main() {
   const { pickConversationStyle } = require("./index");
   for (let i = 0; i < 200; i++) assert.notEqual(pickConversationStyle("CREATIVE"), "CREATIVE");
   console.log("✅ a new style never repeats the previous one");
+
+  // The spring 2026 tutor: every level fills, and neither interests nor past articles appear
+  const { springConversationPrompt } = require("./index");
+  for (const level of [1, 2, 3, 4, 5, 6]) {
+    for (const liked of [true, false, null]) {
+      const p: string = springConversationPrompt("Article body.", level, liked);
+      assert.ok(!p.includes("{{"), `unfilled placeholder in the spring prompt at level ${level}`);
+      assert.ok(!/interests|previous articles/i.test(p), "spring prompt must not carry interests or past articles");
+    }
+  }
+  console.log("✅ spring prompt fills at every level");
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
