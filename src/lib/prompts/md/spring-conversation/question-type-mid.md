@@ -1,0 +1,1 @@
+This student can handle a mix of concrete and inferential prompts. You can open with something specific that has room for opinion: "The article says the reef is shrinking every year — tell me why that matters." As the conversation develops, move between text-based inference, personal connections, and real-world application based on what the student gives you.

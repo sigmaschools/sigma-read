@@ -23,7 +23,7 @@ Unchanged: `conversations.progress_score`, the comprehension report and its inpu
 
 ## Switch
 
-`TUTOR_DESIGN=sigma` in the environment starts new conversations on the redesign; anything else keeps the classic tutor. A conversation keeps the design it started with (`conversations.tutor_design`). Migration: `drizzle/0015_sigma_tutor.sql`.
+`TUTOR_DESIGN=sigma` in the environment starts new conversations on the redesign; `TUTOR_DESIGN=spring` starts them on the spring 2026 tutor (below); anything else keeps the classic tutor. A conversation keeps the design it started with (`conversations.tutor_design`). Migration: `drizzle/0015_sigma_tutor.sql`.
 
 ## Streaming
 
@@ -65,3 +65,12 @@ The standard is now: light-hearted and fun, not deeply challenging. The goal is 
 - Eval: `debate` and `corrects` metrics, a `fun` rating and debate lines in the judge, a contrarian kid (`jules`), and the `sigma-v1` setup (the 7 Nov character and examples; the notes prompt, observer and opener shapes are the current ones in both arms) so the new character is measured against the one it replaces. Caveat: the judge rubric describes the failure the new character was written against, so it leans the new way; a person reading `pairs.md` decides.
 
 **Result (8 Nov, 36 conversations, judge Claude Fable 5.1, results on branch `eval/voice-results-2026-11-08`):** the lighter character beat the 7 Nov one 18–0. Fun 4.2 vs 2.3, keeps-talking 4.2 vs 2.5, sounds-like-a-person 4.1 vs 3.2, debate lines per conversation 0.7 vs 2.9, "tell me" 16% → 1% of turns, debate moves 19% → 1%, cost $0.116 vs $0.108. The judge's reasons: the new one follows the kid's own jokes and tangents, has reactions of its own and varies its moves; the old one ran "Say X, tell me Y" every turn and nudged toward making a case. Two habits came with it: 46% of turns ended with a question (6% before) and "picture/imagine" rose from 10% to 30%, against the owner's rule that turns are mostly directives. The character now asks for most moves as a nudge and keeps those two words to once or twice a conversation; a short confirmation run followed before the merge.
+
+## 8 November, evening: back to the spring tutor (`TUTOR_DESIGN=spring`)
+
+The owner tested the lighter Sigma as Max (conversations 50 and 51) and found it much worse than the tutor kids had in spring 2026. What went wrong, in his terms: Sigma played make-believe instead of talking about the article ("Now you're that apple, just swallowed. Narrate your trip to becoming glucose", "Say you're the thermometer. Tell me what you'd be yelling", "Draw arrows between your parts" in a text chat); it asked for things the article never covered, so a 10-year-old answered "I don't know how that happens. I'm only 10"; it invented a life ("the apple I ate at lunch", "when I was little") and its turns ran four or five sentences. Max answered "That makes no sense" and "You sound like a teenager on crack". The voice eval had scored this design 18–0 and 9–0 over the 7 Nov Sigma, so the judge was not measuring what the owner cares about; no further prompt iteration against it.
+
+The spring tutor is the tutor of May to October 2026 (state of commit 1b930d5): the May 2026 prompt (`src/lib/prompts/md/spring-conversation/`, about seventy lines: someone who read the same article, directives not questions, follow the student, 1–2 sentences, JSON `{message, progressDelta}`) on **Claude Opus 4.6** with no thinking (`MODELS.springTutor`), completion at 100 progress after 3 exchanges with a backstop at 6 student messages, and none of the later additions to `runTutorTurn` (no quiet-kid nudge, no rewrite pass; `spring: true`). Changed from May only where the owner has asked since: light and fun with no debating, a young teacher in their twenties instead of "older sibling energy", no student interests or past articles in the prompt (a first run with interests as "background" still said "Since you're into cooking"), and a closing without verdict praise ("You nailed it"). The report, coaching tip, done screen and Compass report are the same as for the classic tutor.
+
+Checked on Max's three articles from 8 Nov against a simulated Max before shipping: every turn stayed on the article, no make-believe, no invented life. Its turns are still often three sentences and it praises answers ("That's a really sharp connection"), as it did in spring.
+

@@ -34,6 +34,18 @@ import sectionLiked from "./md/comprehension-conversation/section-liked.md";
 import sectionDisliked from "./md/comprehension-conversation/section-disliked.md";
 import tutorialOverrideMd from "./md/comprehension-conversation/tutorial-override.md";
 
+// The spring 2026 tutor (TUTOR_DESIGN=spring): the May 2026 prompt, restored on 8 Nov 2026
+import springBaseMd from "./md/spring-conversation/base.md";
+import springLevel1 from "./md/spring-conversation/level-context-1.md";
+import springLevel2 from "./md/spring-conversation/level-context-2.md";
+import springLevel3 from "./md/spring-conversation/level-context-3.md";
+import springLevel4 from "./md/spring-conversation/level-context-4.md";
+import springLevel5 from "./md/spring-conversation/level-context-5.md";
+import springLevel6 from "./md/spring-conversation/level-context-6.md";
+import springQuestionLow from "./md/spring-conversation/question-type-low.md";
+import springQuestionMid from "./md/spring-conversation/question-type-mid.md";
+import springQuestionHigh from "./md/spring-conversation/question-type-high.md";
+
 // Comprehension report fragments
 import reportBaseMd from "./md/comprehension-report/base.md";
 import levelExpectations1 from "./md/comprehension-report/level-expectations-1.md";
@@ -169,6 +181,36 @@ export function comprehensionConversationPrompt(
 /** Word cap for a tutor message at this reading level (the closing message included) */
 export function maxWordsForLevel(level: number): number {
   return level <= 1 ? 25 : level <= 2 ? 30 : level <= 4 ? 40 : 50;
+}
+
+const springLevelContext: Record<number, string> = {
+  1: springLevel1.trimEnd(), 2: springLevel2.trimEnd(), 3: springLevel3.trimEnd(),
+  4: springLevel4.trimEnd(), 5: springLevel5.trimEnd(), 6: springLevel6.trimEnd(),
+};
+
+/**
+ * The spring 2026 tutor's system prompt (src/lib/prompts/md/spring-conversation): the prompt kids
+ * had from May to October 2026, when the owner found the conversations good. Changed only where the
+ * owner has asked since: light and fun with no debating, a young teacher rather than an older
+ * sibling, and no student interests or past articles in the prompt (the owner asked on 4 Nov 2026
+ * for no forced links to them; with interests in the prompt it still said "Since you're into cooking"). docs/conversation-design.md.
+ */
+export function springConversationPrompt(articleText: string, level: number, articleLiked?: boolean | null) {
+  const likedSection = articleLiked === true
+    ? sectionLiked.trimEnd() + "\n\n"
+    : articleLiked === false
+    ? sectionDisliked.trimEnd() + "\n\n"
+    : "";
+  const questionTypeInstructions = level <= 2 ? interpolate(springQuestionLow.trimEnd(), { level }) : level <= 4 ? springQuestionMid.trimEnd() : springQuestionHigh.trimEnd();
+  return interpolate(springBaseMd.trimEnd(), {
+    levelContext: springLevelContext[level] || springLevelContext[3],
+    likedSection,
+    articleText,
+    level,
+    questionTypeInstructions,
+    messageLengthRule: level <= 2 ? "One sentence, under 20 words." : level <= 4 ? "1-2 sentences max." : "2 sentences max.",
+    messageLengthThreshold: level <= 2 ? "one sentence" : "two sentences",
+  });
 }
 
 export function comprehensionReportPrompt(articleText: string, transcript: string, level: number) {

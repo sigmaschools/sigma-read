@@ -18,6 +18,8 @@ export const MODELS = {
   observer: "claude-sonnet-5-5",
   /** The redesigned tutor (src/lib/tutor, behind TUTOR_DESIGN=sigma): thinks at low effort. Chosen by the 7 Nov 2026 voice eval (docs/tutor-redesign.md) */
   sigmaTutor: "claude-opus-5-5",
+  /** The spring 2026 tutor (TUTOR_DESIGN=spring): the model kids talked to from February to October 2026, when the owner found the conversations good. Restored 8 Nov 2026 */
+  springTutor: "claude-opus-4-6",
 } as const;
 
 export type ModelJob = keyof typeof MODELS;

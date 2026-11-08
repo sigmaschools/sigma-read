@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth";
 import { eq, desc, and, ne } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked, trackedStreaming } from "@/lib/ai-usage";
-import { comprehensionConversationPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt, maxWordsForLevel } from "@/lib/prompts";
+import { comprehensionConversationPrompt, springConversationPrompt, coachingFeedbackPrompt, pickConversationStyle, tutorialConversationPrompt, maxWordsForLevel } from "@/lib/prompts";
 import { MODELS, forJob, requestSettings } from "@/lib/models";
 import { getStudentConversation } from "@/lib/ownership";
 import { runTutorTurn, type ClosingKind } from "@/lib/conversation-turn";
@@ -194,7 +194,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json(await run());
   }
 
-  // ─── Classic tutor ───────────────────────────────────────────────────────
+  // ─── Classic tutor (and the spring 2026 tutor, which shares its turn logic) ───
+  const spring = design === "spring";
 
   // Pick conversation style once per conversation, reuse on subsequent messages.
   // A new one differs from the student's last conversation, so openers don't repeat back to back
@@ -211,12 +212,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Compass's interest summary for a student linked to it (used as given, contract 6.6); the
   // profile as before otherwise, when Compass has nothing yet (linked but not imported), or when
   // Compass doesn't answer within two seconds
-  const interests = isTutorial ? null : await tutorInterestContext(session.userId)
+  const interests = isTutorial || spring ? null : await tutorInterestContext(session.userId)
     .catch(e => { console.error("Interest summary unavailable:", e); return null; });
 
   // Get AI response — use tutorial prompt for tutorial articles
   const systemPrompt = isTutorial
     ? tutorialConversationPrompt(article.bodyText, level)
+    : spring
+    ? springConversationPrompt(article.bodyText, level, article.liked)
     : comprehensionConversationPrompt(
         article.bodyText,
         level,
@@ -228,12 +231,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const turn = await runTutorTurn({
     client: tracked(anthropic, "tutor_turn", session.userId),
-    model: MODELS.tutor,
-    settings: requestSettings(MODELS.tutor, "tutor"),
+    model: spring ? MODELS.springTutor : MODELS.tutor,
+    settings: spring ? requestSettings(MODELS.springTutor, "springTutor") : requestSettings(MODELS.tutor, "tutor"),
     systemPrompt,
     messages,
     priorProgress: conversation.progressScore || 0,
     maxWords: maxWordsForLevel(level),
+    spring,
   });
   const cleanText = turn.message;
   const isComplete = turn.complete;
@@ -242,7 +246,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
 
   // Save updated messages, conversation style, and progress score
-  const updateData: { messages: StoredMessage[]; complete: boolean; progressScore: number; conversationStyle?: string } = { messages, complete: isComplete, progressScore: newProgressScore };
+  const updateData: { messages: StoredMessage[]; complete: boolean; progressScore: number; conversationStyle?: string; tutorDesign?: string } = { messages, complete: isComplete, progressScore: newProgressScore };
+  if (spring) updateData.tutorDesign = "spring";
   if (!conversation.conversationStyle) {
     updateData.conversationStyle = conversationStyle;
   }

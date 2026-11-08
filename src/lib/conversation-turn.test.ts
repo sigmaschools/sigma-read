@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, needsQuietNudge, endsWithClosedQuestion, rewriteReason, questionInARow, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, SPRING_CLOSING_INSTRUCTION, needsQuietNudge, endsWithClosedQuestion, rewriteReason, questionInARow, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -279,6 +279,22 @@ async function main() {
     assert.equal(r.progressDelta, 0);
     assert.equal(r.progressScore, 60);
     console.log("✅ closing turn adds no progress");
+  }
+
+  // ─── The spring 2026 tutor: no rewrite pass, no quiet nudge, its own closing ─
+  {
+    const long = "Wait, really? ".repeat(30) + "Which would you pick, the horn or the lights?";
+    const { client, calls } = fakeClient({ message: long, progressDelta: 10 });
+    const quiet: TurnMessage[] = [{ role: "assistant", content: "Tell me one." }, { role: "user", content: "idk" }, { role: "assistant", content: "Tell me two." }, { role: "user", content: "ok" }];
+    const r = await runTutorTurn({ client, model: "test", systemPrompt: "", messages: quiet, priorProgress: 0, maxWords: 15, spring: true });
+    assert.equal(calls.length, 1, "no rewrite");
+    assert.equal(r.message, long);
+    assert.ok(!calls[0].some(m => m.content === QUIET_NUDGE), "no quiet nudge");
+    const closing = fakeClient({ message: "You worked out why the ink matters.", progressDelta: 0 });
+    const c = await runTutorTurn({ client: closing.client, model: "test", systemPrompt: "", messages: convo(6), priorProgress: 60, maxWords: 15, spring: true });
+    assert.equal(c.complete, true);
+    assert.equal(closing.calls[0].at(-1)!.content, SPRING_CLOSING_INSTRUCTION);
+    console.log("✅ spring tutor turn");
   }
 
   // ─── Deltas are clamped ────────────────────────────────────────────────────
