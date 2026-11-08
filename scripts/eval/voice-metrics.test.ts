@@ -35,6 +35,35 @@ const lively = [
   console.log("✅ lively transcript measures lively");
 }
 
+// The debate-club pattern (live, 8 Nov 2026): "Make the case" most turns, a correction, a counter-claim
+const debateClub = [
+  "Mammals are a small corner of the picture. It's basically a bug planet. Make the case for who really runs the animal kingdom.",
+  "One small thing: the article's 84 percent is about how many kinds of animals there are, not how much they weigh. Say every insect vanished tomorrow. Walk me through what happens.",
+  "So now you've got humans running things, and bugs holding up the floor they're standing on. Make the case for which of those counts more.",
+  "The fetus picture makes sense, but I don't think it's quite what the article describes. Look again at what the hormones tell the tissues to do first.",
+  "Break down first, so halfway through it's less a half-built butterfly and more a kind of mush getting rebuilt. I'll be thinking about that every time I see a chrysalis.",
+];
+{
+  const m = voiceMetrics(debateClub);
+  assert.equal(m.debate, 0.4, "two 'make the case' turns");
+  assert.equal(m.corrects, 0.4, "'one small thing' and 'look again' are corrections");
+  console.log("✅ debate-club transcript measures debate and corrections");
+}
+
+// A light transcript has neither
+{
+  const light = [
+    "Three hearts, and the blood is blue. I can't stop thinking about that. Pick the weirdest part for you.",
+    "The ink cloud, same. The article says it's like a smoke bomb for getting away. Say you're the fish. What do you do next?",
+    "Swim off confused is about right. I'd be checking every rock after that.",
+  ];
+  const m = voiceMetrics(light);
+  assert.equal(m.debate, 0);
+  assert.equal(m.corrects, 0);
+  assert.equal(m.grading, 0);
+  console.log("✅ light transcript has no debate or corrections");
+}
+
 // Grading phrases
 {
   for (const line of ["That's a good way to put it. Now pick one.", "You put the two together nicely.", "Good catch, thousands of years is a long time.", "Your point that families can still buy treats is a clear way to split that debate."]) {

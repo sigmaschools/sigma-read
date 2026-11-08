@@ -18,7 +18,7 @@ export const SIGMA_OPENER = "The kid just finished reading and hasn't said anyth
 export const OPENER_SHAPES = [
   "a detail that made you think \"wait, really?\"",
   "a confession: something you'd have guessed wrong, or wouldn't have believed before reading it",
-  "a side you've already picked, and why",
+  "the funniest or strangest thing in it, and why it got you",
   "a tiny scene from the article, told as if you were standing there",
   "the one thing you're still wondering about after reading it",
   "something ordinary from your own day that the article made you see differently",
@@ -60,6 +60,18 @@ export function supportsSystemMessages(model: string): boolean {
   return /^claude-(opus-5|sonnet-5-5|fable-5|mythos-5|haiku-5-5)/.test(model);
 }
 
+/**
+ * A debate-club move: the 8 Nov 2026 pattern ("Make the case…" in four of seven turns) that
+ * Sigma's character rules out. Checked live so one slip gets a rewrite instead of reaching the kid.
+ */
+export function asksForDebate(text: string): boolean {
+  // Moves aimed at the kid only. "How does the fish defend the egg" or "nobody could prove it" are
+  // article talk and must pass, so a bare "Prove it." or "defend that pick" is accepted as a gap: the
+  // character rules them out and the eval's broader DEBATE metric (scripts/eval/voice-metrics.ts)
+  // still counts them.
+  return /\b(make (the|your|a) case|defend (that[.!?,]|your (point|pick|idea|side|answer|choice))|convince me|argue (your|the other) (case|side|point)|argue (for|against) (it|that)|prove (it to me|me wrong)|(take|argue|try) the other side|push(ing)? back on (that|it|you)|devil's advocate)/i.test(text);
+}
+
 type Create = Pick<Anthropic["messages"], "create">;
 type Stream = Pick<Anthropic["messages"], "stream">;
 
@@ -84,12 +96,14 @@ export interface SigmaTurnArgs {
   openerPick?: number;
   /** Streams the reply's text as it is written */
   onDelta?: (text: string) => void;
+  /** Rewrite a debate move (default true); evals of an older character turn it off to measure that character as it was */
+  debateGuard?: boolean;
 }
 
 export interface SigmaTurnResult {
   message: string;
   /** Set when the model's message was replaced or rewritten, so evals can count it */
-  fixed: "empty" | "closing_question" | "menu" | null;
+  fixed: "empty" | "closing_question" | "menu" | "debate" | null;
   /** Tutor API calls made (1, or 2 after a rewrite) */
   calls: number;
 }
@@ -155,6 +169,14 @@ export async function runSigmaTurn(args: SigmaTurnArgs): Promise<SigmaTurnResult
     const retry = await ask([...messages, { role: "assistant", content: message }, note(args.model, "Rewrite that last message without the list of options to pick from: let them come up with the answer themselves. Same voice, same length. Reply with the new message only.")], false)
       .then(plain).catch(() => "");
     if (retry) message = retry;
+  }
+  // A debate move ("make the case", "convince me") is against the character; one rewrite, then keep what came back.
+  // Not on a closing turn (a goodbye gets the closing check below) and not after a menu rewrite (one rewrite per turn).
+  if (message && !fixed && !args.closing && args.debateGuard !== false && asksForDebate(message)) {
+    fixed = "debate";
+    const retry = await ask([...messages, { role: "assistant", content: message }, note(args.model, "That asks them to argue or defend something, which isn't how you talk. Rewrite the last message with the same reaction and one easy move instead (something to pick, describe or say), no debating. Same voice, same length. Reply with the new message only.")], false)
+      .then(plain).catch(() => "");
+    if (retry && !asksForDebate(retry)) message = retry;
   }
   if (args.closing && message && endsWithQuestion(message)) {
     fixed = "closing_question";

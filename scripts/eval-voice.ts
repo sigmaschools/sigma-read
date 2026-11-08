@@ -23,7 +23,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EVAL_ARTICLES, type EvalArticle } from "./eval/articles";
 import { KID_SIMS, kidsFor, buildKidPrompt, type KidSim } from "./eval/kid-sim";
@@ -62,8 +62,18 @@ interface Config {
   thinkingOff?: boolean;
   /** sigma only: skip the guide's prep notes (to measure what they add) */
   noNotes?: boolean;
+  /** sigma only: an earlier character and examples (scripts/eval/sigma-<v>/), to compare prompt versions */
+  voice?: "v1";
   optional?: boolean;
 }
+
+/** Earlier Sigma prompts kept for comparison. v1: shipped 7 Nov 2026 (the debate register: "make the case", pushback) */
+const VOICES = {
+  v1: {
+    character: readFileSync(join(__dirname, "eval/sigma-v1/character.md"), "utf8"),
+    examples: readFileSync(join(__dirname, "eval/sigma-v1/examples.md"), "utf8"),
+  },
+};
 
 const CONFIGS: Config[] = [
   { id: "today", design: "classic", model: "claude-sonnet-5-5", effort: "high", thinkingOff: true }, // production since 4 Nov 2026
@@ -74,6 +84,7 @@ const CONFIGS: Config[] = [
   { id: "sigma-opus-medium", design: "sigma", model: "claude-opus-5-5", effort: "medium", optional: true },
   { id: "sigma-fable-low", design: "sigma", model: "claude-fable-5-1", effort: "low", optional: true },
   { id: "sigma-opus-low-nonotes", design: "sigma", model: "claude-opus-5-5", effort: "low", noNotes: true, optional: true },
+  { id: "sigma-v1", design: "sigma", model: "claude-opus-5-5", effort: "low", voice: "v1", optional: true }, // Sigma as shipped 7 Nov 2026, before the lighter character
 ];
 
 const args = process.argv.slice(2);
@@ -208,6 +219,7 @@ async function runSigma(config: Config, kid: KidSim, article: EvalArticle, calls
     const r = await sigmaExchange({
       tutorClient, observerClient,
       articleTitle: article.title, articleText: article.bodyText, level: article.level, guideNotes,
+      voice: config.voice ? VOICES[config.voice] : null,
       messages: transcript, priorProgress: progress, previousNotes: notes,
       tutorModel: config.model, tutorSettings: tutorSettings(config),
       observerModel: MODELS.observer, observerSettings: requestSettings(MODELS.observer, "observer"),
@@ -256,11 +268,13 @@ const PAIR_SCHEMA = {
     side: {
       type: "object",
       additionalProperties: false,
-      required: ["person", "keepTalking", "graderLines", "muddledLines", "worstLine"],
+      required: ["person", "keepTalking", "fun", "graderLines", "debateLines", "muddledLines", "worstLine"],
       properties: {
         person: { type: "integer", description: "1-5: sounds like a real adult who read the article and has their own reactions, not a program running a routine" },
         keepTalking: { type: "integer", description: "1-5: a kid this age would want to keep talking to this tutor" },
+        fun: { type: "integer", description: "1-5: light and fun for a kid this age; 1 is a debate or a lesson, 5 is a chat they'd enjoy and want again" },
         graderLines: { type: "integer", description: "how many tutor lines evaluate the kid ('smart guess', 'good catch', 'you put that together nicely', summing up what they got right)" },
+        debateLines: { type: "integer", description: "how many tutor lines ask the kid to make a case, defend, argue, convince or prove something, push back on the kid, counter them with a claim of the tutor's own (a correction of a misreading is not a debate line)" },
         muddledLines: { type: "integer", description: "how many tutor lines are confusing, hop topics, or ask two things at once" },
         worstLine: { type: "string", description: "the tutor's weakest line, quoted, or 'none'" },
       },
@@ -268,15 +282,15 @@ const PAIR_SCHEMA = {
   },
 } as const;
 
-interface Side { person: number; keepTalking: number; graderLines: number; muddledLines: number; worstLine: string }
+interface Side { person: number; keepTalking: number; fun: number; graderLines: number; debateLines: number; muddledLines: number; worstLine: string }
 interface Judgement { winner: "A" | "B" | "tie"; margin: "slight" | "clear" | "big"; reason: string; a: Side; b: Side }
 
 const fmt = (t: Msg[]) => t.map(m => `${m.role === "user" ? "Kid" : "Tutor"}: ${m.content}`).join("\n\n");
 
 async function judgePair(article: EvalArticle, kid: KidSim, a: Msg[], b: Msg[]): Promise<Judgement | null> {
-  const prompt = `Two reading discussions between a tutor (a Guide, meant to be a young teacher in their twenties: steady, plain-spoken, genuinely interested in the kid, never a quiz, never a cheerleader) and the same ${kid.age}-year-old kid, after both read the article below. The kid is simulated and the same in both; judge the TUTOR only.
+  const prompt = `Two reading discussions between a tutor (a Guide, meant to be a young teacher in their twenties: warm, plain-spoken, curious, genuinely interested in the kid, never a quiz, never a cheerleader, never a debate partner) and the same ${kid.age}-year-old kid, after both read the article below. The kid is simulated and the same in both; judge the TUTOR only.
 
-The owner's standard: it should feel like a real guide and a student talking after both read the passage. A guide with their own reactions, who follows the kid, varies how they talk, and never grades the kid out loud. Dry means: the same shape every turn ("[short reaction]. Imagine X and tell me Y."), remarks that evaluate the kid ("smart guess", "good catch"), nothing of the tutor's own, muddled or topic-hopping prompts, and closings that read like a report card.
+The owner's standard: the point is to get kids interested in reading and to practice understanding what they read, so the talk should be light-hearted and fun, not deeply challenging. It should feel like a kid and an adult who both enjoyed the same article. A guide with their own reactions, who follows the kid, varies how they talk, stays on the article, and never grades the kid out loud. Two failure modes. Dry: the same shape every turn ("[short reaction]. Imagine X and tell me Y."), remarks that evaluate the kid ("smart guess", "good catch"), nothing of the tutor's own, muddled or topic-hopping prompts, closings that read like a report card. Argumentative: "make the case", "defend that", "convince me", pushback every turn, correcting small things, bringing in claims from outside the article to counter the kid, chasing depth or responsibility or blame. A real person described the argumentative version as "arguing with an annoying adult".
 
 Article:
 ---
@@ -289,7 +303,7 @@ ${fmt(a)}
 CONVERSATION B
 ${fmt(b)}
 
-Which conversation would this kid rather keep having, and which tutor sounds more like a real person who read the article? Pick a winner unless they are truly indistinguishable. Be strict on both; a tie is rare.`;
+Which conversation would this kid rather keep having, and which one would make them want to read another article tomorrow? Pick a winner unless they are truly indistinguishable. Be strict on both; a tie is rare.`;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await anthropic.messages.create({
@@ -319,8 +333,8 @@ const pc = (n: number) => Number.isFinite(n) ? `${Math.round(n * 100)}%` : "-";
 function summarize(results: Result[], pairs: Pair[], notesCost: number): string {
   const base = configs[0].id;
   const lines = [`# Tutor voice eval`, "", `${results.length} conversations. Kids simulated by ${KID_SIM_MODEL}; pairs judged blind by ${JUDGE_MODEL}. Each setup is compared with \`${base}\` on the same kid, article and run.`, ""];
-  lines.push(`| Setup | Convos | Errors | Wins vs ${base} | Losses | Ties | Person /5 | Keep talking /5 | Grader lines | Muddled lines | Exchanges | Closed | Fixes | Median reply s | p90 | Cost / convo $ |`);
-  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  lines.push(`| Setup | Convos | Errors | Wins vs ${base} | Losses | Ties | Person /5 | Keep talking /5 | Fun /5 | Grader lines | Debate lines | Muddled lines | Exchanges | Closed | Fixes | Median reply s | p90 | Cost / convo $ |`);
+  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
   const sideOf = (p: Pair, which: "base" | "other"): Side | null => {
     if (!p.judgement) return null;
     const isA = (which === "base") === (p.baseIs === "A");
@@ -336,15 +350,15 @@ function summarize(results: Result[], pairs: Pair[], notesCost: number): string 
     const losses = ps.filter(p => p.judgement!.winner !== "tie" && (p.judgement!.winner === "A") === (p.baseIs === "A")).length;
     const ties = ps.length - wins - losses;
     const ms = ok.flatMap(r => r.replyMs.map(x => x / 1000));
-    lines.push(`| ${c.id} | ${ok.length} | ${rs.length - ok.length} | ${c.id === base ? "-" : wins} | ${c.id === base ? "-" : losses} | ${c.id === base ? "-" : ties} | ${f(mean(sides.map(s => s.person)))} | ${f(mean(sides.map(s => s.keepTalking)))} | ${f(mean(sides.map(s => s.graderLines)))} | ${f(mean(sides.map(s => s.muddledLines)))} | ${f(mean(ok.map(r => r.exchanges)))} | ${pc(ok.length ? ok.filter(r => r.closing).length / ok.length : NaN)} | ${ok.reduce((s, r) => s + r.fixes, 0)} | ${f(pct(ms, 0.5))} | ${f(pct(ms, 0.9))} | ${f(mean(ok.map(r => r.costUsd)), 3)} |`);
+    lines.push(`| ${c.id} | ${ok.length} | ${rs.length - ok.length} | ${c.id === base ? "-" : wins} | ${c.id === base ? "-" : losses} | ${c.id === base ? "-" : ties} | ${f(mean(sides.map(s => s.person)))} | ${f(mean(sides.map(s => s.keepTalking)))} | ${f(mean(sides.map(s => s.fun)))} | ${f(mean(sides.map(s => s.graderLines)))} | ${f(mean(sides.map(s => s.debateLines)))} | ${f(mean(sides.map(s => s.muddledLines)))} | ${f(mean(ok.map(r => r.exchanges)))} | ${pc(ok.length ? ok.filter(r => r.closing).length / ok.length : NaN)} | ${ok.reduce((s, r) => s + r.fixes, 0)} | ${f(pct(ms, 0.5))} | ${f(pct(ms, 0.9))} | ${f(mean(ok.map(r => r.costUsd)), 3)} |`);
   }
   lines.push("", `Cost is the tutor plus (for sigma) the observer, per conversation, with prompt caching as the API reported it. Prep notes cost $${notesCost.toFixed(3)} for ${articles.length} articles in this run, once per article for every student. Reply time is the tutor's API time per turn without streaming.`, "");
   lines.push("## Measured patterns (share of tutor messages)", "");
-  lines.push("| Setup | \"tell me\" | imagine/picture | ! | grader's remark | repeated opener | same move as last turn | ends with ? | words | length variety |");
-  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  lines.push("| Setup | \"tell me\" | imagine/picture | ! | grader's remark | debate move | correction | repeated opener | same move as last turn | ends with ? | words | length variety |");
+  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const c of configs) {
     const m = averageMetrics(results.filter(r => r.config === c.id && !r.error).map(r => r.metrics));
-    lines.push(`| ${c.id} | ${pc(m.tellMe)} | ${pc(m.imagine)} | ${pc(m.exclaim)} | ${pc(m.grading)} | ${pc(m.repeatOpener)} | ${pc(m.repeatMove)} | ${pc(m.question)} | ${f(m.words, 0)} | ${f(m.lengthVariety, 2)} |`);
+    lines.push(`| ${c.id} | ${pc(m.tellMe)} | ${pc(m.imagine)} | ${pc(m.exclaim)} | ${pc(m.grading)} | ${pc(m.debate)} | ${pc(m.corrects)} | ${pc(m.repeatOpener)} | ${pc(m.repeatMove)} | ${pc(m.question)} | ${f(m.words, 0)} | ${f(m.lengthVariety, 2)} |`);
   }
   lines.push("", "Live-site reference (Lily, 2-7 Nov 2026): Opus 4.6 had \"tell me\" 64%, ! 19%; Sonnet 5.5 had \"tell me\" 70%, ! 7%.", "");
   lines.push("## Why the judge picked (a sample)", "");
@@ -401,7 +415,7 @@ async function main() {
     let r: Result;
     try {
       r = await runConversation(config, k, a, run, style);
-      console.log(`  ${config.id} ${k.id}/${a.id} r${run}: ${r.exchanges} exchanges, ${r.closing ?? "unclosed"}, tell-me ${pc(r.metrics.tellMe)}, $${r.costUsd.toFixed(3)}`);
+      console.log(`  ${config.id} ${k.id}/${a.id} r${run}: ${r.exchanges} exchanges, ${r.closing ?? "unclosed"}, tell-me ${pc(r.metrics.tellMe)}, debate ${pc(r.metrics.debate)}, $${r.costUsd.toFixed(3)}`);
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       console.log(`  ${config.id} ${k.id}/${a.id} r${run}: error: ${error}`);

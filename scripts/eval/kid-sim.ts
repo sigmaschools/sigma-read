@@ -79,6 +79,28 @@ export const KID_SIMS: KidSim[] = [
     ],
   },
   {
+    id: "jules",
+    age: "10",
+    levels: [3, 4],
+    who: "Fifth grader who likes to disagree for fun. Takes the opposite side of whatever the tutor says, says \"name one\" or \"prove it\", and brings in a fact from outside the article (sometimes wrong) to sound smart. Drops it right away and gets interested when the tutor doesn't take the bait and shares something fun instead. Gets annoyed and shorter if the tutor argues back, corrects every detail, or asks them to defend things.",
+    typing: [
+      "1 or 2 sentences, lowercase, little punctuation",
+      "disagrees with the tutor's first opinion or claim about once every two turns (\"nah\", \"thats not true\", \"name one\")",
+      "once per conversation, states an outside fact as if it settles things (\"everyone knows sharks are older than trees\")",
+      "if the tutor asks them to make the case, defend something or convince them, says \"why do i have to\" or answers in three words",
+      "if the tutor just shares something cool or funny, drops the argument and reacts to it for real",
+      "says \"who cares\" once, early",
+    ],
+    samples: [
+      "nah bugs dont run anything, people do",
+      "name one",
+      "who cares how many kinds there are",
+      "everyone knows octopuses are smarter than dogs anyway",
+      "ok that part is actually cool",
+      "why do i have to make a case lol",
+    ],
+  },
+  {
     id: "ava",
     age: "12",
     levels: [4, 5],

@@ -6,7 +6,7 @@ import { neon } from "@neondatabase/serverless";
 import { NextRequest, NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { tracked } from "@/lib/ai-usage";
-import { writeGuideNotes } from "@/lib/tutor/guide-notes";
+import { NOTES_VERSION, writeGuideNotes } from "@/lib/tutor/guide-notes";
 
 /** Stop starting new articles this long after the call begins, leaving room to respond */
 const WORK_BUDGET_MS = 240_000;
@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
 
   const rows = await sql`
     SELECT id, title, body_text FROM article_cache
-    WHERE base_article_id IS NULL AND guide_notes IS NULL AND flagged = false
+    WHERE base_article_id IS NULL AND flagged = false
+      AND (guide_notes IS NULL OR (guide_notes->>'version') IS DISTINCT FROM ${String(NOTES_VERSION)})
     ORDER BY id DESC LIMIT ${PER_CALL}
   ` as { id: number; title: string; body_text: string }[];
 
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
       try {
         const notes = await writeGuideNotes(anthropic, row.title, row.body_text);
         if (!notes) { failed++; console.warn(`guide notes: no usable notes for article ${row.id}`); continue; }
-        await sql`UPDATE article_cache SET guide_notes = ${JSON.stringify(notes)}::jsonb WHERE id = ${row.id} AND guide_notes IS NULL`;
+        await sql`UPDATE article_cache SET guide_notes = ${JSON.stringify(notes)}::jsonb WHERE id = ${row.id} AND (guide_notes IS NULL OR (guide_notes->>'version') IS DISTINCT FROM ${String(NOTES_VERSION)})`;
         written++;
       } catch (e) {
         failed++;

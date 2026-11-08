@@ -8,7 +8,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
-import { writeGuideNotes } from "../src/lib/tutor/guide-notes";
+import { NOTES_VERSION, writeGuideNotes } from "../src/lib/tutor/guide-notes";
 
 const sql = neon(process.env.DATABASE_URL!);
 const anthropic = new Anthropic();
@@ -17,13 +17,14 @@ const limit = parseInt(args.find(a => a.startsWith("--limit="))?.slice(8) ?? "")
 const dryRun = args.includes("--dry-run");
 
 async function main() {
-  // Base articles (no base_article_id) without notes, newest first, unflagged
+  // Base articles (no base_article_id) with no notes or notes from an older prompt, newest first, unflagged
   const rows = await sql`
     SELECT id, title, body_text FROM article_cache
-    WHERE base_article_id IS NULL AND guide_notes IS NULL AND flagged = false
+    WHERE base_article_id IS NULL AND flagged = false
+      AND (guide_notes IS NULL OR (guide_notes->>'version') IS DISTINCT FROM ${String(NOTES_VERSION)})
     ORDER BY id DESC LIMIT ${limit}
   `;
-  console.log(`${rows.length} base articles without notes${dryRun ? " (dry run)" : ""}`);
+  console.log(`${rows.length} base articles without current notes${dryRun ? " (dry run)" : ""}`);
   let written = 0, failed = 0;
   for (const row of rows) {
     if (dryRun) { console.log(`  would write: ${row.id} "${row.title}"`); continue; }

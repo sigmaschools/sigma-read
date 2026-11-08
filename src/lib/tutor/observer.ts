@@ -97,11 +97,11 @@ A wrong answer stated confidently is 0-10. A right answer in a kid's messy words
 
 shown: in one or two sentences, what this kid has shown so far about the article as a whole (cumulative, replacing the previous notes). Name what they've got and what's still untested.
 
-steer: one short line for Sigma's next turn, or an empty string if the conversation is going fine. Useful steers: "they flipped cause and effect on the slingshot; point them to that paragraph", "they've got the main idea; go to why it matters", "two short answers in a row; share something instead of asking", "they asked whether bees die when they sting; answer it". Never a question for Sigma to ask verbatim, never a quiz.
+steer: one short line for Sigma's next turn, or an empty string if the conversation is going fine. The talk should stay light, fun and on the article. Useful steers: "they flipped cause and effect on the slingshot; point them to that paragraph, once", "they've got the main idea; share the chrysalis detail and let them run with it", "two short answers in a row; share something instead of asking", "they asked whether bees die when they sting; answer it", "they're arguing; don't take the bait, go back to something fun on the page". Never a question for Sigma to ask verbatim, never a quiz, never "push back", "challenge" or "go deeper".
 
 askedQuestion: true if the kid's latest message asks Sigma something that deserves an answer.
 
-done: true only when ALL of these hold: at least ${MIN_EXCHANGES} student messages; the kid has shown the main idea in their own words AND gone one step past it (a why, a how, an application, an opinion with a reason, or a connection); and the kid's latest message is not a question for Sigma. A kid who has clearly checked out (three non-answers in a row) after ${MIN_EXCHANGES} messages is also done. Otherwise false.`;
+done: true only when ALL of these hold: at least ${MIN_EXCHANGES} student messages; the kid has shown they got the main idea (in their own words, or by using it) AND done one more thing with it (pictured it, applied it, guessed a why or how, gave an opinion with a reason, or made a connection); and the kid's latest message is not a question for Sigma. A kid who has clearly checked out (three non-answers in a row) after ${MIN_EXCHANGES} messages is also done. Otherwise false.`;
 }
 
 export async function observe(args: ObserverArgs): Promise<ObserverNotes> {
