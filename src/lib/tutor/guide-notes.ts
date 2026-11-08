@@ -9,7 +9,15 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { MODELS, requestSettings } from "../models";
 import { parseJsonResponse } from "../claude-json";
 
+/**
+ * Bumped when the notes prompt changes in a way that old notes would work against (2: the 8 Nov
+ * 2026 light, no-debate notes). Notes with another version are treated as missing and rewritten.
+ */
+export const NOTES_VERSION = 2;
+
 export interface GuideNotes {
+  /** NOTES_VERSION of the prompt that wrote them; absent on notes from before 8 Nov 2026 */
+  version?: number;
   /** Two or three ideas most worth a conversation, each with Sigma's own take */
   worthTalkingAbout: { idea: string; take: string }[];
   /** Vivid, surprising or funny details, in Sigma's words */
@@ -76,11 +84,16 @@ export async function writeGuideNotes(client: Client, title: string, bodyText: s
     output_config: { ...own, format: { type: "json_schema", schema: GUIDE_NOTES_SCHEMA } },
   } as Anthropic.MessageCreateParamsNonStreaming);
   const notes = parseJsonResponse<GuideNotes>(response);
-  return notes && isGuideNotes(notes) ? notes : null;
+  return notes && isGuideNotes(notes) ? { ...notes, version: NOTES_VERSION } : null;
 }
 
 export function isGuideNotes(x: unknown): x is GuideNotes {
   if (!x || typeof x !== "object") return false;
   const n = x as Record<string, unknown>;
   return Array.isArray(n.worthTalkingAbout) && Array.isArray(n.vividDetails) && Array.isArray(n.likelyConfusions) && Array.isArray(n.goodMoves);
+}
+
+/** Notes written by the current prompt; older notes are left out of Sigma's prompt until the catch-up cron rewrites them */
+export function isCurrentGuideNotes(x: unknown): x is GuideNotes {
+  return isGuideNotes(x) && x.version === NOTES_VERSION;
 }

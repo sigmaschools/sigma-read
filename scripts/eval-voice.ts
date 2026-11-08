@@ -274,7 +274,7 @@ const PAIR_SCHEMA = {
         keepTalking: { type: "integer", description: "1-5: a kid this age would want to keep talking to this tutor" },
         fun: { type: "integer", description: "1-5: light and fun for a kid this age; 1 is a debate or a lesson, 5 is a chat they'd enjoy and want again" },
         graderLines: { type: "integer", description: "how many tutor lines evaluate the kid ('smart guess', 'good catch', 'you put that together nicely', summing up what they got right)" },
-        debateLines: { type: "integer", description: "how many tutor lines ask the kid to make a case, defend, argue, convince or prove something, push back on the kid, counter them with a claim of the tutor's own, or correct them" },
+        debateLines: { type: "integer", description: "how many tutor lines ask the kid to make a case, defend, argue, convince or prove something, push back on the kid, counter them with a claim of the tutor's own (a correction of a misreading is not a debate line)" },
         muddledLines: { type: "integer", description: "how many tutor lines are confusing, hop topics, or ask two things at once" },
         worstLine: { type: "string", description: "the tutor's weakest line, quoted, or 'none'" },
       },
@@ -334,7 +334,7 @@ function summarize(results: Result[], pairs: Pair[], notesCost: number): string 
   const base = configs[0].id;
   const lines = [`# Tutor voice eval`, "", `${results.length} conversations. Kids simulated by ${KID_SIM_MODEL}; pairs judged blind by ${JUDGE_MODEL}. Each setup is compared with \`${base}\` on the same kid, article and run.`, ""];
   lines.push(`| Setup | Convos | Errors | Wins vs ${base} | Losses | Ties | Person /5 | Keep talking /5 | Fun /5 | Grader lines | Debate lines | Muddled lines | Exchanges | Closed | Fixes | Median reply s | p90 | Cost / convo $ |`);
-  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
   const sideOf = (p: Pair, which: "base" | "other"): Side | null => {
     if (!p.judgement) return null;
     const isA = (which === "base") === (p.baseIs === "A");

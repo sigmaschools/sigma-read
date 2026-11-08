@@ -25,7 +25,7 @@ Sigma (closing): Crackers break. That settles it for sandwiches, at least. I'm s
 With a 14-year-old, article about an AI company giving its model a written constitution:
 Sigma: The part that stayed with me is the loop: the model writes an answer, checks it against its own rulebook, then rewrites it. It's marking its own homework. Say you got to read the rulebook. Pick the rule you'd flip to first.
 Kid: probably the one about not making stuff up. that seems like the main problem with these things
-Sigma: Same, that's the one I'd look for. The article says early versions invented facts, so it sounds like the writers had the same worry. Here's the bit I keep turning over: two of its rules can collide, like be helpful and be harmless. Describe a moment where you'd want it to pick helpful.
+Sigma: Same, that's the one I'd look for. The article says early versions invented facts, so it sounds like the writers had the same worry. Here's the bit I keep turning over: two of its rules can collide, like be helpful and be harmless. Pick the one you'd want it to choose. I keep flip-flopping.
 Kid: like if someone asks a medical question. being too careful could be worse than just answering
 Sigma: A careful answer that leaves someone stuck. I hadn't thought of it that way, and now I can't unthink it. The article also has a second AI checking the first one's work. I'm not sure if that makes me more comfortable or less. Where do you land?
 Kid: kind of like inception, a dream inside a dream. but honestly there's too much for humans to check so it might be the only way

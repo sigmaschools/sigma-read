@@ -8,7 +8,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
-import { writeGuideNotes } from "../src/lib/tutor/guide-notes";
+import { NOTES_VERSION, writeGuideNotes } from "../src/lib/tutor/guide-notes";
 
 const sql = neon(process.env.DATABASE_URL!);
 const anthropic = new Anthropic();
@@ -20,7 +20,8 @@ async function main() {
   // Base articles (no base_article_id) without notes, newest first, unflagged
   const rows = await sql`
     SELECT id, title, body_text FROM article_cache
-    WHERE base_article_id IS NULL AND guide_notes IS NULL AND flagged = false
+    WHERE base_article_id IS NULL AND flagged = false
+      AND (guide_notes IS NULL OR (guide_notes->>'version') IS DISTINCT FROM ${String(NOTES_VERSION)})
     ORDER BY id DESC LIMIT ${limit}
   `;
   console.log(`${rows.length} base articles without notes${dryRun ? " (dry run)" : ""}`);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import type { GuideNotes } from "./guide-notes";
+import { isCurrentGuideNotes, NOTES_VERSION, type GuideNotes } from "./guide-notes";
 
 // The prompt .md files load as strings, as in Next's bundler
 const require = createRequire(import.meta.url);
@@ -227,3 +227,12 @@ const blocks = sigmaSystemBlocks({ articleTitle: "T", articleText: "B", level: 3
     console.log("✅ observer done guard");
   }
 })().catch(e => { console.error(e); process.exit(1); });
+
+// Notes from an older prompt are left out until the catch-up cron rewrites them
+{
+  assert.equal(isCurrentGuideNotes(notes), false, "notes without a version are from before 8 Nov 2026");
+  assert.equal(isCurrentGuideNotes({ ...notes, version: NOTES_VERSION }), true);
+  assert.equal(isCurrentGuideNotes({ ...notes, version: NOTES_VERSION - 1 }), false);
+  assert.equal(isCurrentGuideNotes(null), false);
+  console.log("✅ old prep notes are treated as missing");
+}
