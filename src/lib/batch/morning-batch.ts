@@ -832,15 +832,15 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     // as the query (writeArticle, writeInterestArticle); the plan lowercases interests the same
     // way as studentInterests here, so the match is exact
     const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim());
-    // (DISTINCT: an interest with several generated_topics rows today would repeat the article.)
     // Newest first, so a resumed run's later stories don't push out the morning's
     const ownRows = interests.length === 0 ? [] : await sql`
-      SELECT DISTINCT ac.* FROM article_cache ac
+      SELECT ac.* FROM article_cache ac
       JOIN article_cache base ON base.id = COALESCE(ac.base_article_id, ac.id)
-      JOIN generated_topics gt ON gt.topic = base.topic AND gt.generated_date = base.generated_date
       WHERE ac.reading_level = ${student.reading_level} AND ac.flagged = false
-        AND base.generated_date = ${today} AND gt.category <> 'news'
-        AND LOWER(gt.query) = ANY(${interests}::text[])
+        AND base.generated_date = ${today}
+        AND EXISTS (SELECT 1 FROM generated_topics gt
+          WHERE gt.topic = base.topic AND gt.generated_date = base.generated_date AND gt.category <> 'news'
+            AND LOWER(TRIM(gt.query)) = ANY(${interests}::text[]))
         AND NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ac.title)
         AND NOT EXISTS (SELECT 1 FROM student_article_history h JOIN article_cache hc ON hc.id = h.article_cache_id
           WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = base.id)
