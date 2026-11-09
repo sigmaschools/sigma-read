@@ -887,7 +887,7 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const budget = checkBudget(20_000);
     // Own stories first, then the ranked fill up to the buffer target (serve-picks.ts)
     const own = candidates.filter(c => ownIds.has(c.id));
-    if (own.length > OWN_STORIES_MAX) console.log(`  ${student.name}: ${own.length} stories for their interests today, serving ${OWN_STORIES_MAX}; the rest wait for the ranking`);
+    if (own.length > OWN_STORIES_MAX) console.log(`  ${student.name}: ${own.length} stories for their interests today, serving ${OWN_STORIES_MAX}; the rest stay in the cache for a later day`);
     const picked = await pickWithoutRepeats(
       excluded => pickServing({
         own, candidates, needed, max: OWN_STORIES_MAX, excluded,
