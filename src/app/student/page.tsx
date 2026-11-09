@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { orderFeed } from "@/lib/feed-order";
 import Link from "next/link";
 import { markdownToPlainText } from "@/lib/markdown";
 
@@ -168,16 +169,13 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Show up to 5 unread articles, newest first (the API's order), with tutorial articles sorted
-  // to top. Newest first, so the stories the morning batch wrote for the student's own interests
-  // are the first thing they see, ahead of older unread articles in their queue
+  // Show up to 5 unread articles: tutorial first, then the ones served today (the morning
+  // batch's stories for the student's own interests), then the rest, oldest first within each
+  // group so a same-day top-up never hides the starter articles (src/lib/feed-order.ts)
   const unread = articles.filter((a) => !a.read);
-  const visibleSlice = unread.slice(0, 5);
-  const visible = [...visibleSlice].sort((a, b) => {
-    if (a.category === "tutorial" && b.category !== "tutorial") return -1;
-    if (a.category !== "tutorial" && b.category === "tutorial") return 1;
-    return 0;
-  });
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const visible = orderFeed(unread, dayStart).slice(0, 5);
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
 

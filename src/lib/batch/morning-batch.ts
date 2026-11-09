@@ -38,6 +38,7 @@ import { writeGuideNotes } from "../tutor/guide-notes";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
 import { recentArticles, recentTopics } from "../recent-reading";
 import { pickInterests } from "./plan-interests";
+import { pickServing } from "./serve-picks";
 import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipediaPagePath } from "./sources";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
@@ -826,8 +827,10 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const unreadCount = parseInt(unreadResult.c as string);
     const needed = Math.max(0, BUFFER_TARGET - unreadCount);
 
-    // Today's stories for this student's interests, at their level: the base article's topic is
-    // recorded in generated_topics with the interest it was written for as the query
+    // Today's stories for this student's interests, at their level, not yet served to them. The
+    // base article's topic is recorded in generated_topics with the interest it was written for
+    // as the query (writeArticle, writeInterestArticle); the plan lowercases interests the same
+    // way as studentInterests here, so the match is exact
     const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim());
     const ownRows = interests.length === 0 ? [] : await sql`
       SELECT ac.id FROM article_cache ac
@@ -836,6 +839,9 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
       WHERE ac.reading_level = ${student.reading_level} AND ac.flagged = false
         AND base.generated_date = ${today} AND gt.category <> 'news'
         AND LOWER(gt.query) = ANY(${interests}::text[])
+        AND NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ac.title)
+        AND NOT EXISTS (SELECT 1 FROM student_article_history h JOIN article_cache hc ON hc.id = h.article_cache_id
+          WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = base.id)
     `;
     const ownIds = new Set(ownRows.map((r: any) => r.id as number));
 
@@ -875,22 +881,22 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const budget = checkBudget(20_000);
     // Own stories first (newest first, so a resumed run's later stories don't push out the
     // morning's), then the ranked fill up to the buffer target; the own stories count toward it
-    const own = candidates.filter(c => ownIds.has(c.id)).slice(0, OWN_STORIES_MAX);
+    // Own stories first (candidates are newest first, from the query above, so a resumed run's
+    // later stories don't push out the morning's), then the ranked fill (serve-picks.ts)
+    const own = candidates.filter(c => ownIds.has(c.id));
     const picked = await pickWithoutRepeats(
-      excluded => {
-        const ownPicks = own.filter(c => !excluded.has(c.id));
-        const fill = Math.max(0, needed - ownPicks.length);
-        const rest = candidates.filter(c => !excluded.has(c.id) && !own.some(o => o.id === c.id));
-        return [...ownPicks, ...pickForFeed(rest, scoring, fill, { avoid: new Set(recent) })];
-      },
+      excluded => pickServing({
+        own, candidates, needed, max: OWN_STORIES_MAX, excluded,
+        fill: (rest, n) => pickForFeed(rest, scoring, n, { avoid: new Set(recent) }),
+      }),
       async (unchecked, approved) => {
         const gist = (c: (typeof candidates)[number]) => ({ id: c.id, title: c.row.title as string, excerpt: excerpt(c.row.body_text) });
         return findRepeats(repeatClient, unchecked.map(gist), [...recentReads, ...approved.map(gist)], { budget });
       },
     );
-    // The feed shows the newest articles first, so the own stories are inserted last
+    // Inserted in this order: the feed shows today's articles oldest first (src/lib/feed-order.ts)
     const ownPicked = picked.filter(c => ownIds.has(c.id));
-    const toServe = [...picked.filter(c => !ownIds.has(c.id)), ...ownPicked].map(c => c.row);
+    const toServe = picked.map(c => c.row);
 
     for (const a of toServe) {
       await sql`INSERT INTO articles (student_id, title, topic, body_text, reading_level, sources, estimated_read_time, category, source_cache_id)

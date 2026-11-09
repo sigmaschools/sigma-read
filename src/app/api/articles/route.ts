@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq, desc } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -16,8 +16,7 @@ export async function GET(req: NextRequest) {
 
   const articleList = await db.select().from(schema.articles)
     .where(eq(schema.articles.studentId, studentId))
-    // Newest first: the stories served this morning top the feed
-    .orderBy(desc(schema.articles.createdAt), desc(schema.articles.id));
+    .orderBy(schema.articles.createdAt);
 
   return NextResponse.json(articleList);
 }
