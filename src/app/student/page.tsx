@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { markdownToPlainText } from "@/lib/markdown";
+import { orderFeed } from "@/lib/feed-order";
 
 interface Article {
   id: number;
@@ -168,16 +169,11 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Show up to 5 unread articles, oldest first, with tutorial articles sorted to top. Oldest first,
-  // so a top-up never pushes out an article the student hasn't read yet (it hid their starter
-  // articles, picked from their interests at onboarding)
+  // Show up to 5 unread articles: tutorial first, then by the day they were served, newest day
+  // first (this morning's stories for the student's own interests lead), oldest first within a
+  // day so a same-day top-up never hides the starter articles (src/lib/feed-order.ts)
   const unread = articles.filter((a) => !a.read);
-  const visibleSlice = unread.slice(0, 5);
-  const visible = [...visibleSlice].sort((a, b) => {
-    if (a.category === "tutorial" && b.category !== "tutorial") return -1;
-    if (a.category !== "tutorial" && b.category === "tutorial") return 1;
-    return 0;
-  });
+  const visible = orderFeed(unread).slice(0, 5);
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
 

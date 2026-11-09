@@ -38,11 +38,14 @@ import { writeGuideNotes } from "../tutor/guide-notes";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
 import { recentArticles, recentTopics } from "../recent-reading";
 import { pickInterests } from "./plan-interests";
+import { pickServing } from "./serve-picks";
 import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipediaPagePath } from "./sources";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
 const BUFFER_TARGET = 10; // 2-day buffer in case batch fails
+/** Stories written today for a student's own interests go to that student even when the buffer is full */
+const OWN_STORIES_MAX = 3;
 /** How far back the duplicate check looks for articles on the same subject */
 const DEDUP_DAYS = 60;
 
@@ -808,7 +811,13 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
 
 // ─── Step 6: Serve Articles to Students ─────────────────────────────────────
 
-async function serveToStudents(students: Student[]): Promise<number> {
+/**
+ * Fills each student's buffer from the cache, ranked by their interests. Stories written today
+ * for the student's own interests (planDailyArticles) go to that student first, and even when
+ * the buffer is full: the point of writing them was that this student reads them this morning,
+ * not after the older articles in the queue.
+ */
+async function serveToStudents(students: Student[], studentInterests: Map<number, string[]>, today: string): Promise<number> {
   console.log("\n📬 Serving articles to students...\n");
   let served = 0;
 
@@ -818,7 +827,30 @@ async function serveToStudents(students: Student[]): Promise<number> {
     const unreadCount = parseInt(unreadResult.c as string);
     const needed = Math.max(0, BUFFER_TARGET - unreadCount);
 
-    if (needed === 0) { console.log(`  ${student.name}: buffer full`); continue; }
+    // Today's stories for this student's interests, at their level, not yet served to them. The
+    // base article's topic is recorded in generated_topics with the interest it was written for
+    // as the query (writeArticle, writeInterestArticle); the plan lowercases interests the same
+    // way as studentInterests here, so the match is exact
+    const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim()).filter(Boolean);
+    // In the order they were written (the plan writes each student's longest-waiting interest
+    // first), so with more than OWN_STORIES_MAX the earliest keep their slots and a re-run is
+    // deterministic
+    const ownRows = interests.length === 0 ? [] : await sql`
+      SELECT ac.* FROM article_cache ac
+      JOIN article_cache base ON base.id = COALESCE(ac.base_article_id, ac.id)
+      WHERE ac.reading_level = ${student.reading_level} AND ac.flagged = false
+        AND base.generated_date = ${today}
+        AND EXISTS (SELECT 1 FROM generated_topics gt
+          WHERE gt.topic = base.topic AND gt.generated_date = base.generated_date AND gt.category <> 'news'
+            AND LOWER(TRIM(gt.query)) = ANY(${interests}::text[]))
+        AND NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ac.title)
+        AND NOT EXISTS (SELECT 1 FROM student_article_history h JOIN article_cache hc ON hc.id = h.article_cache_id
+          WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = base.id)
+      ORDER BY base.id ASC, ac.id ASC
+    `;
+    const ownIds = new Set(ownRows.map((r: any) => r.id as number));
+
+    if (needed === 0 && ownIds.size === 0) { console.log(`  ${student.name}: buffer full`); continue; }
 
     // Get seen titles
     const history = await sql`SELECT article_title FROM student_article_history WHERE student_id = ${student.id}`;
@@ -835,7 +867,8 @@ async function serveToStudents(students: Student[]): Promise<number> {
           WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = COALESCE(ac.base_article_id, ac.id))
       ORDER BY created_at DESC LIMIT 50
     `;
-    const unseen = available.filter((a: any) => !seen.has(a.title));
+    // The own stories are candidates whether or not the newest-50 query reached them
+    const unseen = [...ownRows, ...available.filter((a: any) => !ownIds.has(a.id))].filter((a: any) => !seen.has(a.title));
     // Rank the newest unseen articles by the student's interests, exploring every third slot
     const [affinities, cacheTopics] = await Promise.all([
       getAffinities(student.id).catch(e => { console.error(`  ⚠️ Affinities unavailable for ${student.name}, serving unranked:`, e); return []; }),
@@ -852,13 +885,23 @@ async function serveToStudents(students: Student[]): Promise<number> {
     const scoring = await feedScoring(student.id, candidates, affinityMap);
     const repeatClient = tracked(anthropic, "serve_repeats", student.id);
     const budget = checkBudget(20_000);
+    // Own stories first, then the ranked fill up to the buffer target (serve-picks.ts). `unseen`
+    // starts with ownRows in the query's order, and candidates keeps it, so own is in write order
+    const own = candidates.filter(c => ownIds.has(c.id));
+    if (own.length > OWN_STORIES_MAX) console.log(`  ${student.name}: ${own.length} stories for their interests today, ${OWN_STORIES_MAX} guaranteed; the rest compete in the ranking`);
     const picked = await pickWithoutRepeats(
-      excluded => pickForFeed(candidates.filter(c => !excluded.has(c.id)), scoring, needed, { avoid: new Set(recent) }),
+      excluded => pickServing({
+        own, candidates, needed, max: OWN_STORIES_MAX, excluded,
+        fill: (rest, n) => pickForFeed(rest, scoring, n, { avoid: new Set(recent) }),
+      }),
       async (unchecked, approved) => {
         const gist = (c: (typeof candidates)[number]) => ({ id: c.id, title: c.row.title as string, excerpt: excerpt(c.row.body_text) });
         return findRepeats(repeatClient, unchecked.map(gist), [...recentReads, ...approved.map(gist)], { budget });
       },
     );
+    // Inserted in this order; created_at is the serve time, and the feed shows today's articles
+    // oldest first (src/lib/feed-order.ts), so the own stories lead
+    const ownPicked = picked.filter(c => ownIds.has(c.id));
     const toServe = picked.map(c => c.row);
 
     for (const a of toServe) {
@@ -869,7 +912,7 @@ async function serveToStudents(students: Student[]): Promise<number> {
     }
 
     served += toServe.length;
-    console.log(`  ${student.name} (L${student.reading_level}): served ${toServe.length}/${needed}`);
+    console.log(`  ${student.name} (L${student.reading_level}): served ${toServe.length} (${ownPicked.length} written for their interests, buffer wanted ${needed})`);
   }
   return served;
 }
@@ -983,7 +1026,7 @@ async function runSteps(result: BatchResult) {
   if (topicPlans.length === 0 && newsPlans.length === 0) {
     console.log(`✅ Today's articles were all written earlier. Skipping generation.`);
     result.adaptations += await backfillAdaptations(levelsNeeded);
-    result.served += await serveToStudents(students);
+    result.served += await serveToStudents(students, studentInterests, today);
     console.log(`\n✅ Batch complete (served existing articles)\n`);
     return;
   }
@@ -1085,7 +1128,7 @@ async function runSteps(result: BatchResult) {
   result.adaptations += await backfillAdaptations(levelsNeeded);
 
   // Step 6: Serve to students
-  result.served += await serveToStudents(students);
+  result.served += await serveToStudents(students, studentInterests, today);
 
   console.log(`\n✅ Batch ${result.status}: ${written} base articles × ${levelsNeeded.size} levels this run\n`);
 }
