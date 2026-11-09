@@ -43,6 +43,8 @@ import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipedi
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
 const BUFFER_TARGET = 10; // 2-day buffer in case batch fails
+/** Stories written today for a student's own interests go to that student even when the buffer is full */
+const OWN_STORIES_MAX = 3;
 /** How far back the duplicate check looks for articles on the same subject */
 const DEDUP_DAYS = 60;
 
@@ -808,7 +810,13 @@ async function sourceContent(plans: ArticlePlan[], recentTopics: Set<string>, op
 
 // ─── Step 6: Serve Articles to Students ─────────────────────────────────────
 
-async function serveToStudents(students: Student[]): Promise<number> {
+/**
+ * Fills each student's buffer from the cache, ranked by their interests. Stories written today
+ * for the student's own interests (planDailyArticles) go to that student first, and even when
+ * the buffer is full: the point of writing them was that this student reads them this morning,
+ * not after the older articles in the queue.
+ */
+async function serveToStudents(students: Student[], studentInterests: Map<number, string[]>, today: string): Promise<number> {
   console.log("\n📬 Serving articles to students...\n");
   let served = 0;
 
@@ -818,7 +826,20 @@ async function serveToStudents(students: Student[]): Promise<number> {
     const unreadCount = parseInt(unreadResult.c as string);
     const needed = Math.max(0, BUFFER_TARGET - unreadCount);
 
-    if (needed === 0) { console.log(`  ${student.name}: buffer full`); continue; }
+    // Today's stories for this student's interests, at their level: the base article's topic is
+    // recorded in generated_topics with the interest it was written for as the query
+    const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim());
+    const ownRows = interests.length === 0 ? [] : await sql`
+      SELECT ac.id FROM article_cache ac
+      JOIN article_cache base ON base.id = COALESCE(ac.base_article_id, ac.id)
+      JOIN generated_topics gt ON gt.topic = base.topic AND gt.generated_date = base.generated_date
+      WHERE ac.reading_level = ${student.reading_level} AND ac.flagged = false
+        AND base.generated_date = ${today} AND gt.category <> 'news'
+        AND LOWER(gt.query) = ANY(${interests}::text[])
+    `;
+    const ownIds = new Set(ownRows.map((r: any) => r.id as number));
+
+    if (needed === 0 && ownIds.size === 0) { console.log(`  ${student.name}: buffer full`); continue; }
 
     // Get seen titles
     const history = await sql`SELECT article_title FROM student_article_history WHERE student_id = ${student.id}`;
@@ -852,14 +873,24 @@ async function serveToStudents(students: Student[]): Promise<number> {
     const scoring = await feedScoring(student.id, candidates, affinityMap);
     const repeatClient = tracked(anthropic, "serve_repeats", student.id);
     const budget = checkBudget(20_000);
+    // Own stories first (newest first, so a resumed run's later stories don't push out the
+    // morning's), then the ranked fill up to the buffer target; the own stories count toward it
+    const own = candidates.filter(c => ownIds.has(c.id)).slice(0, OWN_STORIES_MAX);
     const picked = await pickWithoutRepeats(
-      excluded => pickForFeed(candidates.filter(c => !excluded.has(c.id)), scoring, needed, { avoid: new Set(recent) }),
+      excluded => {
+        const ownPicks = own.filter(c => !excluded.has(c.id));
+        const fill = Math.max(0, needed - ownPicks.length);
+        const rest = candidates.filter(c => !excluded.has(c.id) && !own.some(o => o.id === c.id));
+        return [...ownPicks, ...pickForFeed(rest, scoring, fill, { avoid: new Set(recent) })];
+      },
       async (unchecked, approved) => {
         const gist = (c: (typeof candidates)[number]) => ({ id: c.id, title: c.row.title as string, excerpt: excerpt(c.row.body_text) });
         return findRepeats(repeatClient, unchecked.map(gist), [...recentReads, ...approved.map(gist)], { budget });
       },
     );
-    const toServe = picked.map(c => c.row);
+    // The feed shows the newest articles first, so the own stories are inserted last
+    const ownPicked = picked.filter(c => ownIds.has(c.id));
+    const toServe = [...picked.filter(c => !ownIds.has(c.id)), ...ownPicked].map(c => c.row);
 
     for (const a of toServe) {
       await sql`INSERT INTO articles (student_id, title, topic, body_text, reading_level, sources, estimated_read_time, category, source_cache_id)
@@ -869,7 +900,7 @@ async function serveToStudents(students: Student[]): Promise<number> {
     }
 
     served += toServe.length;
-    console.log(`  ${student.name} (L${student.reading_level}): served ${toServe.length}/${needed}`);
+    console.log(`  ${student.name} (L${student.reading_level}): served ${toServe.length} (${ownPicked.length} written for their interests, buffer wanted ${needed})`);
   }
   return served;
 }
@@ -983,7 +1014,7 @@ async function runSteps(result: BatchResult) {
   if (topicPlans.length === 0 && newsPlans.length === 0) {
     console.log(`✅ Today's articles were all written earlier. Skipping generation.`);
     result.adaptations += await backfillAdaptations(levelsNeeded);
-    result.served += await serveToStudents(students);
+    result.served += await serveToStudents(students, studentInterests, today);
     console.log(`\n✅ Batch complete (served existing articles)\n`);
     return;
   }
@@ -1085,7 +1116,7 @@ async function runSteps(result: BatchResult) {
   result.adaptations += await backfillAdaptations(levelsNeeded);
 
   // Step 6: Serve to students
-  result.served += await serveToStudents(students);
+  result.served += await serveToStudents(students, studentInterests, today);
 
   console.log(`\n✅ Batch ${result.status}: ${written} base articles × ${levelsNeeded.size} levels this run\n`);
 }

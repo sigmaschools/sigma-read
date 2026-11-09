@@ -37,6 +37,7 @@ A shared pool of articles at all reading levels. Populated daily by the morning 
 Each student has a buffer of **12 unread articles**. When the buffer runs low (fewer than 12), the serve-cached route refills it from the cache.
 
 **Buffer rules:**
+- Stories the morning batch wrote today for the student's own interests (up to 3) go to that student the same morning, even when the buffer is full. They count toward the buffer target; the rest of the target is filled by the interest ranking. Without this, a student with a queue of older unread articles would not see the story written for them until the queue drained.
 - Never serve the same article twice to the same student (tracked in `student_article_history`)
 - Exclude flagged articles
 - Exclude expired news articles (>7 days old)
@@ -44,7 +45,7 @@ Each student has a buffer of **12 unread articles**. When the buffer runs low (f
 
 ### The Feed
 
-Students see **exactly 3 articles** at a time on their home screen. These are the 3 most recent unread articles from their buffer.
+Students see up to **5 unread articles** on their home screen, newest first, so the stories served this morning are at the top (the list from `/api/articles` is ordered newest first; tutorial articles sort above the rest).
 
 **"Show me different articles"** replaces all 3 with the next 3 from the buffer. It does not append — it swaps. The student always sees exactly 3.
 

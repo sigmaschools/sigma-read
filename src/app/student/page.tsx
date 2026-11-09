@@ -168,9 +168,9 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Show up to 5 unread articles, oldest first, with tutorial articles sorted to top. Oldest first,
-  // so a top-up never pushes out an article the student hasn't read yet (it hid their starter
-  // articles, picked from their interests at onboarding)
+  // Show up to 5 unread articles, newest first (the API's order), with tutorial articles sorted
+  // to top. Newest first, so the stories the morning batch wrote for the student's own interests
+  // are the first thing they see, ahead of older unread articles in their queue
   const unread = articles.filter((a) => !a.read);
   const visibleSlice = unread.slice(0, 5);
   const visible = [...visibleSlice].sort((a, b) => {
