@@ -34,9 +34,10 @@ A shared pool of articles at all reading levels. Populated daily by the morning 
 
 ### The Buffer
 
-Each student has a buffer of **12 unread articles**. When the buffer runs low (fewer than 12), the serve-cached route refills it from the cache.
+The morning batch fills each student's buffer to **10 unread articles** (`BUFFER_TARGET` in `src/lib/batch/morning-batch.ts`). When a student opens the home screen with fewer than 5 unread, the page asks the serve-cached route for 3 more from the cache.
 
 **Buffer rules:**
+- Stories the morning batch wrote today for the student's own interests go to that student the same morning, even when the buffer is full: up to 3 per batch run are guaranteed, and any beyond that compete in the ranking like other articles. They count toward the buffer target; the rest of the target is filled by the interest ranking. Without this, a student with a queue of older unread articles would not see the story written for them until the queue drained.
 - Never serve the same article twice to the same student (tracked in `student_article_history`)
 - Exclude flagged articles
 - Exclude expired news articles (>7 days old)
@@ -44,11 +45,9 @@ Each student has a buffer of **12 unread articles**. When the buffer runs low (f
 
 ### The Feed
 
-Students see **exactly 3 articles** at a time on their home screen. These are the 3 most recent unread articles from their buffer.
+Students see up to **5 unread articles** on their home screen, in this order (`src/lib/feed-order.ts`): the tutorial article, then the rest by the day they were served, newest day first, oldest first within a day (so the morning's stories for the student's own interests, served first, lead the day). Newest day first means a story written for the student this morning isn't buried behind last week's queue, and yesterday's unread story still comes before older ones; oldest first within a day means a same-day top-up never hides the starter articles picked at onboarding. Days are the calendar days of the student's device.
 
-**"Show me different articles"** replaces all 3 with the next 3 from the buffer. It does not append — it swaps. The student always sees exactly 3.
-
-If the buffer is exhausted, the student sees a message that new articles will be available tomorrow.
+An unread article stays in the buffer, and on the home screen, until the student reads it.
 
 ---
 
