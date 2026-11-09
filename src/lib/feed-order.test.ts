@@ -2,7 +2,8 @@ import assert from "node:assert";
 import { orderFeed } from "./feed-order";
 
 const dayStart = new Date("2026-11-09T06:00:00Z"); // local midnight in the student's zone
-const at = (iso: string, category: string | null = null, title = iso) => ({ title, category, createdAt: iso });
+let nextId = 1;
+const at = (iso: string, category: string | null = null, title = iso) => ({ id: nextId++, title, category, createdAt: iso });
 
 {
   // Today's articles come before older unread ones, each group oldest first
@@ -32,6 +33,14 @@ const at = (iso: string, category: string | null = null, title = iso) => ({ titl
   const ordered = orderFeed([...starters, ...topUp], dayStart);
   assert.deepStrictEqual(ordered.map(a => a.title), ["s1", "s2", "t1", "t2", "t3"]);
   console.log("✅ starter articles stay ahead of a same-day top-up");
+}
+
+{
+  // The order doesn't depend on the input order
+  const rows = [at("2026-11-09T11:21:00Z", null, "today2"), at("2026-11-05T11:00:00Z", null, "old"), at("2026-11-09T11:20:00Z", null, "today1")];
+  assert.deepStrictEqual(orderFeed(rows, dayStart).map(a => a.title), ["today1", "today2", "old"]);
+  assert.deepStrictEqual(orderFeed([...rows].reverse(), dayStart).map(a => a.title), ["today1", "today2", "old"]);
+  console.log("✅ sorted by served time, whatever the input order");
 }
 
 {

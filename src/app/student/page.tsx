@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { orderFeed } from "@/lib/feed-order";
 import Link from "next/link";
 import { markdownToPlainText } from "@/lib/markdown";
+import { orderFeed } from "@/lib/feed-order";
 
 interface Article {
   id: number;

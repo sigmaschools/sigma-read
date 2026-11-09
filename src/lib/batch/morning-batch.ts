@@ -832,8 +832,10 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     // as the query (writeArticle, writeInterestArticle); the plan lowercases interests the same
     // way as studentInterests here, so the match is exact
     const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim());
+    // (DISTINCT: an interest with several generated_topics rows today would repeat the article.)
+    // Newest first, so a resumed run's later stories don't push out the morning's
     const ownRows = interests.length === 0 ? [] : await sql`
-      SELECT ac.id FROM article_cache ac
+      SELECT DISTINCT ac.* FROM article_cache ac
       JOIN article_cache base ON base.id = COALESCE(ac.base_article_id, ac.id)
       JOIN generated_topics gt ON gt.topic = base.topic AND gt.generated_date = base.generated_date
       WHERE ac.reading_level = ${student.reading_level} AND ac.flagged = false
@@ -842,6 +844,7 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
         AND NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ac.title)
         AND NOT EXISTS (SELECT 1 FROM student_article_history h JOIN article_cache hc ON hc.id = h.article_cache_id
           WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = base.id)
+      ORDER BY ac.created_at DESC, ac.id DESC
     `;
     const ownIds = new Set(ownRows.map((r: any) => r.id as number));
 
@@ -862,7 +865,8 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
           WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = COALESCE(ac.base_article_id, ac.id))
       ORDER BY created_at DESC LIMIT 50
     `;
-    const unseen = available.filter((a: any) => !seen.has(a.title));
+    // The own stories are candidates whether or not the newest-50 query reached them
+    const unseen = [...ownRows, ...available.filter((a: any) => !ownIds.has(a.id))].filter((a: any) => !seen.has(a.title));
     // Rank the newest unseen articles by the student's interests, exploring every third slot
     const [affinities, cacheTopics] = await Promise.all([
       getAffinities(student.id).catch(e => { console.error(`  ⚠️ Affinities unavailable for ${student.name}, serving unranked:`, e); return []; }),
@@ -879,10 +883,7 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const scoring = await feedScoring(student.id, candidates, affinityMap);
     const repeatClient = tracked(anthropic, "serve_repeats", student.id);
     const budget = checkBudget(20_000);
-    // Own stories first (newest first, so a resumed run's later stories don't push out the
-    // morning's), then the ranked fill up to the buffer target; the own stories count toward it
-    // Own stories first (candidates are newest first, from the query above, so a resumed run's
-    // later stories don't push out the morning's), then the ranked fill (serve-picks.ts)
+    // Own stories first, then the ranked fill up to the buffer target (serve-picks.ts)
     const own = candidates.filter(c => ownIds.has(c.id));
     const picked = await pickWithoutRepeats(
       excluded => pickServing({
@@ -894,7 +895,8 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
         return findRepeats(repeatClient, unchecked.map(gist), [...recentReads, ...approved.map(gist)], { budget });
       },
     );
-    // Inserted in this order: the feed shows today's articles oldest first (src/lib/feed-order.ts)
+    // Inserted in this order; created_at is the serve time, and the feed shows today's articles
+    // oldest first (src/lib/feed-order.ts), so the own stories lead
     const ownPicked = picked.filter(c => ownIds.has(c.id));
     const toServe = picked.map(c => c.row);
 
