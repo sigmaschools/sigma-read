@@ -16,6 +16,13 @@ export const MAX_STUDENT_MESSAGES = 6;
 
 export const OPENER_INSTRUCTION = "[The student just finished reading. Start the conversation. Open the way a real person would — share one specific thing from the article that you found surprising, interesting, or worth talking about. Make it feel like you actually read it too. Then invite the student in with a single open directive. No greetings, no 'great article', no generic openers. The student has not said anything yet — this is your first message.]";
 
+/**
+ * The spring tutor's opener (owner, 9 Nov 2026): start in plain English ("I thought it was really
+ * interesting that..."), not a performed reaction ("The one that got me was..."), and hand over a
+ * directive about that same detail rather than a general "tell me what stood out".
+ */
+export const SPRING_OPENER_INSTRUCTION = "[The student just finished reading. Start the conversation. Your first sentence says, in plain English, one specific thing from the article you found interesting or surprising, the way a person says it out loud: \"I thought it was really interesting that...\", \"I didn't know that...\", \"I was surprised that...\". Not \"The one that got me was\", \"The part that stuck with me\", \"blew my mind\" or anything dramatic. Then one directive about that same detail, something the article explains, not a general \"tell me what stood out to you\". No greetings, no 'great article'. The student has not said anything yet: this is your first message.]";
+
 /** Earned: the student reached the progress threshold. Forced: the backstop ran out of turns. */
 export type ClosingKind = "earned" | "forced";
 
@@ -110,7 +117,7 @@ export async function runTutorTurn(args: {
 
   const finalMessages: { role: "user" | "assistant"; content: string }[] = args.messages.length > 0
     ? args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
-    : [{ role: "user", content: OPENER_INSTRUCTION }];
+    : [{ role: "user", content: args.spring ? SPRING_OPENER_INSTRUCTION : OPENER_INSTRUCTION }];
   if (closing) finalMessages.push({ role: "user", content: args.spring ? SPRING_CLOSING_INSTRUCTION : closingInstruction(closing, args.maxWords) });
   const nudged = !closing && !args.spring && needsQuietNudge(args.messages);
   if (nudged) finalMessages.push({ role: "user", content: QUIET_NUDGE });

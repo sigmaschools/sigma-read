@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, SPRING_CLOSING_INSTRUCTION, needsQuietNudge, endsWithClosedQuestion, rewriteReason, questionInARow, type TurnMessage } from "./conversation-turn";
+import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, SPRING_CLOSING_INSTRUCTION, SPRING_OPENER_INSTRUCTION, needsQuietNudge, endsWithClosedQuestion, rewriteReason, questionInARow, type TurnMessage } from "./conversation-turn";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -294,6 +294,9 @@ async function main() {
     const c = await runTutorTurn({ client: closing.client, model: "test", systemPrompt: "", messages: convo(6), priorProgress: 60, maxWords: 15, spring: true });
     assert.equal(c.complete, true);
     assert.equal(closing.calls[0].at(-1)!.content, SPRING_CLOSING_INSTRUCTION);
+    const opener = fakeClient({ message: "I thought it was really interesting that octopuses have three hearts. Tell me what each one does.", progressDelta: 0 });
+    await runTutorTurn({ client: opener.client, model: "test", systemPrompt: "", messages: [], priorProgress: 0, maxWords: 15, spring: true });
+    assert.equal(opener.calls[0][0].content, SPRING_OPENER_INSTRUCTION);
     console.log("✅ spring tutor turn");
   }
 
