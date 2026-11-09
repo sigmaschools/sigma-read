@@ -832,7 +832,9 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     // as the query (writeArticle, writeInterestArticle); the plan lowercases interests the same
     // way as studentInterests here, so the match is exact
     const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim());
-    // Newest first, so a resumed run's later stories don't push out the morning's
+    // In the order they were written (the plan writes each student's longest-waiting interest
+    // first), so with more than OWN_STORIES_MAX the earliest keep their slots and a re-run is
+    // deterministic
     const ownRows = interests.length === 0 ? [] : await sql`
       SELECT ac.* FROM article_cache ac
       JOIN article_cache base ON base.id = COALESCE(ac.base_article_id, ac.id)
@@ -844,7 +846,7 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
         AND NOT EXISTS (SELECT 1 FROM student_article_history h WHERE h.student_id = ${student.id} AND h.article_title = ac.title)
         AND NOT EXISTS (SELECT 1 FROM student_article_history h JOIN article_cache hc ON hc.id = h.article_cache_id
           WHERE h.student_id = ${student.id} AND COALESCE(hc.base_article_id, hc.id) = base.id)
-      ORDER BY ac.created_at DESC, ac.id DESC
+      ORDER BY base.id ASC, ac.id ASC
     `;
     const ownIds = new Set(ownRows.map((r: any) => r.id as number));
 
@@ -885,6 +887,7 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const budget = checkBudget(20_000);
     // Own stories first, then the ranked fill up to the buffer target (serve-picks.ts)
     const own = candidates.filter(c => ownIds.has(c.id));
+    if (own.length > OWN_STORIES_MAX) console.log(`  ${student.name}: ${own.length} stories for their interests today, serving ${OWN_STORIES_MAX}; the rest wait for the ranking`);
     const picked = await pickWithoutRepeats(
       excluded => pickServing({
         own, candidates, needed, max: OWN_STORIES_MAX, excluded,

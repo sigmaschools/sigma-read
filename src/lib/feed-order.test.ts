@@ -6,13 +6,13 @@ let nextId = 1;
 const at = (iso: string, category: string | null = null, title = iso) => ({ id: nextId++, title, category, createdAt: iso });
 
 {
-  // Today's articles come before older unread ones, each group oldest first
+  // Today's articles come before older unread ones, oldest first within the day; older days newest day first
   const old1 = at("2026-11-05T11:00:00Z", null, "old1");
   const old2 = at("2026-11-07T11:00:00Z", null, "old2");
   const today1 = at("2026-11-09T11:20:00Z", null, "today1");
   const today2 = at("2026-11-09T11:21:00Z", null, "today2");
   const ordered = orderFeed([old1, old2, today1, today2], dayStart);
-  assert.deepStrictEqual(ordered.map(a => a.title), ["today1", "today2", "old1", "old2"]);
+  assert.deepStrictEqual(ordered.map(a => a.title), ["today1", "today2", "old2", "old1"]);
   console.log("✅ today's articles come first, oldest first within the day");
 }
 
@@ -33,6 +33,25 @@ const at = (iso: string, category: string | null = null, title = iso) => ({ id: 
   const ordered = orderFeed([...starters, ...topUp], dayStart);
   assert.deepStrictEqual(ordered.map(a => a.title), ["s1", "s2", "t1", "t2", "t3"]);
   console.log("✅ starter articles stay ahead of a same-day top-up");
+}
+
+{
+  // Yesterday's unread story comes before last week's, still oldest first within its day
+  const lastWeek = at("2026-11-02T11:00:00Z", null, "lastWeek");
+  const yesterday1 = at("2026-11-08T11:20:00Z", null, "yesterday1");
+  const yesterday2 = at("2026-11-08T11:21:00Z", null, "yesterday2");
+  const today = at("2026-11-09T11:20:00Z", null, "today");
+  const ordered = orderFeed([lastWeek, yesterday2, yesterday1, today], dayStart);
+  assert.deepStrictEqual(ordered.map(a => a.title), ["today", "yesterday1", "yesterday2", "lastWeek"]);
+  console.log("✅ days newest first, oldest first within a day");
+}
+
+{
+  // An unparseable createdAt sorts as the oldest instead of breaking the sort
+  const broken = at("not a date", null, "broken");
+  const ok = at("2026-11-09T11:20:00Z", null, "ok");
+  assert.deepStrictEqual(orderFeed([broken, ok], dayStart).map(a => a.title), ["ok", "broken"]);
+  console.log("✅ invalid dates don't break the order");
 }
 
 {

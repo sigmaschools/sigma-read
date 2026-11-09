@@ -17,5 +17,6 @@ export function pickServing<T extends { id: number }>(opts: {
   const ownPicks = own.filter(c => !excluded.has(c.id)).slice(0, max);
   const ownIds = new Set(own.map(c => c.id));
   const rest = candidates.filter(c => !excluded.has(c.id) && !ownIds.has(c.id));
-  return [...ownPicks, ...fill(rest, Math.max(0, needed - ownPicks.length))];
+  const n = needed - ownPicks.length;
+  return n > 0 ? [...ownPicks, ...fill(rest, n)] : ownPicks;
 }

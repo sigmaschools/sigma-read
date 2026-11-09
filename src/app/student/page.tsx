@@ -169,9 +169,9 @@ export default function StudentHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Show up to 5 unread articles: tutorial first, then the ones served today (the morning
-  // batch's stories for the student's own interests), then the rest, oldest first within each
-  // group so a same-day top-up never hides the starter articles (src/lib/feed-order.ts)
+  // Show up to 5 unread articles: tutorial first, then by the day they were served, newest day
+  // first (this morning's stories for the student's own interests lead), oldest first within a
+  // day so a same-day top-up never hides the starter articles (src/lib/feed-order.ts)
   const unread = articles.filter((a) => !a.read);
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);

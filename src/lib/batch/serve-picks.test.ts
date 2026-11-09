@@ -42,6 +42,17 @@ const ids = (rows: { id: number }[]) => rows.map(r => r.id);
 }
 
 {
+  // The fill is not asked for zero (or fewer) articles
+  const own = [row(101), row(102)];
+  let calls = 0;
+  const counting = <T,>(rest: T[], n: number) => { calls++; return rest.slice(0, n); };
+  pickServing({ own, candidates: [...own, row(1)], needed: 0, max: 3, excluded: new Set(), fill: counting });
+  pickServing({ own, candidates: [...own, row(1)], needed: 1, max: 3, excluded: new Set(), fill: counting });
+  assert.strictEqual(calls, 0);
+  console.log("✅ fill is skipped when the own stories cover the target");
+}
+
+{
   // No own stories: plain fill, as before
   const picked = pickServing({ own: [], candidates: [row(1), row(2)], needed: 5, max: 3, excluded: new Set(), fill: firstN });
   assert.deepStrictEqual(ids(picked), [1, 2]);
