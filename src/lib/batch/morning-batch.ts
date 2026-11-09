@@ -831,7 +831,7 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     // base article's topic is recorded in generated_topics with the interest it was written for
     // as the query (writeArticle, writeInterestArticle); the plan lowercases interests the same
     // way as studentInterests here, so the match is exact
-    const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim());
+    const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim()).filter(Boolean);
     // In the order they were written (the plan writes each student's longest-waiting interest
     // first), so with more than OWN_STORIES_MAX the earliest keep their slots and a re-run is
     // deterministic
@@ -885,9 +885,10 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const scoring = await feedScoring(student.id, candidates, affinityMap);
     const repeatClient = tracked(anthropic, "serve_repeats", student.id);
     const budget = checkBudget(20_000);
-    // Own stories first, then the ranked fill up to the buffer target (serve-picks.ts)
+    // Own stories first, then the ranked fill up to the buffer target (serve-picks.ts). `unseen`
+    // starts with ownRows in the query's order, and candidates keeps it, so own is in write order
     const own = candidates.filter(c => ownIds.has(c.id));
-    if (own.length > OWN_STORIES_MAX) console.log(`  ${student.name}: ${own.length} stories for their interests today, serving ${OWN_STORIES_MAX}; the rest stay in the cache for a later day`);
+    if (own.length > OWN_STORIES_MAX) console.log(`  ${student.name}: ${own.length} stories for their interests today, ${OWN_STORIES_MAX} guaranteed; the rest compete in the ranking`);
     const picked = await pickWithoutRepeats(
       excluded => pickServing({
         own, candidates, needed, max: OWN_STORIES_MAX, excluded,

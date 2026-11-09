@@ -24,12 +24,21 @@ const ids = (rows: { id: number }[]) => rows.map(r => r.id);
 }
 
 {
-  // At most `max` own stories; the rest of the own stories are not picked by the fill either
+  // At most `max` own stories are guaranteed; with a full buffer the fourth is not served
   const own = [row(101), row(102), row(103), row(104)];
   const candidates = [...own, row(1)];
   const picked = pickServing({ own, candidates, needed: 0, max: 3, excluded: new Set(), fill: firstN });
   assert.deepStrictEqual(ids(picked), [101, 102, 103]);
   console.log("✅ own stories are capped");
+}
+
+{
+  // Beyond the cap, an own story competes in the fill like any other article
+  const own = [row(101), row(102), row(103), row(104)];
+  const candidates = [...own, row(1)];
+  const picked = pickServing({ own, candidates, needed: 4, max: 3, excluded: new Set(), fill: firstN });
+  assert.deepStrictEqual(ids(picked), [101, 102, 103, 104]);
+  console.log("✅ own stories beyond the cap can still be picked by the fill");
 }
 
 {

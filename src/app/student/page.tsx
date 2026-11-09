@@ -173,9 +173,7 @@ export default function StudentHome() {
   // first (this morning's stories for the student's own interests lead), oldest first within a
   // day so a same-day top-up never hides the starter articles (src/lib/feed-order.ts)
   const unread = articles.filter((a) => !a.read);
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
-  const visible = orderFeed(unread, dayStart).slice(0, 5);
+  const visible = orderFeed(unread).slice(0, 5);
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
 

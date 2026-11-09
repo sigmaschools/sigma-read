@@ -37,7 +37,7 @@ A shared pool of articles at all reading levels. Populated daily by the morning 
 The morning batch fills each student's buffer to **10 unread articles** (`BUFFER_TARGET` in `src/lib/batch/morning-batch.ts`). When a student opens the home screen with fewer than 5 unread, the page asks the serve-cached route for 3 more from the cache.
 
 **Buffer rules:**
-- Stories the morning batch wrote today for the student's own interests (up to 3) go to that student the same morning, even when the buffer is full. They count toward the buffer target; the rest of the target is filled by the interest ranking. Without this, a student with a queue of older unread articles would not see the story written for them until the queue drained.
+- Stories the morning batch wrote today for the student's own interests go to that student the same morning, even when the buffer is full: up to 3 per batch run are guaranteed, and any beyond that compete in the ranking like other articles. They count toward the buffer target; the rest of the target is filled by the interest ranking. Without this, a student with a queue of older unread articles would not see the story written for them until the queue drained.
 - Never serve the same article twice to the same student (tracked in `student_article_history`)
 - Exclude flagged articles
 - Exclude expired news articles (>7 days old)
@@ -45,7 +45,7 @@ The morning batch fills each student's buffer to **10 unread articles** (`BUFFER
 
 ### The Feed
 
-Students see up to **5 unread articles** on their home screen, in this order (`src/lib/feed-order.ts`): the tutorial article, then the rest by the day they were served, newest day first, oldest first within a day (so the morning's stories for the student's own interests, served first, lead the day). Newest day first means a story written for the student this morning isn't buried behind last week's queue, and yesterday's unread story still comes before older ones; oldest first within a day means a same-day top-up never hides the starter articles picked at onboarding. Days are cut at midnight on the student's device.
+Students see up to **5 unread articles** on their home screen, in this order (`src/lib/feed-order.ts`): the tutorial article, then the rest by the day they were served, newest day first, oldest first within a day (so the morning's stories for the student's own interests, served first, lead the day). Newest day first means a story written for the student this morning isn't buried behind last week's queue, and yesterday's unread story still comes before older ones; oldest first within a day means a same-day top-up never hides the starter articles picked at onboarding. Days are the calendar days of the student's device.
 
 An unread article stays in the buffer, and on the home screen, until the student reads it.
 
