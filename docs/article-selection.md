@@ -37,7 +37,7 @@ A shared pool of articles at all reading levels. Populated daily by the morning 
 The morning batch fills each student's buffer to **10 unread articles** (`BUFFER_TARGET` in `src/lib/batch/morning-batch.ts`). When a student opens the home screen with fewer than 5 unread, the page asks the serve-cached route for 3 more from the cache.
 
 **Buffer rules:**
-- Stories the morning batch wrote today for the student's own interests go to that student the same morning, even when the buffer is full: up to 3 per batch run are guaranteed, and any beyond that compete in the ranking like other articles. They count toward the buffer target; the rest of the target is filled by the interest ranking. Without this, a student with a queue of older unread articles would not see the story written for them until the queue drained.
+- Stories the morning batch wrote for the student's own interests go to that student the same morning, even when the buffer is full: up to 3 per batch run are guaranteed, and any beyond that compete in the ranking like other articles. Stories from the last 7 days that the student hasn't received yet count too, oldest first, so a story kept out by a full buffer or a failed serve step still reaches them. They count toward the buffer target; the rest of the target is filled by the interest ranking. Without this, a student with a queue of older unread articles would not see the story written for them until the queue drained.
 - Never serve the same article twice to the same student (tracked in `student_article_history`)
 - Exclude flagged articles
 - Exclude expired news articles (>7 days old)

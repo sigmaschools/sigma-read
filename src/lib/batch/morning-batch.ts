@@ -44,8 +44,10 @@ import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipedi
 const DATABASE_URL = process.env.DATABASE_URL!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
 const BUFFER_TARGET = 10; // 2-day buffer in case batch fails
-/** Stories written today for a student's own interests go to that student even when the buffer is full */
+/** Stories written for a student's own interests go to that student even when the buffer is full: this many per run... */
 const OWN_STORIES_MAX = 3;
+/** ...from the last this many days (a full buffer or a failed serve step mustn't lose them) */
+const OWN_STORIES_DAYS = 7;
 /** How far back the duplicate check looks for articles on the same subject */
 const DEDUP_DAYS = 60;
 
@@ -827,10 +829,11 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const unreadCount = parseInt(unreadResult.c as string);
     const needed = Math.max(0, BUFFER_TARGET - unreadCount);
 
-    // Today's stories for this student's interests, at their level, not yet served to them. The
-    // base article's topic is recorded in generated_topics with the interest it was written for
-    // as the query (writeArticle, writeInterestArticle); the plan lowercases interests the same
-    // way as studentInterests here, so the match is exact
+    // Stories written for this student's interests in the last OWN_STORIES_DAYS days, at their
+    // level, not yet served to them (a story the student's full buffer kept out yesterday still
+    // reaches them). The base article's topic is recorded in generated_topics with the interest
+    // it was written for as the query (writeArticle, writeInterestArticle); the plan lowercases
+    // interests the same way as studentInterests here, so the match is exact
     const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim()).filter(Boolean);
     // In the order they were written (the plan writes each student's longest-waiting interest
     // first), so with more than OWN_STORIES_MAX the earliest keep their slots and a re-run is
@@ -839,7 +842,7 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
       SELECT ac.* FROM article_cache ac
       JOIN article_cache base ON base.id = COALESCE(ac.base_article_id, ac.id)
       WHERE ac.reading_level = ${student.reading_level} AND ac.flagged = false
-        AND base.generated_date = ${today}
+        AND base.generated_date > ${today}::date - ${OWN_STORIES_DAYS}::int
         AND EXISTS (SELECT 1 FROM generated_topics gt
           WHERE gt.topic = base.topic AND gt.generated_date = base.generated_date AND gt.category <> 'news'
             AND LOWER(TRIM(gt.query)) = ANY(${interests}::text[]))
