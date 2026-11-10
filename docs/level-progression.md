@@ -277,10 +277,13 @@ Every student has a **base level** (their official reading level) and a **feed m
 - If probing down: select N articles at base-1 level based on phase
 - Record served level on each article
 
+**Morning batch (delivers most articles):** a probing student's picks go out partly as the same story at the probe level: 1 in 3 in phase 1, 2 in 3 in phase 2, at least one on any day something is served. The ranked fill carries the probe first, the stories written for the student's own interests last. The batch also adapts articles to every probe level in use. Before this (issue #144) the batch served the base level only, so probes almost never got an article and never finished.
+
 **Post-conversation evaluation:**
 - After each comprehension report, evaluate recent scores against trigger conditions
 - Update feed mix state accordingly
 - If phase transition conditions met, advance phase or revert
+- A probe's scores are every report on a probe-level article since `probeStartDate`, each counted once (not only those in the last 8 reports)
 
 ---
 

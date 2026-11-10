@@ -8,7 +8,7 @@
  */
 
 import { db, schema } from "@/lib/db";
-import { eq, desc, and, isNotNull } from "drizzle-orm";
+import { eq, desc, asc, and, gte, isNotNull } from "drizzle-orm";
 import {
   type FeedMix,
   type LevelEvalResult,
@@ -39,6 +39,24 @@ async function getRecentScores(studentId: number, count: number): Promise<{ scor
     .limit(count);
 
   return results.reverse(); // oldest first
+}
+
+/**
+ * Scores of every report on an article at `probeLevel` since `since`, oldest first.
+ */
+async function getProbeScores(studentId: number, probeLevel: number, since: Date): Promise<number[]> {
+  const results = await db.select({ score: schema.comprehensionReports.score })
+    .from(schema.comprehensionReports)
+    .innerJoin(schema.conversations, eq(schema.conversations.id, schema.comprehensionReports.conversationId))
+    .innerJoin(schema.readingSessions, eq(schema.readingSessions.id, schema.conversations.readingSessionId))
+    .innerJoin(schema.articles, eq(schema.articles.id, schema.readingSessions.articleId))
+    .where(and(
+      eq(schema.readingSessions.studentId, studentId),
+      eq(schema.articles.readingLevel, probeLevel),
+      gte(schema.comprehensionReports.createdAt, since),
+    ))
+    .orderBy(asc(schema.comprehensionReports.createdAt));
+  return results.map(r => r.score);
 }
 
 /**
@@ -106,11 +124,17 @@ export async function evaluateProgression(studentId: number): Promise<LevelEvalR
   }
 
   // === CURRENTLY PROBING ===
-  if (feedMix.probeDirection === "up") {
-    return evaluateUpwardProbe(student, feedMix, scores, level);
-  }
-  if (feedMix.probeDirection === "down") {
-    return evaluateDownwardProbe(student, feedMix, scores, level);
+  // Probe articles can be a few days apart, so the probe's scores are every report on a
+  // probe-level article since the probe started, not only those among the last 8 reports
+  if (feedMix.probeDirection) {
+    const probeLevel = feedMix.probeDirection === "up" ? level + 1 : level - 1;
+    const probeScores = feedMix.probeStartDate
+      ? await getProbeScores(studentId, probeLevel, new Date(feedMix.probeStartDate))
+      : scores.filter(s => s.articleLevel === probeLevel).map(s => s.score);
+    const mix = { ...feedMix, probeScores };
+    return feedMix.probeDirection === "up"
+      ? evaluateUpwardProbe(student, mix, scores, level)
+      : evaluateDownwardProbe(student, mix, scores, level);
   }
 
   // === NOT PROBING — CHECK IF WE SHOULD START ===
