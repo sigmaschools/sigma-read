@@ -842,7 +842,7 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
       SELECT ac.* FROM article_cache ac
       JOIN article_cache base ON base.id = COALESCE(ac.base_article_id, ac.id)
       WHERE ac.reading_level = ${student.reading_level} AND ac.flagged = false
-        AND base.generated_date > ${today}::date - ${OWN_STORIES_DAYS}::int
+        AND base.generated_date > ${today}::date - ${OWN_STORIES_DAYS}::int -- today and the 6 days before
         AND EXISTS (SELECT 1 FROM generated_topics gt
           WHERE gt.topic = base.topic AND gt.generated_date = base.generated_date AND gt.category <> 'news'
             AND LOWER(TRIM(gt.query)) = ANY(${interests}::text[]))
