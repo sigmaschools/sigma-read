@@ -60,10 +60,9 @@ export function evaluateUpwardProbe(
   level: number,
 ): LevelEvalResult {
   const probeLevel = level + 1;
-  const probeScores = feedMix.probeScores;
-
-  const recentProbeScores = scores.filter(s => s.articleLevel === probeLevel);
-  const allProbeScores = [...probeScores, ...recentProbeScores.map(s => s.score)];
+  // Every report on a probe-level article since the probe started, each once (the caller reads
+  // them from the reports, see evaluateProgression); `scores` is not added again
+  const allProbeScores = feedMix.probeScores;
 
   // Abort: 2 probe scores below 65
   const failedProbes = allProbeScores.filter(s => s < 65).length;
@@ -110,11 +109,9 @@ export function evaluateDownwardProbe(
   level: number,
 ): LevelEvalResult {
   const probeLevel = level - 1;
-  const probeScores = feedMix.probeScores;
-
   const recentBaseScores = scores.filter(s => s.articleLevel === level).slice(-3);
-  const recentProbeScores = scores.filter(s => s.articleLevel === probeLevel);
-  const allProbeScores = [...probeScores, ...recentProbeScores.map(s => s.score)];
+  // Every report on a probe-level article since the probe started, each once (see evaluateUpwardProbe)
+  const allProbeScores = feedMix.probeScores;
 
   // Recovery: if base-level scores improve (>= 70 on last 2), stop probing down
   const last2Base = recentBaseScores.slice(-2);
@@ -187,4 +184,35 @@ export function placementMove(
   if (latest.score >= placementUpScore(level) && level < 6) return level + 1;
   if (latest.score < PLACEMENT_DOWN_BELOW && level > 1) return level - 1;
   return null;
+}
+
+// ─── Probe serving (morning batch) ───────────────────────────────────────────
+
+/** The level a probe tests, or null when the student isn't probing */
+export function probeLevelOf(level: number, mix: FeedMix | null | undefined): number | null {
+  if (!mix?.probeDirection) return null;
+  const probe = mix.probeDirection === "up" ? level + 1 : level - 1;
+  return probe >= 1 && probe <= 6 ? probe : null;
+}
+
+/**
+ * How many of `n` articles served together go at the probe level: about 1 in 3 in phase 1 and
+ * 2 in 3 in phase 2 (the same mix as getServingLevels), and at least one whenever anything is
+ * served, so a probe gets its articles even on a day with only one or two new ones.
+ */
+export function probeServeCount(n: number, mix: FeedMix | null | undefined): number {
+  if (n <= 0 || !mix?.probeDirection) return 0;
+  const share = mix.probePhase === 2 ? 2 / 3 : mix.probePhase === 1 ? 1 / 3 : 0;
+  if (share === 0) return 0;
+  return Math.min(n, Math.max(1, Math.round(n * share)));
+}
+
+/**
+ * The order in which served articles are tried at the probe level: the ranked fill first, from
+ * the end (the lowest-ranked pick), then the stories written for the student's own interests,
+ * from the end too, so their top story stays at their usual level when the fill can carry the probe.
+ */
+export function probeSlotOrder(isOwn: boolean[]): number[] {
+  const idx = isOwn.map((_, i) => i).reverse();
+  return [...idx.filter(i => !isOwn[i]), ...idx.filter(i => isOwn[i])];
 }

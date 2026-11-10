@@ -6,6 +6,10 @@ import {
   evaluateUpwardProbe,
   evaluateDownwardProbe,
   placementMove,
+  probeLevelOf,
+  probeServeCount,
+  probeSlotOrder,
+  DEFAULT_MIX,
 } from "./level-progression-rules";
 import type { FeedMix } from "./level-progression-rules";
 
@@ -141,6 +145,45 @@ import type { FeedMix } from "./level-progression-rules";
   assert.strictEqual(placementMove(at(6, 99), 6, 0), null, "L6 ceiling");
   assert.strictEqual(placementMove(at(1, 10), 1, 0), null, "L1 floor");
   console.log("✅ placementMove");
+}
+
+// ─── Probe scores count once ─────────────────────────────────────────────────
+
+// The probe's scores come from feedMix.probeScores alone: a probe-level report that is also in
+// the recent window is not counted a second time (one 78 must not look like two passing scores)
+{
+  const feedMix: FeedMix = { probeDirection: "up", probePhase: 1, probeStartDate: "2026-11-01T00:00:00Z", probeScores: [78] };
+  const scores = [{ score: 70, articleLevel: 2 }, { score: 78, articleLevel: 3 }];
+  const result = evaluateUpwardProbe({ name: "Test" }, feedMix, scores, 2);
+  assert.strictEqual(result.action, "none", "one passing probe score does not advance the probe");
+  console.log("✅ a probe score in the recent window is counted once");
+}
+
+// ─── Probe serving ───────────────────────────────────────────────────────────
+
+{
+  const up = (phase: number): FeedMix => ({ probeDirection: "up", probePhase: phase, probeStartDate: null, probeScores: [] });
+  const down: FeedMix = { probeDirection: "down", probePhase: 1, probeStartDate: null, probeScores: [] };
+  assert.strictEqual(probeLevelOf(3, up(1)), 4);
+  assert.strictEqual(probeLevelOf(3, down), 2);
+  assert.strictEqual(probeLevelOf(3, DEFAULT_MIX), null);
+  assert.strictEqual(probeLevelOf(3, null), null);
+  assert.strictEqual(probeLevelOf(6, up(1)), null, "no level above 6");
+  assert.strictEqual(probeLevelOf(1, { ...down }), null, "no level below 1");
+
+  assert.strictEqual(probeServeCount(0, up(1)), 0);
+  assert.strictEqual(probeServeCount(1, up(1)), 1, "a probe gets an article even on a one-article day");
+  assert.strictEqual(probeServeCount(3, up(1)), 1);
+  assert.strictEqual(probeServeCount(6, up(1)), 2);
+  assert.strictEqual(probeServeCount(10, up(1)), 3);
+  assert.strictEqual(probeServeCount(3, up(2)), 2);
+  assert.strictEqual(probeServeCount(1, up(2)), 1);
+  assert.strictEqual(probeServeCount(5, DEFAULT_MIX), 0);
+
+  assert.deepStrictEqual(probeSlotOrder([true, true, false, false, false]), [4, 3, 2, 1, 0], "fill from the end, then own stories");
+  assert.deepStrictEqual(probeSlotOrder([true, false, true, false]), [3, 1, 2, 0]);
+  assert.deepStrictEqual(probeSlotOrder([true, true]), [1, 0], "only own stories: the top one last");
+  console.log("✅ probe serving mix");
 }
 
 console.log("\n🎉 All level-progression tests passed!");

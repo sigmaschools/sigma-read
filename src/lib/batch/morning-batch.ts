@@ -39,6 +39,7 @@ import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist
 import { recentArticles, recentTopics } from "../recent-reading";
 import { pickInterests } from "./plan-interests";
 import { pickServing } from "./serve-picks";
+import { probeLevelOf, probeServeCount, probeSlotOrder, type FeedMix } from "../level-progression-rules";
 import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipediaPagePath } from "./sources";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
@@ -134,6 +135,7 @@ interface Student {
   interest_profile: any;
   adjacent_interests: string[] | null;
   daily_article_cap: number;
+  feed_mix: FeedMix | null;
 }
 
 
@@ -147,11 +149,15 @@ async function analyzeStudents(): Promise<{
   recentTopics: Set<string>;
 }> {
   const students = await sql`
-    SELECT id, name, reading_level, interest_profile, adjacent_interests, daily_article_cap
+    SELECT id, name, reading_level, interest_profile, adjacent_interests, daily_article_cap, feed_mix
     FROM students WHERE onboarding_complete = true AND reading_level IS NOT NULL
   ` as Student[];
 
-  const levelsNeeded = new Set(students.map(s => s.reading_level));
+  // A student in a level probe also reads at the probe level, so articles are adapted to it too
+  const levelsNeeded = new Set(students.flatMap(s => {
+    const probe = probeLevelOf(s.reading_level, s.feed_mix);
+    return probe ? [s.reading_level, probe] : [s.reading_level];
+  }));
 
   // Students linked to Compass: read all their interests in one call (no-op when Compass is off)
   const fromCompass = await prefetchInterests(students.map(s => s.id as number));
@@ -907,9 +913,28 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const ownPicked = picked.filter(c => ownIds.has(c.id));
     const toServe = picked.map(c => c.row);
 
+    // Level probe: some of the picks go out as the same story at the probe level (1 in 3 in phase
+    // 1, 2 in 3 in phase 2, as on the on-demand route), so the probe gets scores and can finish.
+    // A pick with no version at the probe level stays at the student's level
+    const probeLevel = probeLevelOf(student.reading_level, student.feed_mix);
+    const probeWanted = probeLevel ? probeServeCount(toServe.length, student.feed_mix) : 0;
+    let probeServed = 0;
+    for (const i of probeSlotOrder(picked.map(c => ownIds.has(c.id)))) {
+      if (probeServed >= probeWanted) break;
+      const a = toServe[i];
+      const [atProbe] = await sql`
+        SELECT * FROM article_cache WHERE reading_level = ${probeLevel} AND flagged = false
+          AND COALESCE(base_article_id, id) = ${a.base_article_id ?? a.id}
+        LIMIT 1
+      `;
+      if (atProbe && !seen.has(atProbe.title)) { toServe[i] = atProbe; probeServed++; }
+    }
+    if (probeWanted > 0) console.log(`  ${student.name}: probing L${probeLevel}, ${probeServed} of ${probeWanted} probe articles found`);
+
     for (const a of toServe) {
-      await sql`INSERT INTO articles (student_id, title, topic, body_text, reading_level, sources, estimated_read_time, category, source_cache_id)
-        VALUES (${student.id}, ${a.title}, ${a.topic}, ${a.body_text}, ${a.reading_level}, ${JSON.stringify(a.sources || [])}, ${a.estimated_read_time}, ${a.category}, ${a.id})`;
+      const servedAs = a.reading_level !== student.reading_level ? a.reading_level : null;
+      await sql`INSERT INTO articles (student_id, title, topic, body_text, reading_level, sources, estimated_read_time, category, source_cache_id, served_as_level)
+        VALUES (${student.id}, ${a.title}, ${a.topic}, ${a.body_text}, ${a.reading_level}, ${JSON.stringify(a.sources || [])}, ${a.estimated_read_time}, ${a.category}, ${a.id}, ${servedAs})`;
       await sql`INSERT INTO student_article_history (student_id, article_cache_id, article_title)
         VALUES (${student.id}, ${a.id}, ${a.title})`;
     }
