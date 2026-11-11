@@ -8,7 +8,7 @@
  * same 780,000-year-old site in Israel and the same Egyptian, medieval and Chinese history.
  *
  * This check runs when articles are served: the candidates are compared with the student's
- * recent articles (title and opening), first by title words, then with one light-model call.
+ * recent articles (title and opening), first by title words, then with one model call (the standard model: the light one called a Roadster-in-space story a repeat of a Tesla company history).
  * A failed model call serves as before, so it never empties a feed. Pure; the student's recent
  * articles and topics are read in recent-reading.ts.
  */
@@ -89,7 +89,7 @@ Reply with the ids of the repeat candidates, or an empty list.`;
 
 /**
  * Ids of candidates that repeat something in `history` (the caller keeps it to MAX_HISTORY).
- * Title near-matches are caught without a model call; the rest go to one light-model call.
+ * Title near-matches are caught without a model call; the rest go to one standard-model call.
  * If that call fails or the budget is spent, only the title matches count; `strict` (for the
  * eval) throws instead, so an unreachable model can't pass for "no repeats".
  */
@@ -114,7 +114,7 @@ export async function findRepeats(
   if (budget.failed || timeout <= 0) return repeats;
 
   try {
-    const response = await client.messages.create(forJob("light", {
+    const response = await client.messages.create(forJob("standard", {
       max_tokens: 200,
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
       messages: [{ role: "user", content: repeatsPrompt(rest, history) }],
