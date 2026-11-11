@@ -1,8 +1,8 @@
 /**
  * The serving repeat check (src/lib/repeats.ts) on fixed cases: one student's recent articles and
- * a set of candidates, each marked as a repeat or not. Runs the real light model several times
- * and reports, per candidate, how often it was flagged. False flags cost the student a good
- * article; misses serve a rerun.
+ * a set of candidates, each marked as a repeat or not. Runs the real model (the standard job)
+ * several times and reports, per candidate, how often it was flagged. False flags cost the
+ * student a good article; misses serve a rerun.
  *
  *   npm run eval:repeats              # 5 runs
  *   npm run eval:repeats -- --runs 10
@@ -10,7 +10,10 @@
  * Needs ANTHROPIC_API_KEY only (no database); a failed model call stops the run. Most cases are
  * real articles from the live pool (2026-11-05), when a student who had read "How Cooking Changed
  * Humanity Forever" was served "The Ancient Art of Smoking Food" the next day; both tell the same
- * history. Candidates with ids 9xx were written for this test.
+ * history. Candidates with ids 9xx were written for this test. The last case is Max's feed of
+ * 2026-11-11: the light model called a story about Musk's Roadster in space a repeat of a Tesla
+ * company history, and a SpaceX spacesuit story a repeat of a SpaceX history, so the check moved
+ * to the standard model (85/85 on these cases).
  */
 
 import Anthropic from "@anthropic-ai/sdk";

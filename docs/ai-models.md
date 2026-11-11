@@ -1,6 +1,6 @@
 # AI models: which model does each job, and why
 
-Last reviewed 4 Nov 2026. The source of truth is `src/lib/models.ts`; this page records the choices and the tests behind them, so a later model generation can be tested the same way.
+Last reviewed 11 Nov 2026. The source of truth is `src/lib/models.ts`; this page records the choices and the tests behind them, so a later model generation can be tested the same way.
 
 ## The mix
 
@@ -9,10 +9,12 @@ Last reviewed 4 Nov 2026. The source of truth is `src/lib/models.ts`; this page 
 | `tutor` | every turn of the reading conversation | Claude Sonnet 5.5 | thinking off | Best conversations of five setups, half the cost and half the wait of Opus 4.6 (test 1) |
 | `report` | once per finished conversation; moves the student's level | Claude Sonnet 5.5 | thinking off | As good as the best report model, scores closest to a reference grader, half the cost of Opus (test 2) |
 | `writer` | base article and each level adaptation, once per article for all students | Claude Opus 5.5 | medium effort | Clearly the best articles: most accurate, best level fit, every length on target (test 3) |
-| `standard` | onboarding chat, coaching tip, word definitions, parent chat | Claude Sonnet 5.5 | thinking off | Short chat replies: fast, and the same model as the tutor |
+| `standard` | onboarding chat, coaching tip, word definitions, parent chat, the serve-time repeat check (`src/lib/repeats.ts`) | Claude Sonnet 5.5 | thinking off | Short chat replies: fast, and the same model as the tutor |
 | `light` | web search step, topic tagging, interest matching, pre-reading prompt | Claude Haiku 5.5 | thinking off | Mechanical steps; a tenth of the price of Haiku 4.5. Until 2026-11-09 it also judged the batch's sources and duplicates; those moved to `standard` and story angles to `writer`, because judging what kids read is not a place to economize |
 | `observer` | beside each turn of the redesigned tutor (`TUTOR_DESIGN=sigma`, [tutor-redesign.md](./tutor-redesign.md)): scores the student's message, keeps the running notes, decides when the talk is done | Claude Sonnet 5.5 | thinking off | The same scoring the tutor used to do inside its reply, on the same scale; not yet re-tested on its own |
 | `sigmaTutor` | every turn of the redesigned tutor (`TUTOR_DESIGN=sigma`) | Claude Opus 5.5 | low effort | Voice eval of 7 Nov 2026 ([tutor-redesign.md](./tutor-redesign.md)): won all 16 blind pairs against today's tutor, "sounds like a person" 4.3/5 against 2.6, about $0.12 a conversation with the observer. Sonnet 5.5 at low effort won 15 of 16 for $0.09 but repeated itself more; Fable 5.1 scored the same as Opus for $0.20 |
+
+The repeat check moved from `light` to `standard` on 11 Nov 2026: Haiku called a Roadster-in-space story a repeat of a Tesla company history (4 of 4 runs, and a sharper prompt only moved the false flag), Sonnet never did and gets `npm run eval:repeats` 85 of 85 right; it runs once per student per serving, a few cents a day.
 
 `tutor` below is the classic tutor, which stays the default until `TUTOR_DESIGN=sigma` is set.
 
