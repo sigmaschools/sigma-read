@@ -8,7 +8,9 @@
  * same 780,000-year-old site in Israel and the same Egyptian, medieval and Chinese history.
  *
  * This check runs when articles are served: the candidates are compared with the student's
- * recent articles (title and opening), first by title words, then with one model call (the standard model: the light one called a Roadster-in-space story a repeat of a Tesla company history).
+ * recent articles (title and opening), first by title words, then with one model call. That call
+ * uses the standard model: the light one called a Roadster-in-space story a repeat of a Tesla
+ * company history (scripts/eval-repeats.ts has the case).
  * A failed model call serves as before, so it never empties a feed. Pure; the student's recent
  * articles and topics are read in recent-reading.ts.
  */
