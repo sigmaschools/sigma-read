@@ -63,26 +63,32 @@ export async function POST(req: NextRequest) {
   // A student who has not onboarded yet: what Compass knows (interests, grade) replaces the
   // interest chat when it names at least three interests. The first articles start as the chat's
   // would, and the home page shows the tutorial cards while they come.
+  // A failure here never fails the sign-in: the student signs in and gets the chat instead.
   let onboardingComplete = student.onboardingComplete;
   if (!onboardingComplete) {
-    const profile = profileFromNote(claims.student);
-    if (profile) {
-      const grade = startingGrade(student.gradeLevel, claims.student);
-      const [done] = await db.update(schema.students)
-        .set({ interestProfile: profile, readingLevel: gradeToReadingLevel(grade), gradeLevel: grade, onboardingComplete: true })
-        .where(and(eq(schema.students.id, student.id), eq(schema.students.onboardingComplete, false)))
-        .returning({ id: schema.students.id });
-      if (done) {
-        // As after the chat: a failure here still leaves a home page that fills the feed from the cache
-        try {
-          await markStarterPending(student.id);
-          after(() => prepareStarterArticles(student.id, new Anthropic()));
-        } catch (e) {
-          console.error(`[compass sign-in] first articles not started for student ${student.id}: ${e instanceof Error ? e.message : e}`);
+    try {
+      const profile = profileFromNote(claims.student);
+      if (profile) {
+        const grade = startingGrade(student.gradeLevel, claims.student);
+        const [done] = await db.update(schema.students)
+          .set({ interestProfile: profile, readingLevel: gradeToReadingLevel(grade), gradeLevel: grade, onboardingComplete: true })
+          .where(and(eq(schema.students.id, student.id), eq(schema.students.onboardingComplete, false)))
+          .returning({ id: schema.students.id });
+        if (done) {
+          // As after the chat: a failure here still leaves a home page that fills the feed from the cache
+          try {
+            await markStarterPending(student.id);
+            after(() => prepareStarterArticles(student.id, new Anthropic()).catch((e) =>
+              console.error(`[compass sign-in] first articles failed for student ${student.id}: ${e instanceof Error ? e.message : e}`)));
+          } catch (e) {
+            console.error(`[compass sign-in] first articles not started for student ${student.id}: ${e instanceof Error ? e.message : e}`);
+          }
+          console.log(`[compass sign-in] student ${student.id} onboarded from Compass (${profile.interests.length} interests)`);
         }
-        console.log(`[compass sign-in] student ${student.id} onboarded from Compass (${profile.interests.length} interests)`);
+        onboardingComplete = true;
       }
-      onboardingComplete = true;
+    } catch (e) {
+      console.error(`[compass sign-in] onboarding from Compass failed for student ${student.id}, chat instead: ${e instanceof Error ? e.message : e}`);
     }
   }
 
