@@ -16,8 +16,11 @@
  * to the standard model. Case 4 is the same feed a day later: with the spacesuit story (which
  * mentions Starman's ride in two sentences) among the student's articles, the standard model
  * called the Roadster story a repeat, so the prompt now says a passing mention is not one. Case 5
- * is another student's serving that morning, all fresh. The totals this comment and
- * docs/ai-models.md quote come from the script's own last line.
+ * is another student's serving that morning, all fresh. Case 6 holds the new rule to subjects the
+ * prompt doesn't name: a bridges explainer that gives the Golden Gate one sentence, then a story
+ * about building it (fresh); a beehive article with a whole section on the waggle dance, then an
+ * article about the dance (repeat); the same spacecraft flyby from another outlet (repeat). The
+ * totals this comment and docs/ai-models.md quote come from the script's own last line.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
