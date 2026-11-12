@@ -10,9 +10,11 @@
  * This check runs when articles are served: the candidates are compared with the student's
  * recent articles (title and opening), first by title words, then with one model call. That call
  * uses the standard model: the light one called a Roadster-in-space story a repeat of a Tesla
- * company history. The prompt says a passing mention is not a repeat: the standard model then
- * called the same story a repeat of a spacesuit article that gives Starman's ride two sentences
- * (scripts/eval-repeats.ts has both cases).
+ * company history. The prompt says that a passing mention is not a repeat because the standard
+ * model, before that line, called the same story a repeat of a spacesuit article that gives
+ * Starman's ride two sentences (scripts/eval-repeats.ts has both cases). When two such stories
+ * are candidates in the same serving, the later one is still marked; it is picked again the next
+ * day and passes.
  * A failed model call serves as before, so it never empties a feed. Pure; the student's recent
  * articles and topics are read in recent-reading.ts.
  */
