@@ -117,14 +117,13 @@ export default function AdminStudentsPage() {
     loadStudents();
   }
 
-  async function handleImpersonate(id: number, role: "student" | "guide", guideId?: number) {
-    const targetId = role === "guide" ? guideId : id;
+  async function handleImpersonate(id: number) {
     await fetch("/api/admin/impersonate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: targetId, role }),
+      body: JSON.stringify({ userId: id, role: "student" }),
     });
-    router.push(role === "guide" ? "/guide" : "/student");
+    router.push("/student");
   }
 
   if (loading) {
@@ -241,14 +240,14 @@ export default function AdminStudentsPage() {
                 <td className="px-4 py-3">
                   <div className="flex gap-1">
                     <button
-                      onClick={() => handleImpersonate(s.id, "student")}
+                      onClick={() => handleImpersonate(s.id)}
                       className="text-xs px-2 py-1 border border-[var(--border)] rounded hover:bg-gray-100 transition"
                       title="View as student"
                     >
                       👁️
                     </button>
                     <button
-                      onClick={() => router.push(`/guide/student/${s.id}`)}
+                      onClick={() => router.push(`/admin/students/${s.id}`)}
                       className="text-xs px-2 py-1 border border-[var(--border)] rounded hover:bg-gray-100 transition"
                       title="Student detail"
                     >

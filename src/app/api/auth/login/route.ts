@@ -17,24 +17,6 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  // Try guide (email-based)
-  const [guide] = await db.select().from(schema.guides).where(eq(schema.guides.email, username)).limit(1);
-  if (guide && await verifyPassword(password, guide.passwordHash)) {
-    const token = createToken({ userId: guide.id, role: "guide" });
-    const res = NextResponse.json({ role: "guide", userId: guide.id, name: guide.name });
-    res.cookies.set("session", token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
-    return res;
-  }
-
-  // Try parent (email-based)
-  const [parent] = await db.select().from(schema.parents).where(eq(schema.parents.email, username)).limit(1);
-  if (parent && await verifyPassword(password, parent.passwordHash)) {
-    const token = createToken({ userId: parent.id, role: "parent" });
-    const res = NextResponse.json({ role: "parent", userId: parent.id, name: parent.name });
-    res.cookies.set("session", token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
-    return res;
-  }
-
   // Try student (username-based)
   const [student] = await db.select().from(schema.students).where(eq(schema.students.username, username)).limit(1);
   if (student && await verifyPassword(password, student.passwordHash)) {

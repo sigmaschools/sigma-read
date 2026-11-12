@@ -14,14 +14,14 @@ export default function Home() {
           router.replace("/login");
         } else if (data.role === "admin") {
           router.replace("/admin");
-        } else if (data.role === "guide") {
-          router.replace("/guide");
         } else if (data.role === "student") {
           if (!data.onboardingComplete) {
             router.replace("/student/onboarding");
           } else {
             router.replace("/student");
           }
+        } else {
+          router.replace("/login");
         }
       })
       .catch(() => router.replace("/login"));

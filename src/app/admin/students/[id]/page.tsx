@@ -104,7 +104,7 @@ export default function StudentDetailPage() {
   }, [id]);
 
   function backPath() {
-    return role === "admin" ? "/admin/students" : "/guide";
+    return "/admin/students";
   }
 
   async function loadData() {
@@ -112,7 +112,7 @@ export default function StudentDetailPage() {
       const meRes = await fetch("/api/auth/me");
       if (!meRes.ok) { router.push("/login"); return; }
       const me = await meRes.json();
-      if (me.role !== "guide" && me.role !== "admin") { router.push("/login"); return; }
+      if (me.role !== "admin") { router.push("/login"); return; }
       setRole(me.role);
       setViewerId(me.userId ?? null);
 
