@@ -97,28 +97,41 @@ export function verifyProfileNote(
  * again, but at most once a minute and one fetch at a time: the route is open to anyone, so a
  * stream of made-up key ids must not turn into a stream of calls to Compass.
  */
+/** Compass's keys could not be had just now: not the note's fault */
+export class KeysUnavailable extends Error {}
+
+/** Keys held past this while Compass's key page is down are no longer trusted */
+const STALE_LIMIT_MS = 24 * 3600_000;
+
 let cache: { base: string; keys: Jwk[]; at: number } | null = null;
-let lastTry = 0;
+let lastTry = { base: "", at: 0 };
 let inFlight: Promise<Jwk[]> | null = null;
 
 export async function compassKeys(base: string, kid?: string): Promise<Jwk[]> {
   const held = cache && cache.base === base ? cache : null;
   const fresh = held && Date.now() - held.at < 3600_000;
   if (held && fresh && (!kid || held.keys.some((k) => k.kid === kid))) return held.keys;
-  // At most one try a minute, failed tries included; meanwhile what we hold still checks known keys
-  if (held && Date.now() - lastTry < 60_000) return held.keys;
+  // At most one try a minute, failed tries included; meanwhile what we hold still checks known keys,
+  // and a key we have not seen yet is "unavailable for now", not a forged note
+  if (lastTry.base === base && Date.now() - lastTry.at < 60_000) {
+    if (held && Date.now() - held.at < STALE_LIMIT_MS && (!kid || held.keys.some((k) => k.kid === kid))) return held.keys;
+    throw new KeysUnavailable("waiting before fetching keys again");
+  }
   if (!inFlight) {
-    lastTry = Date.now();
+    lastTry = { base, at: Date.now() };
     inFlight = (async () => {
       try {
         const res = await fetch(`${base}/.well-known/jwks.json`, { cache: "no-store", signal: AbortSignal.timeout(4000) });
-        if (!res.ok) throw new ProfileError(`keys unavailable (${res.status})`);
-        const body = (await res.json()) as { keys?: Jwk[] };
-        cache = { base, keys: body.keys ?? [], at: Date.now() };
+        if (!res.ok) throw new KeysUnavailable(`keys unavailable (${res.status})`);
+        const body = (await res.json()) as { keys?: unknown };
+        const keys = Array.isArray(body?.keys) ? (body.keys as Jwk[]).filter((k) => k && typeof k === "object") : [];
+        if (keys.length === 0) throw new KeysUnavailable("no keys published");
+        cache = { base, keys, at: Date.now() };
         return cache.keys;
       } catch (e) {
-        if (held) return held.keys; // Compass's key page is down: keep using the keys we have
-        throw e;
+        // Compass's key page is down: keep using the keys we have, for a day at most
+        if (held && Date.now() - held.at < STALE_LIMIT_MS && (!kid || held.keys.some((k) => k.kid === kid))) return held.keys;
+        throw new KeysUnavailable(e instanceof Error ? e.message : String(e));
       }
     })().finally(() => { inFlight = null; });
   }

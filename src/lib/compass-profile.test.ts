@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { compassIssuer, gradeFromNote, noteKid, ProfileError, verifyProfileNote, type Jwk } from "./compass-profile";
+import { compassIssuer, compassKeys, gradeFromNote, KeysUnavailable, noteKid, ProfileError, verifyProfileNote, type Jwk } from "./compass-profile";
 
 const ISS = "https://compass.example";
 const SUB = "0b5e3c1a-2f4d-4e6a-9b7c-1d2e3f4a5b6c";
@@ -58,3 +58,21 @@ const check = (n: string, issuer = ISS) => verifyProfileNote(n, { issuer, keys: 
   assert.equal(gradeFromNote("Pre-K"), null);
   console.log("✅ issuer and grade");
 }
+
+async function keyCache() {
+  let calls = 0;
+  let answer: () => Response = () => new Response(JSON.stringify({ keys: [jwk] }));
+  globalThis.fetch = (async () => { calls++; return answer(); }) as typeof fetch;
+
+  assert.deepEqual((await compassKeys("https://a.example", "k1")).map((k) => k.kid), ["k1"]);
+  await compassKeys("https://a.example", "k1");
+  assert.equal(calls, 1, "a known key is served from the cache");
+  await assert.rejects(compassKeys("https://a.example", "k9"), KeysUnavailable, "an unknown key within the minute is 'unavailable', not forged");
+  assert.equal(calls, 1, "and does not fetch again");
+
+  answer = () => new Response(JSON.stringify({ keys: "nope" }));
+  await assert.rejects(compassKeys("https://b.example"), /no keys published/, "a page with no key list is not cached as keys");
+  assert.equal(calls, 2);
+  console.log("✅ key cache");
+}
+keyCache();

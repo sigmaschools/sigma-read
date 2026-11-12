@@ -14,6 +14,9 @@ type State = "checking" | "ready" | "not_linked";
  * When the note is there, the gate posts it to /api/auth/compass, takes it out of the address,
  * and only then shows the page, so the page's own requests already carry the session.
  * Without a note the page shows at once.
+ *
+ * The hidden level report stays inside the gate on purpose: outside it, it could be fetched
+ * with the previous student's session on a shared device and report the wrong student's level.
  */
 export default function CompassGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State>("checking");
@@ -30,14 +33,18 @@ export default function CompassGate({ children }: { children: React.ReactNode })
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + (rest ? `#${rest}` : ""));
 
       // Never longer than 8 s on the spinner: a slow answer falls back to the page as it was
+      // (AbortController and setTimeout rather than AbortSignal.timeout, which older iPads lack)
+      const stop = new AbortController();
+      const timer = setTimeout(() => stop.abort(), 8000);
       signingIn = fetch("/api/auth/compass", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note }),
-        signal: AbortSignal.timeout(8000),
+        signal: stop.signal,
       })
         .then((res): State => (res.status === 404 ? "not_linked" : "ready"))
-        .catch((): State => "ready");
+        .catch((): State => "ready")
+        .finally(() => clearTimeout(timer));
     }
     let live = true;
     signingIn.then((s) => { if (live) setState(s); });
