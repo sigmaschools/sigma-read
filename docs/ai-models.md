@@ -1,6 +1,6 @@
 # AI models: which model does each job, and why
 
-Last reviewed 11 Nov 2026. The source of truth is `src/lib/models.ts`; this page records the choices and the tests behind them, so a later model generation can be tested the same way.
+Last reviewed 12 Nov 2026. The source of truth is `src/lib/models.ts`; this page records the choices and the tests behind them, so a later model generation can be tested the same way.
 
 ## The mix
 
@@ -14,7 +14,7 @@ Last reviewed 11 Nov 2026. The source of truth is `src/lib/models.ts`; this page
 | `observer` | beside each turn of the redesigned tutor (`TUTOR_DESIGN=sigma`, [tutor-redesign.md](./tutor-redesign.md)): scores the student's message, keeps the running notes, decides when the talk is done | Claude Sonnet 5.5 | thinking off | The same scoring the tutor used to do inside its reply, on the same scale; not yet re-tested on its own |
 | `sigmaTutor` | every turn of the redesigned tutor (`TUTOR_DESIGN=sigma`) | Claude Opus 5.5 | low effort | Voice eval of 7 Nov 2026 ([tutor-redesign.md](./tutor-redesign.md)): won all 16 blind pairs against today's tutor, "sounds like a person" 4.3/5 against 2.6, about $0.12 a conversation with the observer. Sonnet 5.5 at low effort won 15 of 16 for $0.09 but repeated itself more; Fable 5.1 scored the same as Opus for $0.20 |
 
-The repeat check moved from `light` to `standard` on 11 Nov 2026: Haiku called a Roadster-in-space story a repeat of a Tesla company history (4 of 4 runs, and a sharper prompt only moved the false flag), Sonnet never did and gets `npm run eval:repeats` 95 of 95 right; it runs once per student per serving, a few cents a day.
+The repeat check moved from `light` to `standard` on 11 Nov 2026: Haiku called a Roadster-in-space story a repeat of a Tesla company history (4 of 4 runs, and a sharper prompt only moved the false flag), Sonnet never did. On 12 Nov the prompt gained a rule that a passing mention is not a repeat, after Sonnet called the same Roadster story a repeat of a spacesuit article that gives Starman's ride two sentences. `npm run eval:repeats` on the current prompt: 135 of 135 (the script prints the total), including held-out cases where a passing mention is fresh but a full section or the same event from another outlet is a repeat. It runs once per student per serving, a few cents a day.
 
 `tutor` below is the classic tutor, which stays the default until `TUTOR_DESIGN=sigma` is set.
 

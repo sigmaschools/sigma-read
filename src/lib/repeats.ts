@@ -10,7 +10,11 @@
  * This check runs when articles are served: the candidates are compared with the student's
  * recent articles (title and opening), first by title words, then with one model call. That call
  * uses the standard model: the light one called a Roadster-in-space story a repeat of a Tesla
- * company history (scripts/eval-repeats.ts has the case).
+ * company history. The prompt says that a passing mention is not a repeat because the standard
+ * model, before that line, called the same story a repeat of a spacesuit article that gives
+ * Starman's ride two sentences (scripts/eval-repeats.ts has both cases). When two such stories
+ * are candidates in the same serving, the later one is still marked; it is picked again the next
+ * day and passes.
  * A failed model call serves as before, so it never empties a feed. Pure; the student's recent
  * articles and topics are read in recent-reading.ts.
  */
@@ -84,7 +88,7 @@ Which candidates would this student feel are the same article again, compared wi
 
 If two candidates repeat each other, mark only the later one.
 
-A new angle on a subject the student likes is NOT a repeat: octopus camouflage after octopus intelligence, a famous volcano after how eruptions work, how yeast makes bread rise after a history of bread. Only mark a candidate when the student would recognise it.
+A new angle on a subject the student likes is NOT a repeat: octopus camouflage after octopus intelligence, a famous volcano after how eruptions work, how yeast makes bread rise after a history of bread. Nor is a whole article about something an earlier article only mentioned in a sentence or two (a spacesuit article notes that a dummy in the suit rode a car into space; an article about that car's journey is new to the student). Shared names and dates alone are not enough. Only mark a candidate when the student would recognise it as an article they have already read.
 
 Reply with the ids of the repeat candidates, or an empty list.`;
 }
