@@ -14,7 +14,6 @@ import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyP
 export async function POST(req: NextRequest) {
   const issuer = compassIssuer();
   const base = compassBase();
-  if (!issuer || !base) return signedOut(NextResponse.json({ error: "Compass is not set up" }, { status: 503 }));
 
   // JSON only, so another site cannot post here with a plain form; small bodies only
   if (!req.headers.get("content-type")?.startsWith("application/json")) return NextResponse.json({ error: "JSON only" }, { status: 415 });
@@ -24,6 +23,7 @@ export async function POST(req: NextRequest) {
   let note: unknown;
   try { note = (JSON.parse(text) as { note?: unknown })?.note; } catch { note = undefined; }
   if (typeof note !== "string") return NextResponse.json({ error: "No note" }, { status: 400 });
+  if (!issuer || !base) return signedOut(NextResponse.json({ error: "Compass is not set up" }, { status: 503 }));
 
   let keys;
   try {

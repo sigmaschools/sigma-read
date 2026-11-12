@@ -73,6 +73,15 @@ async function keyCache() {
   answer = () => new Response(JSON.stringify({ keys: "nope" }));
   await assert.rejects(compassKeys("https://b.example"), /no keys published/, "a page with no key list is not cached as keys");
   assert.equal(calls, 2);
+  // Two students at once on a cold instance: one fetch, both served
+  calls = 0;
+  let release = () => {};
+  const gate = new Promise<void>((r) => { release = r; });
+  globalThis.fetch = (async () => { calls++; await gate; return new Response(JSON.stringify({ keys: [jwk] })); }) as typeof fetch;
+  const both = Promise.all([compassKeys("https://c.example", "k1"), compassKeys("https://c.example", "k1")]);
+  release();
+  assert.deepEqual((await both).map((ks) => ks.length), [1, 1]);
+  assert.equal(calls, 1, "the second caller joins the first fetch");
   console.log("✅ key cache");
 }
 keyCache().catch((e) => { console.error(e); process.exit(1); });

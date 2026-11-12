@@ -111,11 +111,14 @@ export async function compassKeys(base: string, kid?: string): Promise<Jwk[]> {
   const held = cache && cache.base === base ? cache : null;
   const fresh = held && Date.now() - held.at < 3600_000;
   if (held && fresh && (!kid || held.keys.some((k) => k.kid === kid))) return held.keys;
-  // At most one try a minute, failed tries included; meanwhile what we hold still checks known keys,
-  // and a key we have not seen yet is "unavailable for now", not a forged note
-  if (lastTry.base === base && Date.now() - lastTry.at < 60_000) {
-    if (held && Date.now() - held.at < STALE_LIMIT_MS && (!kid || held.keys.some((k) => k.kid === kid))) return held.keys;
-    throw new KeysUnavailable("waiting before fetching keys again");
+  // A fetch already under way: wait for it rather than refuse
+  if (!inFlight) {
+    // At most one new try a minute, failed tries included; meanwhile what we hold still checks known
+    // keys, and a key we have not seen yet is "unavailable for now", not a forged note
+    if (lastTry.base === base && Date.now() - lastTry.at < 60_000) {
+      if (held && Date.now() - held.at < STALE_LIMIT_MS && (!kid || held.keys.some((k) => k.kid === kid))) return held.keys;
+      throw new KeysUnavailable("waiting before fetching keys again");
+    }
   }
   if (!inFlight) {
     lastTry = { base, at: Date.now() };

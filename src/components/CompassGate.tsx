@@ -49,7 +49,9 @@ export default function CompassGate({ children }: { children: React.ReactNode })
       })
         .then((res): State | Promise<State> => {
           if (res.ok) return "ready";
-          if (res.status === 404) return "not_linked";
+          if (res.status === 404) {
+            return res.json().then((b: { error?: string }): State | Promise<State> => (b?.error === "not_linked" ? "not_linked" : signOut()), signOut);
+          }
           return signOut();
         })
         // No answer in time: sign out whoever was here before, so the page never shows them
