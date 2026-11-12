@@ -40,11 +40,15 @@ export async function POST(req: NextRequest) {
   let [admin] = await db.select({ id: schema.admins.id }).from(schema.admins).where(eq(schema.admins.externalId, personId)).limit(1);
   const email = claims.adult.email?.trim().toLowerCase();
   if (!admin && email) {
-    [admin] = await db
-      .update(schema.admins)
-      .set({ externalId: personId })
-      .where(and(sql`lower(${schema.admins.email}) = ${email}`, isNull(schema.admins.externalId)))
-      .returning({ id: schema.admins.id });
+    try {
+      [admin] = await db
+        .update(schema.admins)
+        .set({ externalId: personId })
+        .where(and(sql`${schema.admins.id} = (SELECT min(id) FROM admins WHERE lower(email) = ${email})`, isNull(schema.admins.externalId)))
+        .returning({ id: schema.admins.id });
+    } catch (e) {
+      console.error(`[compass admin sign-in] could not link Compass person ${personId}: ${e instanceof Error ? e.message : e}`);
+    }
     if (admin) console.log(`[compass admin sign-in] admin ${admin.id} linked to Compass person ${personId}`);
     // Two first visits at once: the other one linked the row
     else [admin] = await db.select({ id: schema.admins.id }).from(schema.admins).where(eq(schema.admins.externalId, personId)).limit(1);

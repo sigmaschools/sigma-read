@@ -125,7 +125,7 @@ function verifyNote(
   if (claims.aud !== (opts.audience ?? COMPASS_APP_SLUG)) throw new ProfileError("note is for another app");
   const now = opts.now ?? Math.floor(Date.now() / 1000);
   if (typeof claims.exp !== "number" || claims.exp <= now) throw new ProfileError("note has expired");
-  // Compass's notes are good for 48 hours (contract 1.1); anything longer, or signed in the future, is refused
+  // A student's note is good for 48 hours (contract 1.1), an adult's for two minutes (1.2); anything longer, or signed in the future, is refused
   if (typeof claims.iat !== "number" || claims.iat > now + 300 || claims.exp - claims.iat > maxLifetime) throw new ProfileError("note lifetime out of range");
   if (typeof claims.sub !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claims.sub)) throw new ProfileError("no id");
   return claims;
