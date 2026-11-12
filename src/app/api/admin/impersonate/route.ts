@@ -11,16 +11,11 @@ export async function POST(req: NextRequest) {
 
   const { userId, role } = await req.json();
   if (!userId || !role) return NextResponse.json({ error: "Missing userId or role" }, { status: 400 });
-  if (role !== "student" && role !== "guide") return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  // Only students: Sigma Read's guide pages are retired (guides follow students in Compass)
+  if (role !== "student") return NextResponse.json({ error: "Invalid role" }, { status: 400 });
 
-  // Verify user exists
-  if (role === "student") {
-    const [student] = await db.select().from(schema.students).where(eq(schema.students.id, userId)).limit(1);
-    if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
-  } else {
-    const [guide] = await db.select().from(schema.guides).where(eq(schema.guides.id, userId)).limit(1);
-    if (!guide) return NextResponse.json({ error: "Guide not found" }, { status: 404 });
-  }
+  const [student] = await db.select().from(schema.students).where(eq(schema.students.id, userId)).limit(1);
+  if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
 
   // Fails closed: no impersonation without an audit record
   await auditInsert({ adminId: session.userId, action: "impersonate.start", targetType: role, targetId: userId });

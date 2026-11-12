@@ -132,10 +132,9 @@ Usage:
 
 ### 7. Impersonation (`/admin/impersonate`)
 
-**See the app as any student or guide.**
+**See the app as any student.** (Viewing as a guide went with the guide pages; a student's detail page is `/admin/students/<id>`.)
 
 - Select a student → opens their home page in a new tab (uses their session, read-only mode)
-- Select a guide → opens their dashboard
 - Clear impersonation banner at top: "Viewing as [Name] — Exit"
 - Read-only: can view but not perform actions (no reading sessions, no conversations)
 

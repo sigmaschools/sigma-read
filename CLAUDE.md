@@ -35,8 +35,7 @@ Never write a password, API key, token or connection string with a password into
 src/
   app/
     api/           # Next.js API routes (all authenticated via getSession)
-    student/       # Student pages (sticky top bar, max-w-2xl, "use client")
-    guide/         # Guide pages (sidebar layout, max-w-5xl)
+    student/       # Student pages (no top bar: Compass has its own; max-w-2xl, "use client")
     admin/         # Admin pages
     login/         # Auth
   lib/

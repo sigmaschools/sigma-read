@@ -9,8 +9,6 @@ Passwords are never written in this repository (see "Secrets" in CLAUDE.md). Get
 
 | Role | Username/Email | Notes |
 |------|---------------|-------|
-| Guide | calie@sigmaschool.us | Primary test guide, has 8+ students |
-| Guide | carolyn@sigmaschool.us | Parent test account, 3 students |
 | Student | emma | L3 reader, active test data |
 | Student | sofia | L2 reader |
 | Student | marcus | L1 reader |
@@ -44,7 +42,7 @@ Git commits use `wvaughan@gmail.com` (required by Vercel team).
 ## Key API Routes
 | Route | Purpose |
 |-------|---------|
-| `/api/auth/login` | Login (guide or student) |
+| `/api/auth/login` | Password login (admin or student) |
 | `/api/articles` | List student's articles |
 | `/api/articles/serve-cached` | Serve pre-cached articles to student |
 | `/api/articles/[id]` | Get/update article (PATCH for liked, read) |
@@ -52,8 +50,6 @@ Git commits use `wvaughan@gmail.com` (required by Vercel team).
 | `/api/conversations` | Create new conversation |
 | `/api/conversations/[id]/chat` | Conversation turns |
 | `/api/conversations/[id]/self-assess` | Student self-assessment |
-| `/api/guide/dashboard` | Batch dashboard data (single query) |
-| `/api/guide/weekly-summary` | Weekly summary for guides |
 | `/api/students` | List/create students |
 | `/api/reports` | Comprehension reports |
 

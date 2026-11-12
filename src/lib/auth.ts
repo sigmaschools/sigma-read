@@ -32,5 +32,8 @@ export async function getSession(): Promise<TokenPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
-  return verifyToken(token);
+  const session = verifyToken(token);
+  // Guide and parent pages are retired: a session cookie from before still opens nothing
+  if (session && (session.role === "guide" || session.role === "parent")) return null;
+  return session;
 }

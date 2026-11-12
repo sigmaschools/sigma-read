@@ -2,10 +2,6 @@
   "framework": "nextjs",
   "crons": [
     {
-      "path": "/api/cron/weekly-parent-email",
-      "schedule": "0 14 * * 1"
-    },
-    {
       "path": "/api/cron/morning-batch",
       "schedule": "20,40 10-11 * * *"
     },
