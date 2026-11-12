@@ -32,8 +32,9 @@ export const admins = pgTable("admins", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  externalId: text("external_id"), // Compass person id, set the first time they open admin from Compass
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, t => [uniqueIndex("admins_external_id_unique").on(t.externalId)]);
 
 export const guides = pgTable("guides", {
   id: serial("id").primaryKey(),
