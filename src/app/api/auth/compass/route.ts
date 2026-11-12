@@ -73,8 +73,13 @@ export async function POST(req: NextRequest) {
         .where(and(eq(schema.students.id, student.id), eq(schema.students.onboardingComplete, false)))
         .returning({ id: schema.students.id });
       if (done) {
-        await markStarterPending(student.id);
-        after(() => prepareStarterArticles(student.id, new Anthropic()));
+        // As after the chat: a failure here still leaves a home page that fills the feed from the cache
+        try {
+          await markStarterPending(student.id);
+          after(() => prepareStarterArticles(student.id, new Anthropic()));
+        } catch (e) {
+          console.error(`[compass sign-in] first articles not started for student ${student.id}: ${e instanceof Error ? e.message : e}`);
+        }
         console.log(`[compass sign-in] student ${student.id} onboarded from Compass (${profile.interests.length} interests)`);
       }
       onboardingComplete = true;
