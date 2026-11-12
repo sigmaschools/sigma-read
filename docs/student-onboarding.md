@@ -54,7 +54,7 @@ The last card's button reads "Getting your articles ready…" (with "1 of 3 read
 
 There is no tutorial article or practice discussion any more; the first real article's discussion is the practice. Older students may still have a "Welcome" tutorial article, which keeps working.
 
-**Replay:** user menu → "Welcome" (`?demo=true`) shows the three cards and returns home.
+**Replay:** `/student/onboarding?demo=true` shows the three cards and returns home. The user menu that linked to it is gone (Compass shows who is signed in and handles leaving).
 
 ---
 

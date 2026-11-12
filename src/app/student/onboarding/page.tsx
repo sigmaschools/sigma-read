@@ -217,22 +217,6 @@ function OnboardingPage() {
   const showIdeas = messages.length > 0 && (messages.length === 1 || stuck || offered) && !loading && !chatDone;
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto">
-      <header className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">SigmaRead</h1>
-          <p className="text-sm text-[var(--muted)]">Getting started</p>
-        </div>
-        <button
-          onClick={async () => {
-            await fetch("/api/auth/logout", { method: "POST" });
-            router.push("/login");
-          }}
-          className="text-xs text-[var(--muted)] hover:text-[var(--danger)] transition"
-        >
-          Logout
-        </button>
-      </header>
-
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>

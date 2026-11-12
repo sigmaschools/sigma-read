@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { markdownToPlainText } from "@/lib/markdown";
@@ -150,25 +150,6 @@ export default function StudentHome() {
     }).catch(() => {});
   }
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-  }
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close menu on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
-
   // Show up to 5 unread articles: tutorial first, then by the day they were served, newest day
   // first (this morning's stories for the student's own interests lead), oldest first within a
   // day so a same-day top-up never hides the starter articles (src/lib/feed-order.ts)
@@ -176,11 +157,6 @@ export default function StudentHome() {
   const visible = orderFeed(unread).slice(0, 5);
   const readArticles = articles.filter((a) => a.read);
   const totalRead = readArticles.length;
-
-  // Get initials for avatar
-  const initials = userName
-    ? userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "";
 
   if (loading) {
     return (
@@ -192,43 +168,6 @@ export default function StudentHome() {
 
   return (
     <div className="min-h-screen">
-      {/* Top bar */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur border-b border-[var(--border)] px-6 py-3 flex items-center justify-between z-10">
-        <h1 className="text-lg font-semibold tracking-tight">SigmaRead</h1>
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition"
-          >
-            <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-white text-xs font-semibold flex items-center justify-center">
-              {initials}
-            </div>
-            <span className="text-sm text-[var(--fg)]">{userName}</span>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`text-[var(--muted)] transition-transform ${menuOpen ? "rotate-180" : ""}`}>
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-[var(--border)] rounded-xl shadow-lg overflow-hidden z-50 animate-fade-in">
-              <Link
-                href="/student/onboarding?demo=true"
-                onClick={() => setMenuOpen(false)}
-                className="block px-4 py-2.5 text-sm text-[var(--fg)] hover:bg-[var(--surface-hover)] transition"
-              >
-                Welcome
-              </Link>
-              <div className="border-t border-[var(--border)]" />
-              <button
-                onClick={handleLogout}
-                className="block w-full text-left px-4 py-2.5 text-sm text-[var(--muted)] hover:text-[var(--danger)] hover:bg-[var(--surface-hover)] transition"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-
       <main className="max-w-2xl mx-auto px-6 py-8">
         <div className="mb-8">
           <h2 className="text-xl font-semibold">Hey {userName?.split(" ")[0]} 👋</h2>
