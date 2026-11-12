@@ -73,6 +73,7 @@ export function verifyProfileNote(
   }
   if (!header || typeof header !== "object" || !claims || typeof claims !== "object") throw new ProfileError("unreadable note");
   if (header.alg !== "EdDSA") throw new ProfileError("unexpected algorithm");
+  if (typeof header.kid !== "string") throw new ProfileError("unknown key");
 
   const jwk = opts.keys.find((k) => k.kid === header.kid && k.kty === "OKP" && k.crv === "Ed25519");
   if (!jwk) throw new ProfileError("unknown key");
@@ -86,7 +87,7 @@ export function verifyProfileNote(
   if (typeof claims.exp !== "number" || claims.exp <= now) throw new ProfileError("note has expired");
   // Compass's notes are good for 48 hours (contract 1.1); anything longer, or signed in the future, is refused
   if (typeof claims.iat !== "number" || claims.iat > now + 300 || claims.exp - claims.iat > MAX_LIFETIME_S) throw new ProfileError("note lifetime out of range");
-  if (typeof claims.sub !== "string" || !/^[0-9a-f-]{36}$/i.test(claims.sub)) throw new ProfileError("no student id");
+  if (typeof claims.sub !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claims.sub)) throw new ProfileError("no student id");
   if (!claims.student || typeof claims.student !== "object") throw new ProfileError("no student");
   return claims;
 }
@@ -97,18 +98,28 @@ export function verifyProfileNote(
  * stream of made-up key ids must not turn into a stream of calls to Compass.
  */
 let cache: { base: string; keys: Jwk[]; at: number } | null = null;
+let lastTry = 0;
 let inFlight: Promise<Jwk[]> | null = null;
 
 export async function compassKeys(base: string, kid?: string): Promise<Jwk[]> {
-  const age = cache && cache.base === base ? Date.now() - cache.at : Infinity;
-  if (age < 3600_000 && (!kid || cache!.keys.some((k) => k.kid === kid) || age < 60_000)) return cache!.keys;
+  const held = cache && cache.base === base ? cache : null;
+  const fresh = held && Date.now() - held.at < 3600_000;
+  if (held && fresh && (!kid || held.keys.some((k) => k.kid === kid))) return held.keys;
+  // At most one try a minute, failed tries included; meanwhile what we hold still checks known keys
+  if (held && Date.now() - lastTry < 60_000) return held.keys;
   if (!inFlight) {
+    lastTry = Date.now();
     inFlight = (async () => {
-      const res = await fetch(`${base}/.well-known/jwks.json`, { cache: "no-store", signal: AbortSignal.timeout(4000) });
-      if (!res.ok) throw new ProfileError(`keys unavailable (${res.status})`);
-      const body = (await res.json()) as { keys?: Jwk[] };
-      cache = { base, keys: body.keys ?? [], at: Date.now() };
-      return cache.keys;
+      try {
+        const res = await fetch(`${base}/.well-known/jwks.json`, { cache: "no-store", signal: AbortSignal.timeout(4000) });
+        if (!res.ok) throw new ProfileError(`keys unavailable (${res.status})`);
+        const body = (await res.json()) as { keys?: Jwk[] };
+        cache = { base, keys: body.keys ?? [], at: Date.now() };
+        return cache.keys;
+      } catch (e) {
+        if (held) return held.keys; // Compass's key page is down: keep using the keys we have
+        throw e;
+      }
     })().finally(() => { inFlight = null; });
   }
   return inFlight;

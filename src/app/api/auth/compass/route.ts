@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const why = e instanceof ProfileError ? e.message : "could not check the note";
     console.warn(`[compass sign-in] refused: ${why}`);
-    return NextResponse.json({ error: "Compass could not sign you in" }, { status: 401 });
+    return signedOut(NextResponse.json({ error: "Compass could not sign you in" }, { status: 401 }));
   }
 
   const learnerId = claims.sub.toLowerCase();
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     .limit(1);
   if (!student) {
     console.warn(`[compass sign-in] no student linked to learner ${learnerId}`);
-    return NextResponse.json({ error: "not_linked" }, { status: 404 });
+    return signedOut(NextResponse.json({ error: "not_linked" }, { status: 404 }));
   }
 
   const res = NextResponse.json({ role: "student", userId: student.id, onboardingComplete: student.onboardingComplete });
@@ -61,5 +61,14 @@ export async function POST(req: NextRequest) {
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
+  return res;
+}
+
+/**
+ * A note was there and was refused: whoever was signed in on this device before is signed out,
+ * so a shared iPad never shows one student another's reading.
+ */
+function signedOut(res: NextResponse): NextResponse {
+  res.cookies.set("session", "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
   return res;
 }
