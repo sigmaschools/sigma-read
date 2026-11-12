@@ -10,10 +10,14 @@
  * Needs ANTHROPIC_API_KEY only (no database); a failed model call stops the run. Most cases are
  * real articles from the live pool (2026-11-05), when a student who had read "How Cooking Changed
  * Humanity Forever" was served "The Ancient Art of Smoking Food" the next day; both tell the same
- * history. Candidates with ids 9xx were written for this test. The last case is one student's feed of
+ * history. Candidates with ids 9xx were written for this test. Case 3 is one student's feed of
  * 2026-11-11: the light model called a story about Musk's Roadster in space a repeat of a Tesla
  * company history, and a SpaceX spacesuit story a repeat of a SpaceX history, so the check moved
- * to the standard model (95/95 on these cases).
+ * to the standard model. Case 4 is the same feed a day later: with the spacesuit story (which
+ * mentions Starman's ride in two sentences) among the student's articles, the standard model
+ * called the Roadster story a repeat, so the prompt now says a passing mention is not one. Case 5
+ * is another student's serving that morning, all fresh. The totals this comment and
+ * docs/ai-models.md quote come from the script's own last line.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
