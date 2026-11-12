@@ -43,7 +43,8 @@ export default function CompassGate({ children }: { children: React.ReactNode })
         signal: stop.signal,
       })
         .then((res): State => (res.status === 404 ? "not_linked" : "ready"))
-        .catch((): State => "ready")
+        // No answer in time: sign out whoever was here before, so the page never shows them
+        .catch(() => fetch("/api/auth/logout", { method: "POST" }).then((): State => "ready", (): State => "ready"))
         .finally(() => clearTimeout(timer));
     }
     let live = true;

@@ -135,7 +135,10 @@ export async function compassKeys(base: string, kid?: string): Promise<Jwk[]> {
       }
     })().finally(() => { inFlight = null; });
   }
-  return inFlight;
+  const keys = await inFlight;
+  // Joined someone else's fetch, and it did not bring this note's key: "try again", not "forged"
+  if (kid && !keys.some((k) => k.kid === kid)) throw new KeysUnavailable(`no key ${kid} published`);
+  return keys;
 }
 
 /** Where Compass publishes its keys: COMPASS_URL, without a trailing slash */

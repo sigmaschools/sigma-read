@@ -75,4 +75,4 @@ async function keyCache() {
   assert.equal(calls, 2);
   console.log("✅ key cache");
 }
-keyCache();
+keyCache().catch((e) => { console.error(e); process.exit(1); });

@@ -14,10 +14,11 @@ import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyP
 export async function POST(req: NextRequest) {
   const issuer = compassIssuer();
   const base = compassBase();
-  if (!issuer || !base) return NextResponse.json({ error: "Compass is not set up" }, { status: 503 });
+  if (!issuer || !base) return signedOut(NextResponse.json({ error: "Compass is not set up" }, { status: 503 }));
 
   // JSON only, so another site cannot post here with a plain form; small bodies only
   if (!req.headers.get("content-type")?.startsWith("application/json")) return NextResponse.json({ error: "JSON only" }, { status: 415 });
+  if (Number(req.headers.get("content-length") ?? 0) > 16_000) return NextResponse.json({ error: "Too large" }, { status: 413 });
   const text = await req.text();
   if (text.length > 16_000) return NextResponse.json({ error: "Too large" }, { status: 413 });
   let note: unknown;
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     // Compass's key page is down or slow: not the note's fault, and worth noticing in the logs
     console.error(`[compass sign-in] keys unavailable: ${e instanceof Error ? e.message : e}`);
-    return NextResponse.json({ error: "Compass keys unavailable" }, { status: 503 });
+    return signedOut(NextResponse.json({ error: "Compass keys unavailable" }, { status: 503 }));
   }
   let claims;
   try {
@@ -65,8 +66,10 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * A note was there and was refused: whoever was signed in on this device before is signed out,
- * so a shared iPad never shows one student another's reading.
+ * A note was there and did not sign anyone in (refused, unlinked, or not checkable just now):
+ * whoever was signed in on this device before is signed out, so a shared iPad never shows one
+ * student another's reading. The page then goes to /login, where Compass fills the right
+ * student's saved password for as long as that path exists.
  */
 function signedOut(res: NextResponse): NextResponse {
   res.cookies.set("session", "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
