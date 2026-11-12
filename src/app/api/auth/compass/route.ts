@@ -1,8 +1,14 @@
 export const dynamic = "force-dynamic";
-import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+// The first articles of a student onboarded from Compass are written after the answer (after())
+export const maxDuration = 300;
+import { NextRequest, NextResponse, after } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { createToken } from "@/lib/auth";
+import { gradeToReadingLevel } from "@/lib/grade-to-level";
+import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
+import { profileFromNote, startingGrade } from "@/lib/compass-onboarding";
 import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyProfileNote } from "@/lib/compass-profile";
 
 /**
@@ -44,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const learnerId = claims.sub.toLowerCase();
   const [student] = await db
-    .select({ id: schema.students.id, onboardingComplete: schema.students.onboardingComplete })
+    .select({ id: schema.students.id, onboardingComplete: schema.students.onboardingComplete, gradeLevel: schema.students.gradeLevel })
     .from(schema.students)
     // external_id is unique and written lowercase (migration 0014)
     .where(eq(schema.students.externalId, learnerId))
@@ -54,7 +60,28 @@ export async function POST(req: NextRequest) {
     return signedOut(NextResponse.json({ error: "not_linked" }, { status: 404 }));
   }
 
-  const res = NextResponse.json({ role: "student", userId: student.id, onboardingComplete: student.onboardingComplete });
+  // A student who has not onboarded yet: what Compass knows (interests, grade) replaces the
+  // interest chat when it names at least three interests. The first articles start as the chat's
+  // would, and the home page shows the tutorial cards while they come.
+  let onboardingComplete = student.onboardingComplete;
+  if (!onboardingComplete) {
+    const profile = profileFromNote(claims.student);
+    if (profile) {
+      const grade = startingGrade(student.gradeLevel, claims.student);
+      const [done] = await db.update(schema.students)
+        .set({ interestProfile: profile, readingLevel: gradeToReadingLevel(grade), gradeLevel: grade, onboardingComplete: true })
+        .where(and(eq(schema.students.id, student.id), eq(schema.students.onboardingComplete, false)))
+        .returning({ id: schema.students.id });
+      if (done) {
+        await markStarterPending(student.id);
+        after(() => prepareStarterArticles(student.id, new Anthropic()));
+        console.log(`[compass sign-in] student ${student.id} onboarded from Compass (${profile.interests.length} interests)`);
+      }
+      onboardingComplete = true;
+    }
+  }
+
+  const res = NextResponse.json({ role: "student", userId: student.id, onboardingComplete });
   res.cookies.set("session", createToken({ userId: student.id, role: "student" }), {
     httpOnly: true,
     sameSite: "lax",
