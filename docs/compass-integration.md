@@ -32,6 +32,10 @@ Compass is the way in. It opens a first-party app with the student's profile not
 - There is no top bar on the student screens: Compass's own bar names the app and the student and has the X for leaving, so SigmaRead's bar (app name, the student's name and a menu with Welcome and Sign out) went with standalone use. The reading and discussion screens keep their Back link.
 - The note is not stored and never reaches the server's access log: it travels after `#`, and only the gate's POST body carries it.
 
+## 5. The admin pages
+
+Compass Admin opens the admin pages from **Administration, Apps** (contract 1.10, section 1.2), once SigmaRead's registry entry has `adminUrl` (`https://sigma-reader.vercel.app/admin`). The address carries `#compass_adult=<note>`: a two-minute note signed with the same keys, `aud` `sigma-read/admin`, naming the adult. `src/app/admin/layout.tsx` wraps the pages in `CompassGate kind="admin"`, which posts it to `POST /api/auth/compass-admin` (`verifyAdultNote`). Compass vouches only for who the adult is; SigmaRead decides who is an admin: the `admins` row whose `external_id` is the note's `sub`, or the first time, the row with the note's email, which is then linked for good (`drizzle/0017_admin_compass_id.sql` adds the column and links the one admin there is today). Anyone else sees "You are not a Sigma Read admin". The admin pages themselves are unchanged.
+
 ## The reading day
 
 Compass shows the day's reading against a daily target, so SigmaRead's "today" must be the student's day: it starts at the student's local midnight, from the device's time zone ([article-selection.md](./article-selection.md#daily-cap)).

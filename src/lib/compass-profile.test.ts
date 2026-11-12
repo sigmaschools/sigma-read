@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { compassIssuer, compassKeys, gradeFromNote, KeysUnavailable, noteKid, ProfileError, verifyProfileNote, type Jwk } from "./compass-profile";
+import { compassIssuer, compassKeys, verifyAdultNote, gradeFromNote, KeysUnavailable, noteKid, ProfileError, verifyProfileNote, type Jwk } from "./compass-profile";
 
 const ISS = "https://compass.example";
 const SUB = "0b5e3c1a-2f4d-4e6a-9b7c-1d2e3f4a5b6c";
@@ -37,7 +37,7 @@ const check = (n: string, issuer = ISS) => verifyProfileNote(n, { issuer, keys: 
   refused(note({ ...good, iss: "compass-app-dev" }), /issuer/);
   refused(note(good), /issuer/, "https://other.example");
   refused(note({ ...good, exp: NOW }), /expired/);
-  refused(note({ ...good, sub: "lily" }), /student id/);
+  refused(note({ ...good, sub: "lily" }), /no id/);
   refused(note({ ...good, iat: NOW - 10, exp: NOW - 10 + 72 * 3600 }), /lifetime/);
   refused(note({ ...good, iat: NOW + 3600 }), /lifetime/);
   refused(note(null as unknown as Record<string, unknown>), /unreadable/);
@@ -57,6 +57,19 @@ const check = (n: string, issuer = ISS) => verifyProfileNote(n, { issuer, keys: 
   assert.equal(gradeFromNote(undefined), null);
   assert.equal(gradeFromNote("Pre-K"), null);
   console.log("✅ issuer and grade");
+}
+
+{
+  const adult = { iss: ISS, aud: "sigma-read/admin", sub: SUB, iat: NOW - 10, exp: NOW + 110, v: 1, adult: { id: SUB, name: "An admin", email: "admin@example.org", roles: [{ school: SUB, schoolName: "A family", role: "admin" }] } };
+  const checkAdult = (n: string) => verifyAdultNote(n, { issuer: ISS, keys: [jwk], now: NOW });
+  assert.equal(checkAdult(note(adult)).adult.email, "admin@example.org");
+  assert.throws(() => checkAdult(note({ ...good, exp: NOW + 110 })), /another app/, "a student's note never opens the admin pages");
+  assert.throws(() => checkAdult(note({ ...good, aud: "sigma-read/admin", exp: NOW + 110 })), /student's note/);
+  assert.throws(() => check(note(adult)), /another app/, "an adult's note never signs a student in");
+  assert.throws(() => check(note({ ...adult, aud: "sigma-read", exp: NOW + 110 })), /adult's note/);
+  assert.throws(() => checkAdult(note({ ...adult, exp: NOW - 10 + 48 * 3600 })), /lifetime/, "an adult's note is short-lived");
+  assert.throws(() => checkAdult(note({ ...adult, adult: { id: SUB, name: "x" } })), /no adult/);
+  console.log("✅ adult notes");
 }
 
 async function keyCache() {

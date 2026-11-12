@@ -34,6 +34,21 @@ export interface CompassProfileClaims {
   student: CompassStudentNote;
 }
 
+/** An adult opening SigmaRead's admin pages from Compass Admin (app contract 1.2) */
+export interface CompassAdultNote {
+  id: string;
+  name: string;
+  email?: string;
+  roles: { school: string; schoolName: string; role: string }[];
+}
+
+export interface CompassAdultClaims extends Omit<CompassProfileClaims, "student"> {
+  adult: CompassAdultNote;
+}
+
+/** An adult's note is good for two minutes; a little slack for clocks */
+export const MAX_ADULT_LIFETIME_S = 10 * 60;
+
 export interface Jwk extends JsonWebKey {
   kid?: string;
 }
@@ -59,12 +74,35 @@ export function verifyProfileNote(
   note: string,
   opts: { issuer: string; keys: Jwk[]; audience?: string; now?: number },
 ): CompassProfileClaims {
+  const claims = verifyNote(note, opts, MAX_LIFETIME_S) as CompassProfileClaims & { adult?: unknown };
+  if (claims.adult !== undefined) throw new ProfileError("an adult's note does not sign a student in");
+  if (!claims.student || typeof claims.student !== "object") throw new ProfileError("no student");
+  return claims;
+}
+
+/** Checks an adult's note (contract 1.2): the same signature and claims, an `adult` and no `student` */
+export function verifyAdultNote(
+  note: string,
+  opts: { issuer: string; keys: Jwk[]; audience?: string; now?: number },
+): CompassAdultClaims {
+  // An adult's note is for "<slug>/admin", so it can never pass as a student's note
+  const claims = verifyNote(note, { ...opts, audience: opts.audience ?? `${COMPASS_APP_SLUG}/admin` }, MAX_ADULT_LIFETIME_S) as CompassAdultClaims & { student?: unknown };
+  if (claims.student !== undefined) throw new ProfileError("a student's note does not open the admin pages");
+  if (!claims.adult || typeof claims.adult !== "object" || !Array.isArray(claims.adult.roles)) throw new ProfileError("no adult");
+  return claims;
+}
+
+function verifyNote(
+  note: string,
+  opts: { issuer: string; keys: Jwk[]; audience?: string; now?: number },
+  maxLifetime: number,
+): { iss: string; aud: string; sub: string; iat: number; exp: number } {
   const parts = note.split(".");
   if (parts.length !== 3) throw new ProfileError("not a signed note");
   const [h, p, s] = parts;
 
   let header: { alg?: string; kid?: string };
-  let claims: CompassProfileClaims;
+  let claims: { iss: string; aud: string; sub: string; iat: number; exp: number };
   try {
     header = JSON.parse(b64(h).toString("utf8"));
     claims = JSON.parse(b64(p).toString("utf8"));
@@ -86,9 +124,8 @@ export function verifyProfileNote(
   const now = opts.now ?? Math.floor(Date.now() / 1000);
   if (typeof claims.exp !== "number" || claims.exp <= now) throw new ProfileError("note has expired");
   // Compass's notes are good for 48 hours (contract 1.1); anything longer, or signed in the future, is refused
-  if (typeof claims.iat !== "number" || claims.iat > now + 300 || claims.exp - claims.iat > MAX_LIFETIME_S) throw new ProfileError("note lifetime out of range");
-  if (typeof claims.sub !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claims.sub)) throw new ProfileError("no student id");
-  if (!claims.student || typeof claims.student !== "object") throw new ProfileError("no student");
+  if (typeof claims.iat !== "number" || claims.iat > now + 300 || claims.exp - claims.iat > maxLifetime) throw new ProfileError("note lifetime out of range");
+  if (typeof claims.sub !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claims.sub)) throw new ProfileError("no id");
   return claims;
 }
 
