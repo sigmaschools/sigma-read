@@ -38,6 +38,9 @@ const check = (n: string, issuer = ISS) => verifyProfileNote(n, { issuer, keys: 
   refused(note(good), /issuer/, "https://other.example");
   refused(note({ ...good, exp: NOW }), /expired/);
   refused(note({ ...good, sub: "lily" }), /student id/);
+  refused(note({ ...good, iat: NOW - 10, exp: NOW - 10 + 72 * 3600 }), /lifetime/);
+  refused(note({ ...good, iat: NOW + 3600 }), /lifetime/);
+  refused(note(null as unknown as Record<string, unknown>), /unreadable/);
   refused("a.b", /signed note/);
   const [h, , s] = note(good).split(".");
   const forged = Buffer.from(JSON.stringify({ ...good, sub: "11111111-2222-3333-4444-555555555555" })).toString("base64url");

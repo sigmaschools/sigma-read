@@ -40,6 +40,9 @@ export interface Jwk extends JsonWebKey {
 
 export class ProfileError extends Error {}
 
+/** The longest a note may be good for: Compass signs them for 48 hours, plus an hour of slack */
+export const MAX_LIFETIME_S = 49 * 3600;
+
 const b64 = (s: string) => Buffer.from(s, "base64url");
 
 /** The Compass server we trust, without a trailing slash; null when SigmaRead is not set up for Compass */
@@ -68,6 +71,7 @@ export function verifyProfileNote(
   } catch {
     throw new ProfileError("unreadable note");
   }
+  if (!header || typeof header !== "object" || !claims || typeof claims !== "object") throw new ProfileError("unreadable note");
   if (header.alg !== "EdDSA") throw new ProfileError("unexpected algorithm");
 
   const jwk = opts.keys.find((k) => k.kid === header.kid && k.kty === "OKP" && k.crv === "Ed25519");
@@ -80,6 +84,8 @@ export function verifyProfileNote(
   if (claims.aud !== (opts.audience ?? COMPASS_APP_SLUG)) throw new ProfileError("note is for another app");
   const now = opts.now ?? Math.floor(Date.now() / 1000);
   if (typeof claims.exp !== "number" || claims.exp <= now) throw new ProfileError("note has expired");
+  // Compass's notes are good for 48 hours (contract 1.1); anything longer, or signed in the future, is refused
+  if (typeof claims.iat !== "number" || claims.iat > now + 300 || claims.exp - claims.iat > MAX_LIFETIME_S) throw new ProfileError("note lifetime out of range");
   if (typeof claims.sub !== "string" || !/^[0-9a-f-]{36}$/i.test(claims.sub)) throw new ProfileError("no student id");
   if (!claims.student || typeof claims.student !== "object") throw new ProfileError("no student");
   return claims;

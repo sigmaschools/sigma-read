@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { createToken } from "@/lib/auth";
 import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyProfileNote } from "@/lib/compass-profile";
@@ -16,12 +16,24 @@ export async function POST(req: NextRequest) {
   const base = compassBase();
   if (!issuer || !base) return NextResponse.json({ error: "Compass is not set up" }, { status: 503 });
 
-  const { note } = (await req.json().catch(() => ({}))) as { note?: unknown };
-  if (typeof note !== "string" || note.length > 16_000) return NextResponse.json({ error: "No note" }, { status: 400 });
+  // JSON only, so another site cannot post here with a plain form; small bodies only
+  if (!req.headers.get("content-type")?.startsWith("application/json")) return NextResponse.json({ error: "JSON only" }, { status: 415 });
+  const text = await req.text();
+  if (text.length > 16_000) return NextResponse.json({ error: "Too large" }, { status: 413 });
+  let note: unknown;
+  try { note = (JSON.parse(text) as { note?: unknown })?.note; } catch { note = undefined; }
+  if (typeof note !== "string") return NextResponse.json({ error: "No note" }, { status: 400 });
 
+  let keys;
+  try {
+    keys = await compassKeys(base, noteKid(note));
+  } catch (e) {
+    // Compass's key page is down or slow: not the note's fault, and worth noticing in the logs
+    console.error(`[compass sign-in] keys unavailable: ${e instanceof Error ? e.message : e}`);
+    return NextResponse.json({ error: "Compass keys unavailable" }, { status: 503 });
+  }
   let claims;
   try {
-    const keys = await compassKeys(base, noteKid(note));
     claims = verifyProfileNote(note, { issuer, keys });
   } catch (e) {
     const why = e instanceof ProfileError ? e.message : "could not check the note";
@@ -33,7 +45,8 @@ export async function POST(req: NextRequest) {
   const [student] = await db
     .select({ id: schema.students.id, onboardingComplete: schema.students.onboardingComplete })
     .from(schema.students)
-    .where(sql`lower(${schema.students.externalId}) = ${learnerId}`)
+    // external_id is unique and written lowercase (migration 0014)
+    .where(eq(schema.students.externalId, learnerId))
     .limit(1);
   if (!student) {
     console.warn(`[compass sign-in] no student linked to learner ${learnerId}`);
