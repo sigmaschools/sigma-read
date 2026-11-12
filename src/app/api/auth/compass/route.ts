@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { createToken } from "@/lib/auth";
-import { compassIssuer, compassKeys, noteKid, ProfileError, verifyProfileNote } from "@/lib/compass-profile";
+import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyProfileNote } from "@/lib/compass-profile";
 
 /**
  * Signs a student in from the profile note Compass opened SigmaRead with (app contract 1.1).
@@ -13,26 +13,27 @@ import { compassIssuer, compassKeys, noteKid, ProfileError, verifyProfileNote } 
  */
 export async function POST(req: NextRequest) {
   const issuer = compassIssuer();
-  if (!issuer) return NextResponse.json({ error: "Compass is not set up" }, { status: 503 });
+  const base = compassBase();
+  if (!issuer || !base) return NextResponse.json({ error: "Compass is not set up" }, { status: 503 });
 
   const { note } = (await req.json().catch(() => ({}))) as { note?: unknown };
   if (typeof note !== "string" || note.length > 16_000) return NextResponse.json({ error: "No note" }, { status: 400 });
 
   let claims;
   try {
-    const keys = await compassKeys(issuer, noteKid(note));
+    const keys = await compassKeys(base, noteKid(note));
     claims = verifyProfileNote(note, { issuer, keys });
   } catch (e) {
     const why = e instanceof ProfileError ? e.message : "could not check the note";
     console.warn(`[compass sign-in] refused: ${why}`);
-    return NextResponse.json({ error: "Compass could not sign you in", reason: why }, { status: 401 });
+    return NextResponse.json({ error: "Compass could not sign you in" }, { status: 401 });
   }
 
   const learnerId = claims.sub.toLowerCase();
   const [student] = await db
     .select({ id: schema.students.id, onboardingComplete: schema.students.onboardingComplete })
     .from(schema.students)
-    .where(eq(schema.students.externalId, learnerId))
+    .where(sql`lower(${schema.students.externalId}) = ${learnerId}`)
     .limit(1);
   if (!student) {
     console.warn(`[compass sign-in] no student linked to learner ${learnerId}`);

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+/** One sign-in per page load, shared by both runs of the effect in development's Strict Mode */
+let signingIn: Promise<State> | null = null;
+
 type State = "checking" | "ready" | "not_linked";
 
 /**
@@ -16,22 +19,29 @@ export default function CompassGate({ children }: { children: React.ReactNode })
   const [state, setState] = useState<State>("checking");
 
   useEffect(() => {
-    const hash = new URLSearchParams(window.location.hash.slice(1));
-    const note = hash.get("compass_profile");
-    if (!note) { setState("ready"); return; }
+    if (!signingIn) {
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const note = hash.get("compass_profile");
+      if (!note) { setState("ready"); return; }
 
-    // The note never stays in the address: not in history, not in a copied link
-    hash.delete("compass_profile");
-    const rest = hash.toString();
-    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + (rest ? `#${rest}` : ""));
+      // The note never stays in the address: not in history, not in a copied link
+      hash.delete("compass_profile");
+      const rest = hash.toString();
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + (rest ? `#${rest}` : ""));
 
-    fetch("/api/auth/compass", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note }),
-    })
-      .then((res) => setState(res.status === 404 ? "not_linked" : "ready"))
-      .catch(() => setState("ready"));
+      // Never longer than 8 s on the spinner: a slow answer falls back to the page as it was
+      signingIn = fetch("/api/auth/compass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((res): State => (res.status === 404 ? "not_linked" : "ready"))
+        .catch((): State => "ready");
+    }
+    let live = true;
+    signingIn.then((s) => { if (live) setState(s); });
+    return () => { live = false; };
   }, []);
 
   if (state === "ready") return <>{children}</>;

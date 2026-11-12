@@ -85,17 +85,33 @@ export function verifyProfileNote(
   return claims;
 }
 
-/** The issuer's keys, cached for up to an hour and fetched again when a note names a key we do not hold */
-let cache: { issuer: string; keys: Jwk[]; at: number } | null = null;
+/**
+ * Compass's keys, cached for up to an hour. A note naming a key we do not hold fetches them
+ * again, but at most once a minute and one fetch at a time: the route is open to anyone, so a
+ * stream of made-up key ids must not turn into a stream of calls to Compass.
+ */
+let cache: { base: string; keys: Jwk[]; at: number } | null = null;
+let inFlight: Promise<Jwk[]> | null = null;
 
-export async function compassKeys(issuer: string, kid?: string): Promise<Jwk[]> {
-  const fresh = cache && cache.issuer === issuer && Date.now() - cache.at < 3600_000;
-  if (fresh && (!kid || cache!.keys.some((k) => k.kid === kid))) return cache!.keys;
-  const res = await fetch(`${issuer}/.well-known/jwks.json`, { cache: "no-store" });
-  if (!res.ok) throw new ProfileError(`keys unavailable (${res.status})`);
-  const body = (await res.json()) as { keys?: Jwk[] };
-  cache = { issuer, keys: body.keys ?? [], at: Date.now() };
-  return cache.keys;
+export async function compassKeys(base: string, kid?: string): Promise<Jwk[]> {
+  const age = cache && cache.base === base ? Date.now() - cache.at : Infinity;
+  if (age < 3600_000 && (!kid || cache!.keys.some((k) => k.kid === kid) || age < 60_000)) return cache!.keys;
+  if (!inFlight) {
+    inFlight = (async () => {
+      const res = await fetch(`${base}/.well-known/jwks.json`, { cache: "no-store", signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new ProfileError(`keys unavailable (${res.status})`);
+      const body = (await res.json()) as { keys?: Jwk[] };
+      cache = { base, keys: body.keys ?? [], at: Date.now() };
+      return cache.keys;
+    })().finally(() => { inFlight = null; });
+  }
+  return inFlight;
+}
+
+/** Where Compass publishes its keys: COMPASS_URL, without a trailing slash */
+export function compassBase(env: Record<string, string | undefined> = process.env): string | null {
+  const url = (env.COMPASS_URL || "").trim().replace(/\/+$/, "");
+  return url || null;
 }
 
 /** The `kid` a note names, without checking anything, so the right keys can be fetched */
