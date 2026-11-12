@@ -9,7 +9,8 @@ import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyA
  * Signs an admin in to the admin pages from the adult's note Compass Admin opens them with
  * (Compass app contract 1.2, Administration, Apps). Compass vouches for who the adult is;
  * SigmaRead decides who is an admin: a row in `admins` linked to the adult's Compass id, or,
- * the first time, the row with the adult's email, which is then linked for good.
+ * the first time, the row with the adult's email, which is then linked for good. Compass signs
+ * adults in only through a link sent to their address, so the email in its note is one they own.
  */
 export async function POST(req: NextRequest) {
   const issuer = compassIssuer();
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest) {
       .where(and(sql`lower(${schema.admins.email}) = ${email}`, isNull(schema.admins.externalId)))
       .returning({ id: schema.admins.id });
     if (admin) console.log(`[compass admin sign-in] admin ${admin.id} linked to Compass person ${personId}`);
+    // Two first visits at once: the other one linked the row
+    else [admin] = await db.select({ id: schema.admins.id }).from(schema.admins).where(eq(schema.admins.externalId, personId)).limit(1);
   }
   if (!admin) {
     console.warn(`[compass admin sign-in] Compass person ${personId} is not a SigmaRead admin`);

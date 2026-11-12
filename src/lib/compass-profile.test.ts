@@ -69,6 +69,9 @@ const check = (n: string, issuer = ISS) => verifyProfileNote(n, { issuer, keys: 
   assert.throws(() => check(note({ ...adult, aud: "sigma-read", exp: NOW + 110 })), /adult's note/);
   assert.throws(() => checkAdult(note({ ...adult, exp: NOW - 10 + 48 * 3600 })), /lifetime/, "an adult's note is short-lived");
   assert.throws(() => checkAdult(note({ ...adult, adult: { id: SUB, name: "x" } })), /no adult/);
+  assert.throws(() => checkAdult(note({ ...adult, adult: { ...adult.adult, email: 7 } })), /no adult/);
+  assert.throws(() => checkAdult(note({ ...adult, adult: { ...adult.adult, id: "11111111-2222-3333-4444-555555555555" } })), /subject/);
+  assert.throws(() => checkAdult(note({ ...adult, exp: NOW - 10 + 600 })), /lifetime/, "ten minutes is too long for an adult's note");
   console.log("✅ adult notes");
 }
 

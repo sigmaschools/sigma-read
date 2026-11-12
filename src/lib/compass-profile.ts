@@ -46,8 +46,8 @@ export interface CompassAdultClaims extends Omit<CompassProfileClaims, "student"
   adult: CompassAdultNote;
 }
 
-/** An adult's note is good for two minutes; a little slack for clocks */
-export const MAX_ADULT_LIFETIME_S = 10 * 60;
+/** An adult's note is good for two minutes; a minute of slack (clock skew on iat is checked apart) */
+export const MAX_ADULT_LIFETIME_S = 180;
 
 export interface Jwk extends JsonWebKey {
   kid?: string;
@@ -88,7 +88,9 @@ export function verifyAdultNote(
   // An adult's note is for "<slug>/admin", so it can never pass as a student's note
   const claims = verifyNote(note, { ...opts, audience: opts.audience ?? `${COMPASS_APP_SLUG}/admin` }, MAX_ADULT_LIFETIME_S) as CompassAdultClaims & { student?: unknown };
   if (claims.student !== undefined) throw new ProfileError("a student's note does not open the admin pages");
-  if (!claims.adult || typeof claims.adult !== "object" || !Array.isArray(claims.adult.roles)) throw new ProfileError("no adult");
+  const a = claims.adult;
+  if (!a || typeof a !== "object" || !Array.isArray(a.roles) || typeof a.name !== "string" || (a.email !== undefined && typeof a.email !== "string")) throw new ProfileError("no adult");
+  if (typeof a.id !== "string" || a.id.toLowerCase() !== claims.sub.toLowerCase()) throw new ProfileError("adult is not the note's subject");
   return claims;
 }
 

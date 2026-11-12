@@ -12,6 +12,12 @@ function signOut(): Promise<State> {
   return fetch("/api/auth/logout", { method: "POST" }).then((): State => "ready", (): State => "ready");
 }
 
+/** What each kind of page reads from the address, where it posts it, and what it says when the note opens nothing */
+const kinds = {
+  student: { param: "compass_profile", endpoint: "/api/auth/compass", refused: 404, refusedError: "not_linked", title: "Sigma Read isn't ready for you yet", body: "Ask a grown-up to set it up for you in Compass." },
+  admin: { param: "compass_adult", endpoint: "/api/auth/compass-admin", refused: 403, refusedError: "not_admin", title: "You are not a Sigma Read admin", body: "Ask whoever runs Sigma Read to add you." },
+} as const;
+
 /**
  * Signs the student in from Compass before the page underneath loads anything.
  *
@@ -24,12 +30,6 @@ function signOut(): Promise<State> {
  * The hidden level report stays inside the gate on purpose: outside it, it could be fetched
  * with the previous student's session on a shared device and report the wrong student's level.
  */
-/** What each kind of page reads from the address, where it posts it, and what it says when the note opens nothing */
-const kinds = {
-  student: { param: "compass_profile", endpoint: "/api/auth/compass", refused: 404, refusedError: "not_linked", title: "Sigma Read isn't ready for you yet", body: "Ask a grown-up to set it up for you in Compass." },
-  admin: { param: "compass_adult", endpoint: "/api/auth/compass-admin", refused: 403, refusedError: "not_admin", title: "You are not a Sigma Read admin", body: "Ask whoever runs Sigma Read to add you." },
-} as const;
-
 export default function CompassGate({ children, kind = "student" }: { children: React.ReactNode; kind?: keyof typeof kinds }) {
   const k = kinds[kind];
   const [state, setState] = useState<State>("checking");
