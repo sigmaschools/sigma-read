@@ -7,6 +7,11 @@ let signingIn: Promise<State> | null = null;
 
 type State = "checking" | "ready" | "not_linked";
 
+/** A note was there and signed nobody in: nobody stays signed in from before */
+function signOut(): Promise<State> {
+  return fetch("/api/auth/logout", { method: "POST" }).then((): State => "ready", (): State => "ready");
+}
+
 /**
  * Signs the student in from Compass before the page underneath loads anything.
  *
@@ -42,9 +47,13 @@ export default function CompassGate({ children }: { children: React.ReactNode })
         body: JSON.stringify({ note }),
         signal: stop.signal,
       })
-        .then((res): State => (res.status === 404 ? "not_linked" : "ready"))
+        .then((res): State | Promise<State> => {
+          if (res.ok) return "ready";
+          if (res.status === 404) return "not_linked";
+          return signOut();
+        })
         // No answer in time: sign out whoever was here before, so the page never shows them
-        .catch(() => fetch("/api/auth/logout", { method: "POST" }).then((): State => "ready", (): State => "ready"))
+        .catch(signOut)
         .finally(() => clearTimeout(timer));
     }
     let live = true;
