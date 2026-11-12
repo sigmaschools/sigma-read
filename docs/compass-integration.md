@@ -29,6 +29,7 @@ Compass is the way in. It opens a first-party app with the student's profile not
 
 - A note for a Compass learner no SigmaRead student is linked to shows "Sigma Read isn't ready for you yet" instead of a sign-in form.
 - A note that does not sign anyone in (refused, for an unlinked learner, Compass's keys unreachable, or no answer within 8 seconds) signs out whoever was signed in on the device before, so a shared iPad never shows one student another's reading. The page then goes to `/login`, where Compass fills the right student's saved password, until that path is retired.
+- There is no top bar on the student screens: Compass's own bar names the app and the student and has the X for leaving, so SigmaRead's bar (app name, the student's name and a menu with Welcome and Sign out) went with standalone use. The reading and discussion screens keep their Back link.
 - The note is not stored and never reaches the server's access log: it travels after `#`, and only the gate's POST body carries it.
 
 ## The reading day
