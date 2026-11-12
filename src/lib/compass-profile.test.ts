@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import { generateKeyPairSync, sign } from "node:crypto";
+import { compassIssuer, gradeFromNote, noteKid, ProfileError, verifyProfileNote, type Jwk } from "./compass-profile";
+
+const ISS = "https://compass.example";
+const SUB = "0b5e3c1a-2f4d-4e6a-9b7c-1d2e3f4a5b6c";
+const NOW = 1_800_000_000;
+
+const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+const jwk = { ...(publicKey.export({ format: "jwk" }) as Jwk), kid: "k1", alg: "EdDSA", use: "sig" };
+const other = generateKeyPairSync("ed25519");
+
+function note(claims: Record<string, unknown>, opts: { kid?: string; key?: typeof privateKey; alg?: string } = {}) {
+  const enc = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const signed = `${enc({ alg: opts.alg ?? "EdDSA", typ: "JWT", kid: opts.kid ?? "k1" })}.${enc(claims)}`;
+  return `${signed}.${sign(null, Buffer.from(signed), opts.key ?? privateKey).toString("base64url")}`;
+}
+
+const good = { iss: ISS, aud: "sigma-read", sub: SUB, iat: NOW - 10, exp: NOW + 3600, v: 1, student: { id: SUB, name: "Test Learner", grade: "5", interests: [] } };
+const check = (n: string, issuer = ISS) => verifyProfileNote(n, { issuer, keys: [jwk], now: NOW });
+
+{
+  const c = check(note(good));
+  assert.equal(c.sub, SUB);
+  assert.equal(c.student.name, "Test Learner");
+  assert.equal(check(note(good), ISS + "/").sub, SUB, "a trailing slash on the expected issuer is fine");
+  assert.equal(noteKid(note(good)), "k1");
+  console.log("✅ a good note");
+}
+
+{
+  const refused = (n: string, why: RegExp, issuer = ISS) => assert.throws(() => check(n, issuer), (e: unknown) => e instanceof ProfileError && why.test(e.message));
+  refused(note(good, { key: other.privateKey }), /bad signature/);
+  refused(note(good, { kid: "k2" }), /unknown key/);
+  refused(note(good, { alg: "HS256" }), /algorithm/);
+  refused(note({ ...good, aud: "spell" }), /another app/);
+  refused(note({ ...good, iss: "compass-app-dev" }), /issuer/);
+  refused(note(good), /issuer/, "https://other.example");
+  refused(note({ ...good, exp: NOW }), /expired/);
+  refused(note({ ...good, sub: "lily" }), /student id/);
+  refused("a.b", /signed note/);
+  const [h, , s] = note(good).split(".");
+  const forged = Buffer.from(JSON.stringify({ ...good, sub: "11111111-2222-3333-4444-555555555555" })).toString("base64url");
+  refused(`${h}.${forged}.${s}`, /bad signature/);
+  console.log("✅ bad notes are refused");
+}
+
+{
+  assert.equal(compassIssuer({ COMPASS_URL: "https://c.example/" }), "https://c.example");
+  assert.equal(compassIssuer({ COMPASS_URL: "https://c.example", COMPASS_ISSUER: "https://i.example" }), "https://i.example");
+  assert.equal(compassIssuer({}), null);
+  assert.equal(gradeFromNote("5"), 5);
+  assert.equal(gradeFromNote("K"), 0);
+  assert.equal(gradeFromNote(undefined), null);
+  assert.equal(gradeFromNote("Pre-K"), null);
+  console.log("✅ issuer and grade");
+}
