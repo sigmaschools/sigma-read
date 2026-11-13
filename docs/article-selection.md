@@ -86,6 +86,8 @@ Each student has a daily article cap (default: **5 articles per day**). After co
 
 The daily cap is adjustable per student (`students.daily_article_cap`).
 
+The home screen stops offering articles at the daily goal (**3**), not the cap: once a student has finished 3 today, it shows the day's summary and its questions (favourite article, "still into these?", the occasional rating) and then "See you tomorrow", which carries `id="finished"`. That is Sigma Read's end screen for Compass (app contract 2.1): the registry's `doneWhen` selector `#finished` lets Compass close Sigma Read and move on by itself. The owner's call (13 Nov 2026): after the day's reading, a book or something else beats more articles.
+
 A "day" is the student's own local day: the student page sends the device's time zone (`?tz=` on `/api/student/daily-progress` and `/api/articles/serve-cached`) and `startOfLocalDay` in `src/lib/local-day.ts` starts the count at local midnight, so evening reading counts toward the day it was done. An unknown or missing zone falls back to midnight UTC. A finished reading counts once, even when its discussion has more than one completed conversation row.
 
 ---

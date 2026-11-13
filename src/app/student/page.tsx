@@ -77,7 +77,6 @@ export default function StudentHome() {
   const [userName, setUserName] = useState("");
   const [completedToday, setCompletedToday] = useState<{title: string, id: number}[]>([]);
   const [goalReached, setGoalReached] = useState(false);
-  const [dailyCap, setDailyCap] = useState(5);
   const [showFavoritePick, setShowFavoritePick] = useState(false);
   const [showGoalChat, setShowGoalChat] = useState(false);
   const [goalChatInput, setGoalChatInput] = useState("");
@@ -110,7 +109,6 @@ export default function StudentHome() {
     const prog = await progRes.json();
     if (!prog.error) {
       setCompletedToday(prog.completedToday || []);
-      setDailyCap(prog.dailyCap || 5);
       setTotalSessions(prog.totalSessions || 0);
       if (prog.count >= prog.dailyGoal && prog.count > 0) {
         setGoalReached(true);
@@ -334,22 +332,18 @@ export default function StudentHome() {
               )}
 
               {/* Closing message */}
+              {/* The day's end screen: Compass's doneWhen matches #finished and closes Sigma Read (app contract 2.1) */}
               {!showFavoritePick && !showGoalChat && !showRating && !showCheckin && (
-                <p className="text-sm text-[var(--muted)]">See you tomorrow ✌️</p>
+                <p id="finished" className="text-sm text-[var(--muted)]">See you tomorrow ✌️</p>
               )}
             </div>
 
-            {/* Still allow reading up to daily cap */}
-            {completedToday.length < dailyCap && visible.length > 0 && (
-              <p className="text-xs text-[var(--muted)] text-center">
-                You can keep reading if you want — up to {dailyCap} articles today.
-              </p>
-            )}
           </div>
         )}
 
-        {/* Available Articles — show if goal not reached, or if under daily cap */}
-        {(!goalReached || completedToday.length < dailyCap) && visible.length > 0 && (
+        {/* Available Articles: only until the day's goal is reached. Then the day is done and Compass
+            moves on, so the student reads a book or does something else instead of more articles. */}
+        {!goalReached && visible.length > 0 && (
           <>
             <div className="mb-3">
               <h2 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wider">Choose an Article</h2>
