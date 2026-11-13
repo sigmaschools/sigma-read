@@ -15,9 +15,9 @@ Compass's page agent reads `<script type="application/json" data-compass-report>
 
 Levels are reported in Lexile as the middle of each level's band (L1 450 to L6 1200, `levelToLexile`). `appVersion` is the deploy's short commit. Building a report never fails a student's request (`safeComprehensionCompassReport`). Tests: `src/lib/compass-report.test.ts`.
 
-## 2. SigmaRead's read-only API
+## 2. No API of SigmaRead's own
 
-Compass, or a guide's tools, can read students, sessions and reports from SigmaRead with a key: [compass-api.md](./compass-api.md). A student's `external_id` holds their Compass learner id (`GET /api/v1/students/by-external/{id}`).
+SigmaRead had a key-protected read API under `/api/v1` (students, sessions, reports) and an API Keys admin page. Nothing called it, so both were removed on 13 Nov 2026 (issue 164). Compass learns what a student did from the report on the page (section 1) and from the session it recorded. A student's `external_id` holds their Compass learner id. The `api_clients` and `api_request_log` tables are still in the database, unused, until the owner agrees to drop them.
 
 ## 3. The interest graph
 

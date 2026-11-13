@@ -29,7 +29,6 @@ npm run dev
 | [`docs/interest-graph.md`](docs/interest-graph.md) | Topic map, interest signals, decayed affinities, and the link to Compass's interest graph |
 | **Compass** | |
 | [`docs/compass-integration.md`](docs/compass-integration.md) | How SigmaRead runs inside Compass: in-page reports, the reading day, the interest graph link |
-| [`docs/compass-api.md`](docs/compass-api.md) | SigmaRead's read-only `/api/v1` for Compass and service clients: keys, scopes, endpoints |
 | [`docs/content-policy.md`](docs/content-policy.md) | What we publish and why — Three Bucket framework, selection principles |
 | [`docs/content-safety.md`](docs/content-safety.md) | 3-layer content filtering — onboarding, regex, generation |
 | [`docs/student-onboarding.md`](docs/student-onboarding.md) | Walkthrough + interest interview + initial article delivery |
