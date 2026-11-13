@@ -5,8 +5,8 @@ import { getSession } from "@/lib/auth";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { checkinFor } from "@/lib/interest-graph";
 import { startOfLocalDay, requestZone } from "@/lib/local-day";
+import { dailyGoalOf, effectiveDailyCap } from "@/lib/daily-goal";
 
-const DAILY_GOAL = 3;
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -58,7 +58,8 @@ export async function GET(req: NextRequest) {
   const favoritePicked = Number(favResult?.count || 0) > 0;
 
   // "Still into these?" replaces the "tomorrow" question about every two weeks, on goal days
-  const done = completedToday.length >= DAILY_GOAL;
+  const dailyGoal = dailyGoalOf(student);
+  const done = completedToday.length >= dailyGoal;
   const interestCheckin = done && !favoritePicked
     ? await checkinFor(session.userId).catch(e => { console.error("Interest check-in unavailable:", e); return []; })
     : [];
@@ -66,8 +67,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     completedToday: completedToday.map(c => ({ title: c.articleTitle, id: c.articleId })),
     count: completedToday.length,
-    dailyGoal: DAILY_GOAL,
-    dailyCap: student.dailyArticleCap || 5,
+    dailyGoal,
+    dailyCap: effectiveDailyCap(student),
     done,
     totalSessions,
     favoritePicked,

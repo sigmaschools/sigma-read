@@ -62,6 +62,8 @@ export const students = pgTable("students", {
   starterArticlesStatus: varchar("starter_articles_status", { length: 20 }),
   starterArticlesStartedAt: timestamp("starter_articles_started_at"),
   dailyArticleCap: integer("daily_article_cap").default(5),
+  // The day's goal in articles as Compass last gave it at sign-in (src/lib/daily-goal.ts); null = three
+  dailyGoalArticles: integer("daily_goal_articles"),
   weeklySessionTarget: integer("weekly_session_target"), // null = auto-calculate from dailyArticleCap × 5
   totalSessionsCompleted: integer("total_sessions_completed").default(0),
   feedMix: jsonb("feed_mix").$type<{

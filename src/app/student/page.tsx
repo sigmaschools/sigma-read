@@ -88,7 +88,8 @@ export default function StudentHome() {
   const [checkinAnswers, setCheckinAnswers] = useState<Record<string, string>>({});
   const [showCheckin, setShowCheckin] = useState(false);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
-  const dailyGoal = 3;
+  // Compass sets the day's goal; three until the server says otherwise
+  const [dailyGoal, setDailyGoal] = useState(3);
   const router = useRouter();
 
   useEffect(() => {
@@ -110,6 +111,7 @@ export default function StudentHome() {
     if (!prog.error) {
       setCompletedToday(prog.completedToday || []);
       setTotalSessions(prog.totalSessions || 0);
+      if (prog.dailyGoal > 0) setDailyGoal(prog.dailyGoal);
       if (prog.count >= prog.dailyGoal && prog.count > 0) {
         setGoalReached(true);
         // Show favorite pick if they haven't picked one today

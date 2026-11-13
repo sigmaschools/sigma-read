@@ -9,6 +9,7 @@ import { createToken } from "@/lib/auth";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
 import { profileFromNote, startingGrade } from "@/lib/compass-onboarding";
+import { goalFromNote } from "@/lib/daily-goal";
 import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyProfileNote } from "@/lib/compass-profile";
 
 /**
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   const learnerId = claims.sub.toLowerCase();
   const [student] = await db
-    .select({ id: schema.students.id, onboardingComplete: schema.students.onboardingComplete, gradeLevel: schema.students.gradeLevel })
+    .select({ id: schema.students.id, onboardingComplete: schema.students.onboardingComplete, gradeLevel: schema.students.gradeLevel, dailyGoalArticles: schema.students.dailyGoalArticles })
     .from(schema.students)
     // external_id is unique and written lowercase (migration 0014)
     .where(eq(schema.students.externalId, learnerId))
@@ -58,6 +59,18 @@ export async function POST(req: NextRequest) {
   if (!student) {
     console.warn(`[compass sign-in] no student linked to learner ${learnerId}`);
     return signedOut(NextResponse.json({ error: "not_linked" }, { status: 404 }));
+  }
+
+  // The day's goal as Compass has it now (contract 1.11): kept so the home page ends the day there.
+  // A note without one puts the student back on three. A failure here never fails the sign-in.
+  try {
+    const goal = goalFromNote(claims.student);
+    if (goal !== student.dailyGoalArticles) {
+      await db.update(schema.students).set({ dailyGoalArticles: goal }).where(eq(schema.students.id, student.id));
+      console.log(`[compass sign-in] student ${student.id} daily goal ${goal ?? "default"} (was ${student.dailyGoalArticles ?? "default"})`);
+    }
+  } catch (e) {
+    console.error(`[compass sign-in] daily goal not saved for student ${student.id}: ${e instanceof Error ? e.message : e}`);
   }
 
   // A student who has not onboarded yet: what Compass knows (interests, grade) replaces the

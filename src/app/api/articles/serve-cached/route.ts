@@ -7,6 +7,7 @@ import { getServingLevels } from "@/lib/level-progression";
 import { feedScoring, getAffinities, topicsForCache } from "@/lib/interest-graph";
 import { pickForFeed } from "@/lib/interest-graph/serving";
 import { startOfLocalDay, requestZone } from "@/lib/local-day";
+import { effectiveDailyCap } from "@/lib/daily-goal";
 import Anthropic from "@anthropic-ai/sdk";
 import { tracked } from "@/lib/ai-usage";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats } from "@/lib/repeats";
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       sql`${schema.readingSessions.completedAt} >= ${todayStart}`,
     ));
   
-  const dailyCap = student.dailyArticleCap || 5;
+  const dailyCap = effectiveDailyCap(student);
   const completedToday = Number(todayCount?.count || 0);
   
   if (completedToday >= dailyCap) {
