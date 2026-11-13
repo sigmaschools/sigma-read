@@ -5,7 +5,7 @@
 
 ## Test Accounts
 
-Passwords are never written in this repository (see "Secrets" in CLAUDE.md). Get them from the team's password manager or ask the admin.
+There are no passwords: nobody signs in to SigmaRead directly. A student opens it from Compass, which signs them in with a signed note (the account is linked by its Compass id), and an admin opens the admin pages from the Apps tab of Compass Admin. To look at a test student's pages, an admin uses "view as student" on the Students page.
 
 | Role | Username/Email | Notes |
 |------|---------------|-------|
@@ -42,7 +42,7 @@ Git commits use `wvaughan@gmail.com` (required by Vercel team).
 ## Key API Routes
 | Route | Purpose |
 |-------|---------|
-| `/api/auth/login` | Password login (admin or student) |
+| `/api/auth/compass`, `/api/auth/compass-admin` | Sign-in from Compass's signed note (student, admin); there is no password login |
 | `/api/articles` | List student's articles |
 | `/api/articles/serve-cached` | Serve pre-cached articles to student |
 | `/api/articles/[id]` | Get/update article (PATCH for liked, read) |

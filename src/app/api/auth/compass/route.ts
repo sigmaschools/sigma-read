@@ -119,8 +119,7 @@ export async function POST(req: NextRequest) {
 /**
  * A note was there and did not sign anyone in (refused, unlinked, or not checkable just now):
  * whoever was signed in on this device before is signed out, so a shared iPad never shows one
- * student another's reading. The page then goes to /login, where Compass fills the right
- * student's saved password for as long as that path exists.
+ * student another's reading. The page then says to open Sigma Read from Compass.
  */
 function signedOut(res: NextResponse): NextResponse {
   res.cookies.set("session", "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });

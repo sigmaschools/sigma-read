@@ -40,7 +40,6 @@ export default function AdminStudentsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newUsername, setNewUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [newGrade, setNewGrade] = useState("");
   const [newAge, setNewAge] = useState("");
   const [newGuideId, setNewGuideId] = useState("");
@@ -104,14 +103,13 @@ export default function AdminStudentsPage() {
       body: JSON.stringify({
         name: newName,
         username: newUsername,
-        password: newPassword,
         gradeLevel: newGrade ? parseInt(newGrade) : undefined,
         age: newAge ? parseInt(newAge) : undefined,
         guideId: parseInt(newGuideId),
       }),
     });
     setShowAdd(false);
-    setNewName(""); setNewUsername(""); setNewPassword("");
+    setNewName(""); setNewUsername("");
     setNewGrade(""); setNewAge(""); setNewGuideId("");
     setAdding(false);
     loadStudents();
@@ -147,7 +145,6 @@ export default function AdminStudentsPage() {
         <form onSubmit={addStudent} className="mb-6 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl space-y-3">
           <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
           <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="Username" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
-          <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Password" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
           <div className="grid grid-cols-3 gap-3">
             <select value={newGrade} onChange={e => setNewGrade(e.target.value)} required className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white outline-none focus:border-[var(--accent)]">
               <option value="">Grade</option>

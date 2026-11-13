@@ -16,7 +16,6 @@ export default function AdminGuidesPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [adding, setAdding] = useState(false);
 
   useEffect(() => { loadGuides(); }, []);
@@ -33,10 +32,10 @@ export default function AdminGuidesPage() {
     await fetch("/api/admin/guides", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName, email: newEmail, password: newPassword }),
+      body: JSON.stringify({ name: newName, email: newEmail }),
     });
     setShowAdd(false);
-    setNewName(""); setNewEmail(""); setNewPassword("");
+    setNewName(""); setNewEmail("");
     setAdding(false);
     loadGuides();
   }
@@ -58,7 +57,6 @@ export default function AdminGuidesPage() {
         <form onSubmit={addGuide} className="mb-6 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl space-y-3">
           <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
           <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
-          <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Password" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
           <button type="submit" disabled={adding} className="px-4 py-2 bg-[var(--accent)] text-white text-sm rounded-lg disabled:opacity-50">
             {adding ? "Creating…" : "Create Guide"}
           </button>

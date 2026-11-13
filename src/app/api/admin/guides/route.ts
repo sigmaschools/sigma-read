@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getSession, hashPassword } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { eq, count, gte } from "drizzle-orm";
 
 export async function GET() {
@@ -35,11 +35,10 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, email, password } = await req.json();
-  if (!name || !email || !password) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  const { name, email } = await req.json();
+  if (!name || !email) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
-  const passwordHash = await hashPassword(password);
-  const [guide] = await db.insert(schema.guides).values({ name, email, passwordHash }).returning();
+  const [guide] = await db.insert(schema.guides).values({ name, email }).returning();
 
   return NextResponse.json(guide);
 }

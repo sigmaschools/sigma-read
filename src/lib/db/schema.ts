@@ -31,7 +31,7 @@ export const admins = pgTable("admins", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
   externalId: text("external_id"), // Compass person id, set the first time they open admin from Compass
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, t => [uniqueIndex("admins_external_id_unique").on(t.externalId)]);
@@ -40,7 +40,7 @@ export const guides = pgTable("guides", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
   externalId: text("external_id"), // Compass ID, set by an admin
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, t => [uniqueIndex("guides_external_id_unique").on(t.externalId)]);
@@ -49,7 +49,7 @@ export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   username: text("username").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
   guideId: integer("guide_id").references(() => guides.id).notNull(),
   externalId: text("external_id"), // Compass ID, set by an admin
   readingLevel: integer("reading_level"), // 1-6, null until assessed
@@ -209,7 +209,7 @@ export const parents = pgTable("parents", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

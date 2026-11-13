@@ -7,8 +7,6 @@
  */
 
 import { neon } from "@neondatabase/serverless";
-import bcrypt from "bcryptjs";
-import { seedPassword } from "./seed-password";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -23,7 +21,6 @@ const NEW_STUDENTS = [
 ];
 
 async function main() {
-  const password = seedPassword(); // fail before touching the database
   console.log("\n🧹 Test Student Setup\n");
 
   // Delete generic test students
@@ -52,15 +49,14 @@ async function main() {
   }
 
   // Add new students
-  const hash = await bcrypt.hash(password, 10);
   for (const s of NEW_STUDENTS) {
     const existing = await sql`SELECT id FROM students WHERE username = ${s.username}`;
     if (existing.length > 0) {
       console.log(`  ⏭️ Skipped: ${s.name} (${s.username}) — already exists`);
       continue;
     }
-    await sql`INSERT INTO students (name, username, password_hash, guide_id, grade_level, age, reading_level, onboarding_complete)
-      VALUES (${s.name}, ${s.username}, ${hash}, ${s.guideId}, ${s.gradeLevel}, ${s.age}, ${s.onboard ? s.readingLevel : null}, ${s.onboard})`;
+    await sql`INSERT INTO students (name, username, guide_id, grade_level, age, reading_level, onboarding_complete)
+      VALUES (${s.name}, ${s.username}, ${s.guideId}, ${s.gradeLevel}, ${s.age}, ${s.onboard ? s.readingLevel : null}, ${s.onboard})`;
     console.log(`  ✅ Created: ${s.name} (${s.username}) ${s.onboard ? "" : "— NOT onboarded (for testing)"}`);
   }
 

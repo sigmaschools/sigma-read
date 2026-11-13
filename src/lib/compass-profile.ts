@@ -200,6 +200,12 @@ export function compassBase(env: Record<string, string | undefined> = process.en
   return url || null;
 }
 
+/** Compass's own admin pages, where an admin opened ours from; null when COMPASS_URL is not set */
+export function compassAdminUrl(env: Record<string, string | undefined> = process.env): string | null {
+  const base = compassBase(env);
+  return base ? `${base}/admin/` : null;
+}
+
 /** The `kid` a note names, without checking anything, so the right keys can be fetched */
 export function noteKid(note: string): string | undefined {
   try {
