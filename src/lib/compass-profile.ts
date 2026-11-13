@@ -22,6 +22,17 @@ export interface CompassStudentNote {
   name: string;
   grade?: string;
   interests?: CompassInterestNote[];
+  /** The day's goal of the subject SigmaRead runs in (contract 1.11); absent from an older Compass or a subject with no target */
+  goal?: CompassGoalNote;
+}
+
+export interface CompassGoalNote {
+  subject: string;
+  targetXp: number;
+  /** What the app earns XP for, its XP each, and the goal counted in it (targetXp / rate, rounded up) */
+  unit?: string;
+  rate?: number;
+  units?: number;
 }
 
 export interface CompassProfileClaims {

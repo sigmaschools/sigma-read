@@ -86,7 +86,9 @@ Each student has a daily article cap (default: **5 articles per day**). After co
 
 The daily cap is adjustable per student (`students.daily_article_cap`).
 
-The home screen stops offering articles at the daily goal (**3**), not the cap: once a student has finished 3 today, it shows the day's summary and its questions (favourite article, "still into these?", the occasional rating) and then "See you tomorrow", which carries `id="finished"`. That is Sigma Read's end screen for Compass (app contract 2.1): the registry's `doneWhen` selector `#finished` lets Compass close Sigma Read and move on by itself. The owner's call (13 Nov 2026): after the day's reading, a book or something else beats more articles.
+The home screen stops offering articles at the daily goal, not the cap: once a student has finished that many today, it shows the day's summary and its questions (favourite article, "still into these?", the occasional rating) and then "See you tomorrow", which carries `id="finished"`. That is Sigma Read's end screen for Compass (app contract 2.1): the registry's `doneWhen` selector `#finished` lets Compass close Sigma Read and move on by itself. The owner's call (13 Nov 2026): after the day's reading, a book or something else beats more articles.
+
+The goal is Compass's, not Sigma Read's (`src/lib/daily-goal.ts`). Compass sets each learner's reading goal for the day in XP and says what that is in articles in the profile note it opens Sigma Read with (`student.goal.units`, app contract 1.11: 30 XP at 10 XP an article is 3). The Compass sign-in stores it in `students.daily_goal_articles` each time, so a plan change in Compass takes effect the next time the student opens Sigma Read. A note with no goal, or a student Compass has never opened, reads **3**. The cap is never lower than the goal.
 
 A "day" is the student's own local day: the student page sends the device's time zone (`?tz=` on `/api/student/daily-progress` and `/api/articles/serve-cached`) and `startOfLocalDay` in `src/lib/local-day.ts` starts the count at local midnight, so evening reading counts toward the day it was done. An unknown or missing zone falls back to midnight UTC. A finished reading counts once, even when its discussion has more than one completed conversation row.
 
@@ -119,7 +121,7 @@ Student behavior feeds back into future article selection:
 
 ## Goal Completion Experience
 
-When a student completes their daily goal (3 articles by default):
+When a student completes their daily goal (3 articles unless Compass says otherwise):
 
 1. **Summary card** — "You read 3 articles today" with titles listed
 2. **Favorite pick** — "Which was your favorite?" (tap to select)
