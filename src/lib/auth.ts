@@ -10,7 +10,7 @@ export interface TokenPayload {
   name?: string;
 }
 
-export function createToken(payload: TokenPayload, expiresIn: "7d" | "1d" = "7d"): string {
+export function createToken(payload: TokenPayload, expiresIn: "7d" | "1d" | "1h" = "7d"): string {
   return jwt.sign(payload, getJwtSecret(), { expiresIn });
 }
 

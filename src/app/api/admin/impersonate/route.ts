@@ -18,12 +18,15 @@ export async function POST(req: NextRequest) {
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, userId)).limit(1);
   if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
 
+  // Keep the admin's own session, as it is, in a separate cookie for the return: it ends when it would have
+  const adminToken = (await cookies()).get("session")?.value;
+  if (!adminToken) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   // Fails closed: no impersonation without an audit record
   await auditInsert({ ...auditWho(session), action: "impersonate.start", targetType: role, targetId: userId });
 
-  // Keep the admin's own session, as it is, in a separate cookie for the return: it ends when it would have
-  const adminToken = (await cookies()).get("session")!.value;
-  const impersonateToken = createToken({ userId, role });
+  // An hour as the student, like the cookie that holds it
+  const impersonateToken = createToken({ userId, role }, "1h");
   
   const res = NextResponse.json({ ok: true, role, userId });
   res.cookies.set("session", impersonateToken, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 });
