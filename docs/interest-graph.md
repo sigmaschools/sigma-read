@@ -33,7 +33,7 @@ and the student's `external_id` holds their Compass learner id. The client is
 | the "still into these?" history | `GET /learners/{id}/evidence`: SigmaRead's own events for the learner, without their words (contract 1.16) |
 | morning upkeep | `resendReadingState` (`POST /interests/import`): profile interests, thumbs and favorites that Compass's list of SigmaRead's events lacks |
 
-Reads time out after 2 seconds (the map and the evidence list after 5). When Compass is off, a
+Reads time out after 2 seconds (the evidence list after 5). When Compass is off, a
 call fails or times out, or a student is not linked, SigmaRead does what an app without
 interests does (contract 6.7):
 
@@ -87,7 +87,7 @@ like "facts about" are ignored, and short phrases match on their last words unle
 front name a different topic that isn't an ancestor: "great white sharks" and "pet dogs" match, but
 "computer science" doesn't land on science). What's left can go
 to Haiku in one call per request (onboarding, typed interests, batch tagging), constrained to the
-topic list or "none". Personal facts and unsafe text map to none. A model match is not remembered, so the batch asks again for a profile phrase that only the model can place.
+topic list or "none". Personal facts and unsafe text map to none. A model match is remembered in memory only (a day at most), so each batch asks once for a profile phrase that only the model can place.
 
 ### Chat mentions
 
@@ -162,7 +162,7 @@ three topics, most pressing first: two dislikes in a row, passed over 3+ times i
 declared interest with no positive signal for 30 days, then the most-served topics. Topics
 answered in the last 30 days and rejected topics are skipped. Each topic gets "Still love it",
 "Not as much" or "No more"; Skip saves what was answered and counts as asked. Only a due check-in is
-saved, for the topics it offered, so a double-click or replay changes nothing. Dislikes from
+saved, and only once its answers have reached Compass (otherwise it stays due and is asked again), for the topics it offered, so a double-click or replay changes nothing. Dislikes from
 before a topic's last check-in answer don't bring it back.
 
 ## What adults see

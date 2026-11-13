@@ -30,7 +30,7 @@ import { normalizeInterestProfile } from "../normalize-interests";
 import { ratingKey, SIGNALS, type Affinity, type Signal, type SignalType } from "./affinity";
 import { checkinDue, checkinTopics } from "./checkin";
 import { matchKey, matchTopic } from "./resolve";
-import { bundledMap, fromCompassMap, relatedIn, type RelatedTopic, type TopicMap } from "./topic-map";
+import { bundledMap, currentSlug, fromCompassMap, relatedIn, type RelatedTopic, type TopicMap } from "./topic-map";
 import { mergeBatchInterests } from "./batch-interests";
 import { CHAT_MENTIONS_SCHEMA, chatMentionTopics, chatMentionsPrompt, verifiedMentions, type ChatMention } from "./chat-mentions";
 import * as compass from "./compass";
@@ -67,6 +67,10 @@ export async function topicLabels(slugs: string[]): Promise<Map<string, string>>
   return new Map(slugs.filter(s => labels.has(s)).map(s => [s, labels.get(s)!]));
 }
 
+/** What the model matched a phrase to, kept in memory for a day (nothing is stored) */
+const modelMatches = new Map<string, { slug: string | null; at: number }>();
+const MODEL_MATCH_TTL_MS = 24 * 3_600_000;
+
 /**
  * Map phrases to topic slugs. Exact and alias matches are free; pass `ai` to send the rest to
  * Haiku in one call. A phrase that matches nothing maps to null (personal facts and unsafe text
@@ -83,7 +87,10 @@ export async function resolveTopics(
   for (const p of phrases) {
     const slug = matchTopic(index, p, parents);
     out.set(p, slug);
-    if (!slug && matchKey(p) && !unmatched.includes(p)) unmatched.push(p);
+    if (slug || !matchKey(p)) continue;
+    const remembered = ai ? modelMatches.get(matchKey(p)) : undefined;
+    if (remembered && Date.now() - remembered.at < MODEL_MATCH_TTL_MS && (!remembered.slug || labels.has(remembered.slug))) out.set(p, remembered.slug);
+    else if (!unmatched.includes(p)) unmatched.push(p);
   }
   if (!ai || unmatched.length === 0) return out;
 
@@ -111,6 +118,11 @@ export async function resolveTopics(
     for (const m of parsed?.matches ?? []) {
       if (!unmatched.includes(m.phrase) || !labels.has(m.topic)) continue;
       out.set(m.phrase, m.topic);
+    }
+    // Remember the model's answers ("none" too) so a batch asks once per phrase, not once per student
+    if (parsed) for (const p of unmatched) {
+      if (modelMatches.size >= 5000) modelMatches.clear();
+      modelMatches.set(matchKey(p), { slug: out.get(p) ?? null, at: Date.now() });
     }
   } catch (e) {
     console.error("Topic resolution failed:", e);
@@ -156,25 +168,26 @@ export async function recordSignals(inputs: SignalInput[]): Promise<void> {
  * a smaller signal (a pick, a pass-over, a chat mention, a check-in answer) is lost, which the
  * contract allows (6.7). `importing` is for that re-send: it may carry any past time.
  */
-async function sendToCompass(rows: ReturnType<typeof signalRows>, opts: { importing?: boolean } = {}): Promise<number> {
+async function sendToCompass(rows: ReturnType<typeof signalRows>, opts: { importing?: boolean } = {}): Promise<number | null> {
   try {
-    if (!compass.compassConfigured() || rows.length === 0) return 0;
+    if (rows.length === 0) return 0;
+    if (!compass.compassConfigured()) return null;
     const learners = await learnerIds([...new Set(rows.map(r => r.studentId))]);
     const events = rows.flatMap(r => {
       const learnerId = learners.get(r.studentId);
       const e = learnerId && compass.toEvidence(learnerId, { ...r, signalType: r.signalType as SignalType, createdAt: "createdAt" in r ? r.createdAt : undefined }, opts);
       return e ? [e] : [];
     });
-    if (events.length === 0) return 0;
+    if (events.length === 0) return null;
     const results = await compass.sendEvidence(events, opts);
-    if (!results) { console.error(`Compass interests: ${events.length} events not sent`); return 0; }
+    if (!results) { console.error(`Compass interests: ${events.length} events not sent`); return null; }
     const refused = results.filter(o => o.status === "refused");
     // Reasons only: an event may carry the student's words
     if (refused.length > 0) console.error(`Compass interests: ${refused.length} of ${events.length} events refused: ${[...new Set(refused.map(o => o.reason))].join("; ")}`);
     return results.filter(o => o.status === "new").length;
   } catch (e) {
     console.error("Compass interests: sending evidence failed:", e instanceof Error ? e.message : e);
-    return 0;
+    return null;
   }
 }
 
@@ -349,6 +362,13 @@ export async function tagCacheArticle(articleCacheId: number, phrases: string[],
   return slugs;
 }
 
+/** A stored tag may name a topic Compass has since renamed or merged, so two tags can become one */
+function addTag(out: Map<number, string[]>, id: number, slug: string) {
+  const tags = out.get(id) ?? [];
+  if (!tags.includes(slug)) tags.push(slug);
+  out.set(id, tags);
+}
+
 /** Topics of cache articles (adaptations report their base article's tags) */
 export async function topicsForCache(cacheIds: number[]): Promise<Map<number, string[]>> {
   const out = new Map<number, string[]>();
@@ -357,7 +377,8 @@ export async function topicsForCache(cacheIds: number[]): Promise<Map<number, st
   const rows = await db.select({ id: c.id, tag: schema.articleTopics.topicSlug }).from(c)
     .innerJoin(schema.articleTopics, eq(schema.articleTopics.articleCacheId, sql`COALESCE(${c.baseArticleId}, ${c.id})`))
     .where(inArray(c.id, cacheIds));
-  for (const r of rows) out.set(r.id, [...(out.get(r.id) ?? []), r.tag]);
+  const map = await topicIndex();
+  for (const r of rows) addTag(out, r.id, currentSlug(map, r.tag));
   return out;
 }
 
@@ -378,8 +399,9 @@ export async function topicsForArticles(articleIds: number[]): Promise<Map<numbe
     .where(inArray(schema.articles.id, articleIds));
 
   const untagged = new Map<number, string>();
+  const map = await topicIndex();
   for (const r of rows) {
-    if (r.tag) out.set(r.id, [...(out.get(r.id) ?? []), r.tag]);
+    if (r.tag) addTag(out, r.id, currentSlug(map, r.tag));
     else if (!out.has(r.id)) untagged.set(r.id, r.topic);
   }
   const resolved = await resolveTopics([...new Set(untagged.values())]);
@@ -555,7 +577,7 @@ const CHECKIN_TYPES: Record<CheckinAnswer, SignalType> = { keep: "checkin_keep",
 
 /**
  * Save a check-in (answered or skipped). It counts as asked either way, so the next is two weeks
- * out. Only a check-in that is due is saved, and only for the topics it offers (first answer per
+ * out, unless the answers couldn't be handed to Compass. Only a check-in that is due is saved, and only for the topics it offers (first answer per
  * topic wins), so a double-click or a replayed request changes nothing. Returns whether it saved.
  */
 export async function saveCheckin(studentId: number, answers: { slug: string; answer: CheckinAnswer }[], now = new Date()): Promise<boolean> {
@@ -570,11 +592,13 @@ export async function saveCheckin(studentId: number, answers: { slug: string; an
     studentId, type: CHECKIN_TYPES[a.answer], topicSlug: a.slug, sourceRef: `checkin:${day}:${a.slug}`,
   })));
 
-  // The event marks the check-in as asked and keeps the answers; then they go to Compass
+  // The answers go to Compass first. If they don't arrive, nothing is saved and the check-in is
+  // still due, so a "No more" is never dropped: the student is asked again another day. A repeat
+  // after a save that failed half-way changes nothing in Compass (same source refs).
+  if (rows.length > 0 && (await sendToCompass(rows)) === null) return false;
   await db.insert(schema.articleFeedEvents).values({ studentId, eventType: CHECKIN_EVENT, metadata: { answers: valid } });
   prefetched.delete(studentId);
   contexts.delete(studentId);
-  await sendToCompass(rows);
   return true;
 }
 
@@ -594,14 +618,14 @@ export async function interestSummaryFor(studentId: number) {
 
 /**
  * An adult takes a topic off a student's interests, or puts it back. Compass holds the record,
- * with who did it (their Compass person id when they signed in as Compass staff); false when Compass didn't confirm it, so the panel never shows a removal the
+ * with who did it (their Compass person id; a session from before those were kept names no one); false when Compass didn't confirm it, so the panel never shows a removal the
  * feed and the tutor wouldn't follow.
  */
 export async function setTopicRemoved(studentId: number, topicSlug: string, removed: boolean, by: { role: string; userId: number; compassId?: string }): Promise<boolean> {
   const learnerId = await learnerIdFor(studentId);
   const role = Object.hasOwn(CONTROL_ROLES, by.role) ? CONTROL_ROLES[by.role] : undefined;
   if (!learnerId || !role) return false;
-  const sent = !!(await compass.sendControl(learnerId, topicSlug, removed ? "remove" : "restore", { role, id: by.compassId ?? String(by.userId) }));
+  const sent = !!(await compass.sendControl(learnerId, topicSlug, removed ? "remove" : "restore", { role, ...(by.compassId ? { id: by.compassId } : {}) }));
   if (sent) { prefetched.delete(studentId); contexts.delete(studentId); }
   return sent;
 }
@@ -658,7 +682,7 @@ export async function resendReadingState(studentIds: number[]): Promise<number> 
         if (!existing.has(sourceRef)) inputs.push({ studentId: s.id, type: "favorite", topicSlug, sourceRef, at: f.createdAt });
       }
     }
-    added += await sendToCompass(signalRows(inputs), { importing: true });
+    added += (await sendToCompass(signalRows(inputs), { importing: true })) ?? 0;
   }
   return added;
 }

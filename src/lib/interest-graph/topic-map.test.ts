@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { matchTopic } from "./resolve";
-import { bundledMap, fromCompassMap, relatedIn } from "./topic-map";
+import { bundledMap, currentSlug, fromCompassMap, relatedIn } from "./topic-map";
 
 {
   const map = bundledMap();
@@ -37,4 +37,20 @@ import { bundledMap, fromCompassMap, relatedIn } from "./topic-map";
   ]);
   assert.ok(relatedIn(map, "oceans").some(r => r.slug === "sharks" && r.weight === 0.6));
   console.log("✅ Compass's map: topics to land on, things by label only, neighbours");
+}
+
+{
+  // Compass renamed sharks: stored tags and SigmaRead's aliases follow
+  const map = fromCompassMap({
+    version: "v2", redirects: { sharks: "sharks-and-rays", "older-sharks": "sharks" },
+    topics: [
+      { id: "animals", label: "Animals", kind: "domain", minGrade: 0 },
+      { id: "sharks-and-rays", label: "Sharks and rays", parentId: "animals", kind: "topic", minGrade: 0 },
+    ],
+  });
+  assert.equal(currentSlug(map, "sharks"), "sharks-and-rays");
+  assert.equal(currentSlug(map, "older-sharks"), "sharks-and-rays", "through two renames");
+  assert.equal(currentSlug(map, "animals"), "animals");
+  assert.equal(matchTopic(map.index, "great whites", map.parents), "sharks-and-rays", "the alias follows the rename");
+  console.log("✅ renamed topics: stored slugs and aliases follow Compass's redirects");
 }

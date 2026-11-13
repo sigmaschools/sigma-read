@@ -18,6 +18,15 @@ export interface TopicMap {
   parents: Map<string, string | null>;
   /** Links across branches of the tree, both ways, with weights */
   related: Map<string, Map<string, number>>;
+  /** A topic Compass renamed or merged → the topic that replaced it */
+  redirects: Map<string, string>;
+}
+
+/** The topic a stored slug stands for today (follows Compass's renames and merges) */
+export function currentSlug(map: Pick<TopicMap, "redirects">, slug: string): string {
+  let s = slug;
+  for (let hops = 0; hops < 5 && map.redirects.has(s); hops++) s = map.redirects.get(s)!;
+  return s;
 }
 
 /** The aliases SigmaRead seeded Compass's map with; Compass's map call lists topics only */
@@ -28,8 +37,15 @@ export function buildTopicMap(
   topics: { slug: string; label: string; parentSlug: string | null }[],
   links: [string, string, number][],
   all: { slug: string; label: string }[] = topics,
+  renamed: Record<string, string> = {},
 ): TopicMap {
   const known = new Set(topics.map(t => t.slug));
+  const redirects = new Map(Object.entries(renamed));
+  // A seeded alias follows its topic through a rename
+  const aliases = SEED.flatMap(t => {
+    const topicSlug = currentSlug({ redirects }, t.slug);
+    return known.has(topicSlug) ? t.aliases.map(alias => ({ alias, topicSlug })) : [];
+  });
   const related = new Map<string, Map<string, number>>();
   const link = (a: string, b: string, w: number) => {
     if (a === b || !known.has(a) || !known.has(b)) return;
@@ -38,11 +54,12 @@ export function buildTopicMap(
   };
   for (const [a, b, w] of links) { link(a, b, w); link(b, a, w); }
   return {
-    index: buildIndex(topics, SEED.filter(t => known.has(t.slug)).flatMap(t => t.aliases.map(alias => ({ alias, topicSlug: t.slug })))),
+    index: buildIndex(topics, aliases),
     matchable: new Map(topics.map(t => [t.slug, t.label])),
     labels: new Map(all.map(t => [t.slug, t.label])),
     parents: new Map(topics.map(t => [t.slug, t.parentSlug && known.has(t.parentSlug) ? t.parentSlug : null])),
     related,
+    redirects,
   };
 }
 
@@ -53,6 +70,7 @@ export function fromCompassMap(map: CompassTopicMap): TopicMap {
     topics.map(t => ({ slug: t.id, label: t.label, parentSlug: t.parentId ?? null })),
     topics.flatMap(t => Object.entries(t.related ?? {}).map(([to, w]) => [t.id, to, w] as [string, string, number])),
     map.topics.map(t => ({ slug: t.id, label: t.label })),
+    map.redirects ?? {},
   );
 }
 
