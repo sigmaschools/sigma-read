@@ -273,7 +273,9 @@ export const batchRuns = pgTable("batch_runs", {
 // Who changed what from the admin area (student edits, level overrides, impersonation)
 export const adminAuditLog = pgTable("admin_audit_log", {
   id: serial("id").primaryKey(),
-  adminId: integer("admin_id").notNull(),
+  adminId: integer("admin_id"), // the old admins row, while one exists
+  adminCompassId: text("admin_compass_id"), // the admin's Compass person id (migration 0023)
+  adminName: text("admin_name"), // their name as Compass had it then
   action: varchar("action", { length: 40 }).notNull(), // student.update | student.level_override | impersonate.start | impersonate.end
   targetType: varchar("target_type", { length: 20 }), // student | guide
   targetId: integer("target_id"),

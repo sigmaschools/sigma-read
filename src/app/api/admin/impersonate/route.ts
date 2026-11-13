@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession, createToken, verifyToken } from "@/lib/auth";
 import { eq } from "drizzle-orm";
-import { auditInsert, logAdminAction } from "@/lib/audit";
+import { auditInsert, auditWho, logAdminAction } from "@/lib/audit";
+import { cookies } from "next/headers";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -18,10 +19,10 @@ export async function POST(req: NextRequest) {
   if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
 
   // Fails closed: no impersonation without an audit record
-  await auditInsert({ adminId: session.userId, action: "impersonate.start", targetType: role, targetId: userId });
+  await auditInsert({ ...auditWho(session), action: "impersonate.start", targetType: role, targetId: userId });
 
-  // Store admin session in a separate cookie for return
-  const adminToken = createToken({ userId: session.userId, role: "admin" });
+  // Keep the admin's own session, as it is, in a separate cookie for the return: it ends when it would have
+  const adminToken = (await cookies()).get("session")!.value;
   const impersonateToken = createToken({ userId, role });
   
   const res = NextResponse.json({ ok: true, role, userId });
@@ -32,15 +33,14 @@ export async function POST(req: NextRequest) {
 
 // Return to admin
 export async function DELETE() {
-  const adminCookie = (await import("next/headers")).cookies();
-  const adminToken = (await adminCookie).get("admin_session")?.value;
+  const adminToken = (await cookies()).get("admin_session")?.value;
   
   if (!adminToken) return NextResponse.json({ error: "No admin session" }, { status: 400 });
   const admin = verifyToken(adminToken);
   if (!admin || admin.role !== "admin") return NextResponse.json({ error: "No admin session" }, { status: 400 });
   const impersonated = await getSession();
   await logAdminAction({
-    adminId: admin.userId, action: "impersonate.end",
+    ...auditWho(admin), action: "impersonate.end",
     targetType: impersonated?.role === "student" || impersonated?.role === "guide" ? impersonated.role : undefined,
     targetId: impersonated?.userId,
   });

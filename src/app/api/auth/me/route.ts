@@ -10,9 +10,11 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   if (session.role === "admin") {
+    // Signed in from Compass: the name is the one in Compass's note. A session from before that carries none
+    if (session.name) return NextResponse.json({ role: "admin", userId: session.userId, name: session.name });
     const [admin] = await db.select().from(schema.admins).where(eq(schema.admins.id, session.userId)).limit(1);
     if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json({ role: "admin", userId: admin.id, name: admin.name, email: admin.email });
+    return NextResponse.json({ role: "admin", userId: admin.id, name: admin.name });
   }
 
   // Guides and parents have no pages here: they follow a student's reading in Compass

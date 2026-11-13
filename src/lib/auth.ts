@@ -5,10 +5,13 @@ import { getJwtSecret } from "@/lib/jwt-secret";
 export interface TokenPayload {
   userId: number;
   role: "guide" | "student" | "admin" | "parent";
+  /** An admin signed in from Compass: their Compass person id and name, for the audit log and the page header */
+  compassId?: string;
+  name?: string;
 }
 
-export function createToken(payload: TokenPayload): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
+export function createToken(payload: TokenPayload, expiresIn: "7d" | "1d" = "7d"): string {
+  return jwt.sign(payload, getJwtSecret(), { expiresIn });
 }
 
 export function verifyToken(token: string): TokenPayload | null {

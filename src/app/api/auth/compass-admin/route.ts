@@ -7,10 +7,12 @@ import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyA
 
 /**
  * Signs an admin in to the admin pages from the adult's note Compass Admin opens them with
- * (Compass app contract 1.2, Administration, Apps). Compass vouches for who the adult is;
- * SigmaRead decides who is an admin: a row in `admins` linked to the adult's Compass id, or,
- * the first time, the row with the adult's email, which is then linked for good. Compass signs
- * adults in only through a link sent to their address, so the email in its note is one they own.
+ * (Compass app contract 1.2, Administration, Apps). Compass decides who is an admin: a note that
+ * says `staff` (contract 1.15: the adult runs this Compass for every school) opens the pages, for
+ * a day at a time. Until every admin is Compass staff, the older way still works too: a row in
+ * `admins` linked to the adult's Compass id, or, the first time, the row with the adult's email,
+ * which is then linked. Compass signs adults in only through a link sent to their address, so the
+ * email in its note is one they own. A school's own roles (`roles`) never open the pages.
  */
 export async function POST(req: NextRequest) {
   const issuer = compassIssuer();
@@ -37,8 +39,39 @@ export async function POST(req: NextRequest) {
   }
 
   const personId = claims.sub.toLowerCase();
-  let [admin] = await db.select({ id: schema.admins.id }).from(schema.admins).where(eq(schema.admins.externalId, personId)).limit(1);
-  const email = claims.adult.email?.trim().toLowerCase();
+  const staff = claims.adult.staff === true;
+  let admin: { id: number } | undefined;
+  try {
+    admin = await linkedAdmin(personId, claims.adult.email);
+  } catch (e) {
+    // Staff need no row, so a failure here only matters to an admin who is not staff
+    console.error(`[compass admin sign-in] admin list unavailable: ${e instanceof Error ? e.message : e}`);
+    if (!staff) return signedOut(NextResponse.json({ error: "Could not check the admin list" }, { status: 503 }));
+  }
+  if (!staff && !admin) {
+    console.warn(`[compass admin sign-in] Compass person ${personId} is not a SigmaRead admin`);
+    return signedOut(NextResponse.json({ error: "not_admin" }, { status: 403 }));
+  }
+
+  // userId 0: staff with no row in the old admin list. The audit log names them by Compass id
+  const userId = admin?.id ?? 0;
+  const name = claims.adult.name.trim().slice(0, 100) || "Admin";
+  const res = NextResponse.json({ role: "admin", userId });
+  res.cookies.set("session", createToken({ userId, role: "admin", compassId: personId, name }, staff ? "1d" : "7d"), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * (staff ? 1 : 7),
+  });
+  return res;
+}
+
+/** The row in the old admin list for this Compass person, linking it by email the first time */
+async function linkedAdmin(personId: string, noteEmail: string | undefined): Promise<{ id: number } | undefined> {
+  const byId = () => db.select({ id: schema.admins.id }).from(schema.admins).where(eq(schema.admins.externalId, personId)).limit(1);
+  let [admin] = await byId();
+  const email = noteEmail?.trim().toLowerCase();
   if (!admin && email) {
     try {
       [admin] = await db
@@ -51,22 +84,9 @@ export async function POST(req: NextRequest) {
     }
     if (admin) console.log(`[compass admin sign-in] admin ${admin.id} linked to Compass person ${personId}`);
     // Two first visits at once: the other one linked the row
-    else [admin] = await db.select({ id: schema.admins.id }).from(schema.admins).where(eq(schema.admins.externalId, personId)).limit(1);
+    else [admin] = await byId();
   }
-  if (!admin) {
-    console.warn(`[compass admin sign-in] Compass person ${personId} is not a SigmaRead admin`);
-    return signedOut(NextResponse.json({ error: "not_admin" }, { status: 403 }));
-  }
-
-  const res = NextResponse.json({ role: "admin", userId: admin.id });
-  res.cookies.set("session", createToken({ userId: admin.id, role: "admin" }), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-  return res;
+  return admin;
 }
 
 function signedOut(res: NextResponse): NextResponse {
