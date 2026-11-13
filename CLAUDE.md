@@ -107,6 +107,5 @@ Branch naming: use short descriptive names like `fix/admin-student-access`, `fea
 | `docs/article-selection.md` | Cache to feed, daily cap, the student's local day |
 | `docs/session-analytics.md` | What is tracked per session, diagnostic queries |
 | `docs/compass-integration.md` | Running inside Compass: in-page reports, the reading day, the interest graph link |
-| `docs/compass-api.md` | Read-only `/api/v1` for Compass: keys, scopes, endpoints |
 | `docs/interest-graph.md` | Topic map, interest signals, decayed affinities |
 | `DEPLOYMENT.md` | Live URLs, test credentials, env vars |

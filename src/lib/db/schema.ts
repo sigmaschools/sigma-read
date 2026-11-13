@@ -293,7 +293,7 @@ export const aiUsage = pgTable("ai_usage", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Service clients of the read-only /api/v1 (Compass). Keys are shown once and stored hashed.
+// Left from the read-only /api/v1, removed 13 Nov 2026 (issue 164). No code uses this table; it is dropped by hand with the owner's go-ahead.
 export const apiClients = pgTable("api_clients", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -307,7 +307,7 @@ export const apiClients = pgTable("api_clients", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, t => [uniqueIndex("api_clients_key_hash_unique").on(t.keyHash)]);
 
-// One row per /api/v1 call: the audit trail for data about minors, and the rate limit window
+// Left from the removed /api/v1 (issue 164): its request log. No code uses this table.
 export const apiRequestLog = pgTable("api_request_log", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),

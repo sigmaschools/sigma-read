@@ -15,7 +15,7 @@ Third role (`admin`) in SigmaRead alongside `student` and `guide`. Admin has ful
 - Login route already supports `student` and `guide` — add `admin` role check
 - Auth cookie includes `role: "admin"`
 - Route group: `/admin/*`
-- First admin: the product owner (wayne@sigmaschool.us; password in the team password manager)
+- First admin: the product owner, who opens the admin pages from Compass Admin (Apps tab); there is no password
 
 ## Pages
 

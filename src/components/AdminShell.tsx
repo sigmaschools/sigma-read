@@ -12,7 +12,6 @@ const navItems = [
   { href: "/admin/students", label: "Students" },
   { href: "/admin/guides", label: "Guides" },
   { href: "/admin/metrics", label: "Metrics" },
-  { href: "/admin/api-clients", label: "API Keys" },
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
