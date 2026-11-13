@@ -29,8 +29,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   async function handleSignOut() {
     // Back to where the admin came from: Compass Admin, when the server knows where it is
-    const back = await fetch("/api/auth/logout", { method: "POST" })
-      .then(r => r.json()).then((b: { compassAdmin?: string | null }) => b.compassAdmin || null, () => null);
+    // If the request fails the admin is still signed in, so stay on the page instead of looking signed out
+    const res = await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    if (!res?.ok) return;
+    const back = await res.json().then((b: { compassAdmin?: string | null }) => b.compassAdmin || null, () => null);
     window.location.assign(back || "/open-from-compass");
   }
 
