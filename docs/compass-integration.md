@@ -42,6 +42,9 @@ Guides and parents follow a student's reading in Compass (the Guide app and Revi
 
 ## The reading day
 
+The day's end screen is "See you tomorrow" on the home screen, `#finished`, shown only after the third article of the day and its questions; no more articles are offered after it ([article-selection.md](./article-selection.md#daily-cap)). Compass's registry entry needs `doneWhen` `{"selector": "#finished"}` for Compass to close Sigma Read there.
+
+
 Compass shows the day's reading against a daily target, so SigmaRead's "today" must be the student's day: it starts at the student's local midnight, from the device's time zone ([article-selection.md](./article-selection.md#daily-cap)).
 
 ## What we learned
