@@ -110,9 +110,9 @@ export default function StudentDetailPage() {
   async function loadData() {
     try {
       const meRes = await fetch("/api/auth/me");
-      if (!meRes.ok) { router.push("/login"); return; }
+      if (!meRes.ok) { router.push("/open-from-compass"); return; }
       const me = await meRes.json();
-      if (me.role !== "admin") { router.push("/login"); return; }
+      if (me.role !== "admin") { router.push("/open-from-compass"); return; }
       setRole(me.role);
       setViewerId(me.userId ?? null);
 

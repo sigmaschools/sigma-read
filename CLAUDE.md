@@ -23,11 +23,10 @@ No test framework: `*.test.ts` files are plain `node:assert` scripts. Verify cha
 - `ANTHROPIC_API_KEY` — Anthropic API key
 - `JWT_SECRET` — JWT signing secret
 - `COMPASS_URL`, `COMPASS_INTERESTS_KEY` — optional, Compass interests API (see docs/interest-graph.md)
-- `SEED_PASSWORD` — only when running a seed script: the password the accounts it creates get
 
 ## Secrets
 
-Never write a password, API key, token or connection string with a password into any file: code, docs, scripts, comments, tests or logs. Docs list usernames and roles only; passwords live in the team's password manager and keys in Vercel's environment variables. Seed scripts read the password they set from `SEED_PASSWORD` (`scripts/seed-password.ts`). CI runs `scripts/check-no-credentials.sh` on every PR and fails on the usual shapes of a written credential (a Password column, an "email / password" pair, a password literal or one built from a literal, key formats, private keys, database URLs with a password); it cannot catch a password written as plain prose, so the rule still applies; a deliberate fake in a test ends its line with `credential-check: allow`. A credential that reaches the repo must be changed, not just deleted, because git history and clones keep it.
+Never write a password, API key, token or connection string with a password into any file: code, docs, scripts, comments, tests or logs. Docs list usernames and roles only; SigmaRead accounts have no passwords (sign-in is from Compass), and keys live in Vercel's environment variables. CI runs `scripts/check-no-credentials.sh` on every PR and fails on the usual shapes of a written credential (a Password column, an "email / password" pair, a password literal or one built from a literal, key formats, private keys, database URLs with a password); it cannot catch a password written as plain prose, so the rule still applies; a deliberate fake in a test ends its line with `credential-check: allow`. A credential that reaches the repo must be changed, not just deleted, because git history and clones keep it.
 
 ## Architecture
 
@@ -37,9 +36,9 @@ src/
     api/           # Next.js API routes (all authenticated via getSession)
     student/       # Student pages (no top bar: Compass has its own; max-w-2xl, "use client")
     admin/         # Admin pages
-    login/         # Auth
+    open-from-compass/  # What a visitor who is not signed in sees: no sign-in here, Compass opens the app
   lib/
-    auth.ts        # JWT session management (getSession, hashPassword, etc.)
+    auth.ts        # JWT session management (getSession, createToken)
     db/
       index.ts     # Drizzle ORM connection
       schema.ts    # Every table — the authoritative data model

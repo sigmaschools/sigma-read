@@ -11,7 +11,7 @@ export default function Home() {
       .then((r) => r.json())
       .then((data) => {
         if (data.error) {
-          router.replace("/login");
+          router.replace("/open-from-compass");
         } else if (data.role === "admin") {
           router.replace("/admin");
         } else if (data.role === "student") {
@@ -21,10 +21,10 @@ export default function Home() {
             router.replace("/student");
           }
         } else {
-          router.replace("/login");
+          router.replace("/open-from-compass");
         }
       })
-      .catch(() => router.replace("/login"));
+      .catch(() => router.replace("/open-from-compass"));
   }, [router]);
 
   return (

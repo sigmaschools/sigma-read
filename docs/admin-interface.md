@@ -70,7 +70,7 @@ Table view:
 - Last login
 
 Features:
-- Add new guide (name, email, password)
+- Add new guide (name, email; no password, since nobody signs in outside Compass)
 - Edit guide details
 - View guide's student list (link to `/admin/students?guide=X`)
 

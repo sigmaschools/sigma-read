@@ -99,8 +99,8 @@ export default function StudentHome() {
   async function loadData() {
     const meRes = await fetch("/api/auth/me");
     const me = await meRes.json();
-    if (me.error) { router.push("/login"); return; }
-    if (me.role !== "student") { router.push("/login"); return; }
+    if (me.error) { router.push("/open-from-compass"); return; }
+    if (me.role !== "student") { router.push("/open-from-compass"); return; }
     if (!me.onboardingComplete) { router.push("/student/onboarding"); return; }
     // First articles still being found or written: back to the tutorial cards, which wait for them
     if (me.starterArticlesPending) { router.push("/student/onboarding?cards=1"); return; }

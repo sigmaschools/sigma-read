@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getSession, hashPassword } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 
 export async function GET() {
@@ -18,10 +18,10 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || (session.role !== "guide" && session.role !== "admin")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, username: rawUsername, password, gradeLevel, age, guideId: bodyGuideId } = await req.json();
-  // Login lowercases what the student types, so store usernames the same way
+  const { name, username: rawUsername, gradeLevel, age, guideId: bodyGuideId } = await req.json();
+  // Usernames are stored lowercase; there is no password: the student signs in from Compass
   const username = typeof rawUsername === "string" ? rawUsername.trim().toLowerCase() : "";
-  if (!name || !username || !password) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  if (!name || !username) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
   // Admin must provide guideId; guide uses own userId
   const guideId = session.role === "admin" ? bodyGuideId : session.userId;
@@ -33,16 +33,17 @@ export async function POST(req: NextRequest) {
   };
   const initialLevel = gradeLevel ? gradeToLevel[gradeLevel] || 2 : null;
 
-  const passwordHash = await hashPassword(password);
   const [student] = await db.insert(schema.students).values({
     name,
     username,
-    passwordHash,
     guideId,
     gradeLevel: gradeLevel || null,
     age: age || null,
     readingLevel: initialLevel,
   }).returning();
 
-  return NextResponse.json(student, { status: 201 });
+  // The old password column is no longer used and never leaves the server
+  const { passwordHash: _unused, ...created } = student;
+  void _unused;
+  return NextResponse.json(created, { status: 201 });
 }

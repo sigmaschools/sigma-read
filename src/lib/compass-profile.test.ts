@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { compassIssuer, compassKeys, verifyAdultNote, gradeFromNote, KeysUnavailable, noteKid, ProfileError, verifyProfileNote, type Jwk } from "./compass-profile";
+import { compassAdminUrl, compassIssuer, compassKeys, verifyAdultNote, gradeFromNote, KeysUnavailable, noteKid, ProfileError, verifyProfileNote, type Jwk } from "./compass-profile";
 
 const ISS = "https://compass.example";
 const SUB = "0b5e3c1a-2f4d-4e6a-9b7c-1d2e3f4a5b6c";
@@ -101,3 +101,9 @@ async function keyCache() {
   console.log("✅ key cache");
 }
 keyCache().catch((e) => { console.error(e); process.exit(1); });
+
+{
+  assert.equal(compassAdminUrl({ COMPASS_URL: "https://compass.example.org/" }), "https://compass.example.org/admin/");
+  assert.equal(compassAdminUrl({}), null, "no Compass address: sign-out falls back to the page that says to open from Compass");
+  console.log("✅ where the admin pages' sign-out leads");
+}

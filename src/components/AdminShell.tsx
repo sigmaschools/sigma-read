@@ -22,14 +22,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     fetch("/api/auth/me").then(r => r.json()).then(data => {
-      if (data.role !== "admin") router.push("/login");
+      if (data.role !== "admin") router.push("/open-from-compass");
       else setAdminName(data.name || "Admin");
-    }).catch(() => router.push("/login"));
+    }).catch(() => router.push("/open-from-compass"));
   }, []);
 
   async function handleSignOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    // Back to where the admin came from: Compass Admin, when the server knows where it is
+    // If the request fails the admin is still signed in, so stay on the page instead of looking signed out
+    const res = await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    if (!res?.ok) return;
+    const back = await res.json().then((b: { compassAdmin?: string | null }) => b.compassAdmin || null, () => null);
+    window.location.assign(back || "/open-from-compass");
   }
 
   return (
