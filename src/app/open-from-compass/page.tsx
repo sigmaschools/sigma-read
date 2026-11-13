@@ -10,6 +10,9 @@ export default function OpenFromCompass() {
         <p className="text-sm text-[var(--muted)] mt-2">
           Students: choose Reading in Compass. Admins: open Sigma Read from the Apps tab in Compass Admin.
         </p>
+        <p className="text-sm text-[var(--muted)] mt-2">
+          Came here from Compass? Close Sigma Read and open it again.
+        </p>
       </div>
     </div>
   );

@@ -42,5 +42,8 @@ export async function POST(req: NextRequest) {
     readingLevel: initialLevel,
   }).returning();
 
-  return NextResponse.json(student, { status: 201 });
+  // The old password column is no longer used and never leaves the server
+  const { passwordHash: _unused, ...created } = student;
+  void _unused;
+  return NextResponse.json(created, { status: 201 });
 }

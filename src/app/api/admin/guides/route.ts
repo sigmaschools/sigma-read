@@ -40,5 +40,8 @@ export async function POST(req: NextRequest) {
 
   const [guide] = await db.insert(schema.guides).values({ name, email }).returning();
 
-  return NextResponse.json(guide);
+  // The old password column is no longer used and never leaves the server
+  const { passwordHash: _unused, ...created } = guide;
+  void _unused;
+  return NextResponse.json(created);
 }
