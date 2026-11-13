@@ -56,6 +56,8 @@ export async function POST(req: NextRequest) {
   // userId 0: staff with no row in the old admin list. The audit log names them by Compass id
   const userId = admin?.id ?? 0;
   const name = claims.adult.name.trim().slice(0, 100) || "Admin";
+  // Which way in, so the logs show when nobody needs the old admin list any more
+  console.log(`[compass admin sign-in] Compass person ${personId} signed in ${staff ? "as Compass staff" : "by the admin list"}${staff && admin ? " (also on the admin list)" : ""}`);
   const res = NextResponse.json({ role: "admin", userId });
   res.cookies.set("session", createToken({ userId, role: "admin", compassId: personId, name }, staff ? "1d" : "7d"), {
     httpOnly: true,
