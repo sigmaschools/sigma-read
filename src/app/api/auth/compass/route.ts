@@ -65,7 +65,9 @@ export async function POST(req: NextRequest) {
       created = made.length > 0;
       [student] = created ? made : await linked();
     } catch (e) {
+      // The database's fault, not the learner's: a 503 reads as an outage and can be tried again
       console.error(`[compass sign-in] making a row for learner ${learnerId} failed: ${e instanceof Error ? e.message : e}`);
+      return signedOut(NextResponse.json({ error: "Could not set up the student" }, { status: 503 }));
     }
     if (!student) {
       console.error(`[compass sign-in] no row could be made for learner ${learnerId}`);
