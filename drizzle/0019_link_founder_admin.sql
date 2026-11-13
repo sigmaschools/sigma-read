@@ -1,2 +1,2 @@
--- The founder's SigmaRead admin email is not his Compass email, so the first-visit email match cannot link him: link his admin row to his Compass person id
+-- The founder's SigmaRead admin email is not their Compass email, so the first-visit email match cannot link them: link that admin row to their Compass person id
 UPDATE "admins" SET "external_id" = 'b34efc98-c7bc-46a8-bfaa-22c9609f9005' WHERE lower("email") = 'wayne@sigmaschool.us' AND "external_id" IS NULL AND NOT EXISTS (SELECT 1 FROM "admins" WHERE "external_id" = 'b34efc98-c7bc-46a8-bfaa-22c9609f9005');
