@@ -2,9 +2,8 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { guideOwnsStudent } from "@/lib/ownership";
 import { REPORT_FLAGS, type ReportFlag } from "@/lib/skills";
-import { and, eq, or, isNull, ne, type SQL } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 /** The report's student, or null if it doesn't exist */
 async function reportStudentId(reportId: number): Promise<number | null> {
@@ -17,31 +16,15 @@ async function reportStudentId(reportId: number): Promise<number | null> {
   return row?.studentId ?? null;
 }
 
-/**
- * Rows this caller may change: admins any, guides only ones an admin hasn't flagged.
- * Part of the UPDATE itself, so a guide can't overwrite or clear an admin's flag.
- */
-function writable(reportId: number, role: string): SQL {
-  const r = schema.comprehensionReports;
-  return role === "admin"
-    ? eq(r.id, reportId)
-    : and(eq(r.id, reportId), or(isNull(r.guideFlaggedRole), ne(r.guideFlaggedRole, "admin")))!;
-}
-
-const adminFlagged = () => NextResponse.json({ error: "This report was flagged by an admin" }, { status: 403 });
-
-/** Guides may flag reports for their own students; admins for anyone */
+/** Admins flag reports (guides follow reading in Compass) */
 async function authorize(id: string) {
   const session = await getSession();
-  if (!session || (session.role !== "guide" && session.role !== "admin")) {
+  if (!session || session.role !== "admin") {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   const reportId = Number(id);
   if (!Number.isInteger(reportId) || reportId <= 0) return { error: NextResponse.json({ error: "Invalid id" }, { status: 400 }) };
-  const studentId = await reportStudentId(reportId);
-  if (studentId === null || (session.role === "guide" && !(await guideOwnsStudent(session.userId, studentId)))) {
-    return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
-  }
+  if ((await reportStudentId(reportId)) === null) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
   return { session, reportId };
 }
 
@@ -63,8 +46,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     guideFlaggedBy: auth.session.userId,
     guideFlaggedRole: auth.session.role,
     guideFlaggedAt: flaggedAt,
-  }).where(writable(auth.reportId, auth.session.role)).returning({ id: schema.comprehensionReports.id });
-  if (updated.length === 0) return adminFlagged();
+  }).where(eq(schema.comprehensionReports.id, auth.reportId)).returning({ id: schema.comprehensionReports.id });
+  if (updated.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ guideFlag: flag, guideNote: note || null, guideFlaggedAt: flaggedAt, guideFlaggedRole: auth.session.role, guideFlaggedBy: auth.session.userId });
 }
@@ -76,8 +59,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const updated = await db.update(schema.comprehensionReports).set({
     guideFlag: null, guideNote: null, guideFlaggedBy: null, guideFlaggedRole: null, guideFlaggedAt: null,
-  }).where(writable(auth.reportId, auth.session.role)).returning({ id: schema.comprehensionReports.id });
-  if (updated.length === 0) return adminFlagged();
+  }).where(eq(schema.comprehensionReports.id, auth.reportId)).returning({ id: schema.comprehensionReports.id });
+  if (updated.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null, guideFlaggedBy: null });
 }

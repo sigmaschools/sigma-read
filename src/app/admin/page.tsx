@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 interface Stats {
   totalStudents: number;
   onboardedStudents: number;
-  totalGuides: number;
   sessionsToday: number;
   sessionsThisWeek: number;
   sessionsTotal: number;
@@ -58,15 +57,8 @@ function actionDetail(a: AdminAction): string {
   return "";
 }
 
-interface Guide {
-  id: number;
-  name: string;
-  email: string;
-}
-
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [guides, setGuides] = useState<Guide[]>([]);
   const [alerts, setAlerts] = useState<string[]>([]);
   const [batchRuns, setBatchRuns] = useState<BatchRun[]>([]);
   const [adminActions, setAdminActions] = useState<AdminAction[]>([]);
@@ -77,7 +69,6 @@ export default function AdminDashboard() {
       .then(r => r.json())
       .then(data => {
         setStats(data.stats);
-        setGuides(data.guides || []);
         setAlerts(data.alerts || []);
         setBatchRuns(data.batchRuns || []);
         setAdminActions(data.adminActions || []);
@@ -113,7 +104,6 @@ export default function AdminDashboard() {
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card label="Students" value={`${stats.onboardedStudents}/${stats.totalStudents}`} sub="onboarded / total" />
-          <Card label="Guides" value={stats.totalGuides} />
           <Card label="Sessions Today" value={stats.sessionsToday} />
           <Card label="Sessions This Week" value={stats.sessionsThisWeek} />
           <Card label="Total Sessions" value={stats.sessionsTotal} />
@@ -163,17 +153,6 @@ export default function AdminDashboard() {
           </table>
         </div>
       )}
-
-      {/* Guides Quick View */}
-      <h2 className="text-lg font-semibold mb-3">Guides</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
-        {guides.map(g => (
-          <div key={g.id} className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl">
-            <p className="font-medium">{g.name}</p>
-            <p className="text-sm text-[var(--muted)]">{g.email}</p>
-          </div>
-        ))}
-      </div>
 
       {/* Recent admin actions */}
       <h2 className="text-lg font-semibold mb-3">Recent Admin Actions</h2>

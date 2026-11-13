@@ -8,30 +8,22 @@ const ok = (body: unknown) => {
 };
 const bad = (body: unknown) => assert.equal(parseStudentUpdate(body).ok, false, `expected error for ${JSON.stringify(body)}`);
 
-assert.deepEqual(ok({ name: "  Ada  ", gradeLevel: 4 }), { name: "Ada", gradeLevel: 4 });
-assert.deepEqual(ok({ weeklySessionTarget: null }), { weeklySessionTarget: null });
-assert.deepEqual(ok({ age: "" }), { age: null });
 assert.deepEqual(ok({ readingLevel: 3, dailyArticleCap: 5 }), { readingLevel: 3, dailyArticleCap: 5 });
+assert.deepEqual(ok({ dailyArticleCap: 8 }), { dailyArticleCap: 8 });
 console.log("✅ valid updates pass");
 
 bad({});
 bad(null);
 bad([]);
-bad({ name: "" });
 bad({ readingLevel: 7 });
 bad({ readingLevel: null });
 bad({ readingLevel: 2.5 });
 bad({ dailyArticleCap: 0 });
-bad({ guideId: null });
-bad({ gradeLevel: "4" });
+bad({ dailyArticleCap: null });
 console.log("✅ invalid updates rejected");
 
-// Unknown keys are ignored, not written
-assert.deepEqual(ok({ name: "Ada", passwordHash: "x", interestProfile: {} }), { name: "Ada" });
-console.log("✅ unknown fields ignored");
-
-assert.deepEqual(ok({ externalId: " cmp-123 " }), { externalId: "cmp-123" });
-assert.deepEqual(ok({ externalId: "" }), { externalId: null });
-bad({ externalId: "has spaces" });
-bad({ externalId: 42 });
-console.log("✅ externalId validated");
+// Unknown keys are ignored, not written. Who the student is comes from Compass: name, grade, guide and the Compass id are not editable here
+assert.deepEqual(ok({ readingLevel: 2, name: "Ada", gradeLevel: 4, guideId: 2, externalId: "x", passwordHash: "x", interestProfile: {} }), { readingLevel: 2 });
+bad({ name: "Ada" });
+bad({ externalId: "cmp-123" });
+console.log("✅ unknown and Compass-owned fields ignored");

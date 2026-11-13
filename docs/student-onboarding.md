@@ -12,7 +12,7 @@ When a new student first logs in, they chat with Sigma about what they like, see
 
 ## Step 0: What Compass already knows
 
-A student opened from Compass brings Compass's profile note (see [compass-integration.md](./compass-integration.md#4-signing-in)). If they have not onboarded yet and the note names at least three interests, the chat is skipped: those interests (Compass's topic labels, strongest first) become the profile, the reading level starts from the grade (SigmaRead's own, else the note's), and the first articles start as they would after the chat (`src/lib/compass-onboarding.ts`, in `POST /api/auth/compass`). The student lands on the tutorial cards while the articles come. With fewer than three interests the chat below runs as before. Name and grade are never asked of the student.
+A student opened from Compass brings Compass's profile note (see [compass-integration.md](./compass-integration.md#4-signing-in)). If they have not onboarded yet and the note names at least three interests, the chat is skipped: those interests (Compass's topic labels, strongest first) become the profile, the reading level starts from the grade in the note (Compass owns it; a note without one uses the grade already on the row), and the first articles start as they would after the chat (`src/lib/compass-onboarding.ts`, in `POST /api/auth/compass`). The student lands on the tutorial cards while the articles come. With fewer than three interests the chat below runs as before. Name and grade are never asked of the student.
 
 ## Step 1: Interest chat (AI conversation)
 

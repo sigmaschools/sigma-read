@@ -3,22 +3,12 @@
 import { Fragment, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-interface Guide {
-  id: number;
-  name: string;
-}
-
 interface AdminStudent {
   id: number;
   name: string;
-  username: string;
-  guideId: number;
-  guideName: string;
   readingLevel: number | null;
   gradeLevel: number | null;
-  age: number | null;
   dailyArticleCap: number | null;
-  weeklySessionTarget: number | null;
   externalId: string | null;
   onboardingComplete: boolean;
   totalSessionsCompleted: number;
@@ -32,18 +22,9 @@ export default function AdminStudentsPage() {
   const [students, setStudents] = useState<AdminStudent[]>([]);
   const [filtered, setFiltered] = useState<AdminStudent[]>([]);
   const [search, setSearch] = useState("");
-  const [filterGuide, setFilterGuide] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
   const [loading, setLoading] = useState(true);
-  const [guidesList, setGuidesList] = useState<Guide[]>([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newUsername, setNewUsername] = useState("");
-  const [newGrade, setNewGrade] = useState("");
-  const [newAge, setNewAge] = useState("");
-  const [newGuideId, setNewGuideId] = useState("");
-  const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const router = useRouter();
 
@@ -56,16 +37,14 @@ export default function AdminStudentsPage() {
 
   useEffect(() => {
     loadStudents();
-    fetch("/api/admin/guides").then(r => r.json()).then(setGuidesList);
   }, []);
 
   useEffect(() => {
     let list = students;
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(s => s.name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q) || s.guideName.toLowerCase().includes(q));
+      list = list.filter(s => s.name.toLowerCase().includes(q));
     }
-    if (filterGuide !== "all") list = list.filter(s => s.guideName === filterGuide);
     if (filterStatus !== "all") list = list.filter(s => s.status === filterStatus);
 
     const sorted = [...list];
@@ -76,9 +55,8 @@ export default function AdminStudentsPage() {
     else if (sortBy === "active") sorted.sort((a, b) => (b.lastActive || "").localeCompare(a.lastActive || ""));
 
     setFiltered(sorted);
-  }, [search, students, filterGuide, filterStatus, sortBy]);
+  }, [search, students, filterStatus, sortBy]);
 
-  const guides = [...new Set(students.map(s => s.guideName))];
   const statusColor = (s: string) => {
     if (s === "succeeding") return "bg-green-100 text-green-700";
     if (s === "on-track") return "bg-blue-100 text-blue-700";
@@ -93,27 +71,6 @@ export default function AdminStudentsPage() {
     if (s >= 45) return "text-yellow-600";
     return "text-red-500";
   };
-
-  async function addStudent(e: React.FormEvent) {
-    e.preventDefault();
-    setAdding(true);
-    await fetch("/api/students", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newName,
-        username: newUsername,
-        gradeLevel: newGrade ? parseInt(newGrade) : undefined,
-        age: newAge ? parseInt(newAge) : undefined,
-        guideId: parseInt(newGuideId),
-      }),
-    });
-    setShowAdd(false);
-    setNewName(""); setNewUsername("");
-    setNewGrade(""); setNewAge(""); setNewGuideId("");
-    setAdding(false);
-    loadStudents();
-  }
 
   async function handleImpersonate(id: number) {
     await fetch("/api/admin/impersonate", {
@@ -134,39 +91,10 @@ export default function AdminStudentsPage() {
 
   return (
     <div className="p-8 max-w-7xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <h1 className="text-2xl font-semibold">All Students ({students.length})</h1>
-        <button onClick={() => setShowAdd(!showAdd)} className="text-sm px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition">
-          + Add Student
-        </button>
+        <p className="text-sm text-[var(--muted)] mt-1">Students are added in Compass. A student appears here the first time Compass opens Sigma Read for them, with the name and grade Compass has.</p>
       </div>
-
-      {showAdd && (
-        <form onSubmit={addStudent} className="mb-6 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl space-y-3">
-          <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
-          <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="Username" required className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
-          <div className="grid grid-cols-3 gap-3">
-            <select value={newGrade} onChange={e => setNewGrade(e.target.value)} required className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white outline-none focus:border-[var(--accent)]">
-              <option value="">Grade</option>
-              <option value="2">2nd</option>
-              <option value="3">3rd</option>
-              <option value="4">4th</option>
-              <option value="5">5th</option>
-              <option value="6">6th</option>
-              <option value="7">7th</option>
-              <option value="8">8th</option>
-            </select>
-            <input type="number" value={newAge} onChange={e => setNewAge(e.target.value)} placeholder="Age" min="5" max="18" required className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm outline-none focus:border-[var(--accent)]" />
-            <select value={newGuideId} onChange={e => setNewGuideId(e.target.value)} required className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white outline-none focus:border-[var(--accent)]">
-              <option value="">Guide</option>
-              {guidesList.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          </div>
-          <button type="submit" disabled={adding} className="px-4 py-2 bg-[var(--accent)] text-white text-sm rounded-lg disabled:opacity-50">
-            {adding ? "Creating…" : "Create Student"}
-          </button>
-        </form>
-      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">
@@ -174,10 +102,6 @@ export default function AdminStudentsPage() {
           type="text" value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Search…" className="px-3 py-1.5 text-sm border border-[var(--border)] rounded-lg outline-none focus:border-[var(--accent)] w-48"
         />
-        <select value={filterGuide} onChange={(e) => setFilterGuide(e.target.value)} className="px-2 py-1.5 text-sm border border-[var(--border)] rounded-lg bg-white">
-          <option value="all">All Guides</option>
-          {guides.map(g => <option key={g} value={g}>{g}</option>)}
-        </select>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-2 py-1.5 text-sm border border-[var(--border)] rounded-lg bg-white">
           <option value="all">All Status</option>
           <option value="succeeding">Succeeding</option>
@@ -201,7 +125,6 @@ export default function AdminStudentsPage() {
           <thead>
             <tr className="text-left text-xs text-[var(--muted)] uppercase tracking-wider border-b border-[var(--border)]">
               <th className="px-4 py-3">Student</th>
-              <th className="px-4 py-3">Guide</th>
               <th className="px-4 py-3">Level</th>
               <th className="px-4 py-3">Grade</th>
               <th className="px-4 py-3">This Week</th>
@@ -218,9 +141,8 @@ export default function AdminStudentsPage() {
               <tr className="border-b border-[var(--border)] hover:bg-gray-50 transition">
                 <td className="px-4 py-3">
                   <p className="font-medium">{s.name}</p>
-                  <p className="text-xs text-[var(--muted)]">{s.username}</p>
+                  {!s.externalId && <p className="text-xs text-[var(--muted)]">Not in Compass</p>}
                 </td>
-                <td className="px-4 py-3 text-[var(--muted)]">{s.guideName}</td>
                 <td className="px-4 py-3">{s.readingLevel ? `L${s.readingLevel}` : "—"}</td>
                 <td className="px-4 py-3">{s.gradeLevel ? `Gr ${s.gradeLevel}` : "—"}</td>
                 <td className="px-4 py-3">{s.sessionsThisWeek}</td>
@@ -262,10 +184,9 @@ export default function AdminStudentsPage() {
               </tr>
               {editingId === s.id && (
                 <tr className="border-b border-[var(--border)]">
-                  <td colSpan={10} className="px-4 py-4 bg-white">
+                  <td colSpan={9} className="px-4 py-4 bg-white">
                     <EditStudent
                       student={s}
-                      guides={guidesList}
                       onCancel={() => setEditingId(null)}
                       onSaved={() => { setEditingId(null); loadStudents(); }}
                     />
@@ -283,26 +204,18 @@ export default function AdminStudentsPage() {
 
 const inputClass = "w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white outline-none focus:border-[var(--accent)]";
 
-function EditStudent({ student, guides, onCancel, onSaved }: {
+function EditStudent({ student, onCancel, onSaved }: {
   student: AdminStudent;
-  guides: Guide[];
   onCancel: () => void;
   onSaved: () => void;
 }) {
   const str = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
-  const [name, setName] = useState(student.name);
-  const [guideId, setGuideId] = useState(String(student.guideId));
-  const [gradeLevel, setGradeLevel] = useState(str(student.gradeLevel));
-  const [age, setAge] = useState(str(student.age));
   const [readingLevel, setReadingLevel] = useState(str(student.readingLevel));
   const [dailyArticleCap, setDailyArticleCap] = useState(str(student.dailyArticleCap ?? 5));
-  const [weeklySessionTarget, setWeeklySessionTarget] = useState(str(student.weeklySessionTarget));
-  const [externalId, setExternalId] = useState(student.externalId ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const levelChanging = readingLevel !== "" && readingLevel !== str(student.readingLevel);
-  const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -310,16 +223,8 @@ function EditStudent({ student, guides, onCancel, onSaved }: {
     setSaving(true);
     setError("");
     // Send only what the admin changed, so saving never rewrites untouched settings
-    const next: Record<string, string> = { name, guideId, gradeLevel, age, dailyArticleCap, weeklySessionTarget, externalId };
-    const loaded: Record<string, string> = {
-      name: student.name, guideId: String(student.guideId), gradeLevel: str(student.gradeLevel), age: str(student.age),
-      dailyArticleCap: str(student.dailyArticleCap ?? 5), weeklySessionTarget: str(student.weeklySessionTarget),
-      externalId: student.externalId ?? "",
-    };
     const body: Record<string, unknown> = {};
-    for (const key of Object.keys(next)) {
-      if (next[key] !== loaded[key]) body[key] = key === "name" || key === "externalId" ? next[key] : key === "guideId" ? Number(next[key]) : num(next[key]);
-    }
+    if (dailyArticleCap !== str(student.dailyArticleCap ?? 5)) body.dailyArticleCap = Number(dailyArticleCap);
     if (levelChanging) body.readingLevel = Number(readingLevel);
     if (Object.keys(body).length === 0) { onCancel(); return; }
     try {
@@ -339,25 +244,8 @@ function EditStudent({ student, guides, onCancel, onSaved }: {
 
   return (
     <form onSubmit={save} className="space-y-3">
+      <p className="text-xs text-[var(--muted)]">Name and grade come from Compass and are changed there. These are Sigma Read's own reading settings.</p>
       <div className="grid grid-cols-4 gap-3">
-        <label className="text-xs text-[var(--muted)] space-y-1">
-          <span>Name</span>
-          <input type="text" value={name} onChange={e => setName(e.target.value)} required className={inputClass} />
-        </label>
-        <label className="text-xs text-[var(--muted)] space-y-1">
-          <span>Guide</span>
-          <select value={guideId} onChange={e => setGuideId(e.target.value)} className={inputClass}>
-            {guides.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-        </label>
-        <label className="text-xs text-[var(--muted)] space-y-1">
-          <span>Grade</span>
-          <input type="number" min="0" max="12" value={gradeLevel} onChange={e => setGradeLevel(e.target.value)} className={inputClass} />
-        </label>
-        <label className="text-xs text-[var(--muted)] space-y-1">
-          <span>Age</span>
-          <input type="number" min="4" max="18" value={age} onChange={e => setAge(e.target.value)} className={inputClass} />
-        </label>
         <label className="text-xs text-[var(--muted)] space-y-1">
           <span>Reading level</span>
           <select value={readingLevel} onChange={e => setReadingLevel(e.target.value)} className={inputClass}>
@@ -368,14 +256,6 @@ function EditStudent({ student, guides, onCancel, onSaved }: {
         <label className="text-xs text-[var(--muted)] space-y-1">
           <span>Articles per day</span>
           <input type="number" min="1" max="20" value={dailyArticleCap} onChange={e => setDailyArticleCap(e.target.value)} required className={inputClass} />
-        </label>
-        <label className="text-xs text-[var(--muted)] space-y-1">
-          <span>Weekly session target</span>
-          <input type="number" min="1" max="100" value={weeklySessionTarget} onChange={e => setWeeklySessionTarget(e.target.value)} placeholder="Auto" className={inputClass} />
-        </label>
-        <label className="text-xs text-[var(--muted)] space-y-1">
-          <span>Compass ID</span>
-          <input type="text" value={externalId} onChange={e => setExternalId(e.target.value)} placeholder="None" maxLength={100} className={inputClass} />
         </label>
       </div>
       {levelChanging && (

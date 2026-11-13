@@ -4,26 +4,15 @@ import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, and, desc } from "drizzle-orm";
 
-export async function GET(req: NextRequest) {
+/** What the admin student page shows beside the reports: calibration, times, likes, level history */
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!session || (session.role !== "guide" && session.role !== "admin" && session.role !== "parent")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const studentId = parseInt(req.nextUrl.searchParams.get("studentId") || "0");
-  if (!studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 });
+  const studentId = Number((await params).id);
+  if (!Number.isInteger(studentId) || studentId <= 0) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-  // Verify access: guides see their students, admins see all, parents see linked children
-  if (session.role === "parent") {
-    const [link] = await db.select({ id: schema.studentParents.id })
-      .from(schema.studentParents)
-      .where(and(eq(schema.studentParents.parentId, session.userId), eq(schema.studentParents.studentId, studentId)))
-      .limit(1);
-    if (!link) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  const [student] = session.role === "admin" || session.role === "parent"
-    ? await db.select().from(schema.students).where(eq(schema.students.id, studentId)).limit(1)
-    : await db.select().from(schema.students).where(
-        and(eq(schema.students.id, studentId), eq(schema.students.guideId, session.userId))
-      ).limit(1);
+  const [student] = await db.select({ id: schema.students.id }).from(schema.students).where(eq(schema.students.id, studentId)).limit(1);
   if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Self-assessment calibration
@@ -151,25 +140,6 @@ export async function GET(req: NextRequest) {
     else avgEngagement = "Low — brief responses";
   }
 
-  // Parent feedback (guide/admin only)
-  let parentFeedbackItems: any[] = [];
-  if (session.role === "guide" || session.role === "admin") {
-    parentFeedbackItems = await db.select({
-      id: schema.parentFeedback.id,
-      category: schema.parentFeedback.category,
-      sentiment: schema.parentFeedback.sentiment,
-      summary: schema.parentFeedback.summary,
-      parentName: schema.parents.name,
-      createdAt: schema.parentFeedback.createdAt,
-      acknowledgedAt: schema.parentFeedback.acknowledgedAt,
-    })
-      .from(schema.parentFeedback)
-      .innerJoin(schema.parents, eq(schema.parentFeedback.parentId, schema.parents.id))
-      .where(eq(schema.parentFeedback.studentId, studentId))
-      .orderBy(desc(schema.parentFeedback.createdAt))
-      .limit(20);
-  }
-
   return NextResponse.json({
     calibration,
     avgReadingTime,
@@ -182,6 +152,5 @@ export async function GET(req: NextRequest) {
     levelHistory: levelHist,
     conversationStyles,
     avgEngagement,
-    parentFeedback: parentFeedbackItems,
   });
 }

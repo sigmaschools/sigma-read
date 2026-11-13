@@ -84,19 +84,8 @@ const STUDENTS = [
   },
 ];
 
-/** Use the first guide, or create a test guide on an empty database (e.g. the sim-test branch) */
-async function getGuideId(): Promise<number> {
-  const [guide] = await sql`SELECT id FROM guides ORDER BY id LIMIT 1`;
-  if (guide) return guide.id as number;
-  const [created] = await sql`INSERT INTO guides (name, email)
-    VALUES ('Test Guide', 'test-guide@sigmaread.test') RETURNING id`;
-  console.log(`Created Test Guide (id ${created.id})`);
-  return created.id as number;
-}
-
 async function main() {
   await assertNotProduction(sql);
-  const guideId = await getGuideId();
   const [{ n: cached }] = await sql`SELECT count(*)::int AS n FROM article_cache`;
   if (!cached) console.log("article_cache is empty: students get the eval articles, unread, with no seeded history.\n");
 
@@ -116,9 +105,9 @@ async function main() {
 
     // Create student
     const [student] = await sql.query(
-      `INSERT INTO students (name, username, guide_id, reading_level, interest_profile, onboarding_complete)
-       VALUES ($1, $2, $3, $4, $5, true) RETURNING id`,
-      [s.name, s.username, guideId, s.level, JSON.stringify(interestProfile)]
+      `INSERT INTO students (name, username, reading_level, interest_profile, onboarding_complete)
+       VALUES ($1, $2, $3, $4, true) RETURNING id`,
+      [s.name, s.username, s.level, JSON.stringify(interestProfile)]
     ) as any[];
 
     const studentId = student.id;

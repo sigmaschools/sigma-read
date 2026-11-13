@@ -23,12 +23,3 @@ export async function getStudentConversation(conversationId: number, studentId: 
 
   return row ?? null;
 }
-
-/** True if the student is assigned to the given guide. */
-export async function guideOwnsStudent(guideId: number, studentId: number): Promise<boolean> {
-  const [row] = await db.select({ id: schema.students.id })
-    .from(schema.students)
-    .where(and(eq(schema.students.id, studentId), eq(schema.students.guideId, guideId)))
-    .limit(1);
-  return !!row;
-}

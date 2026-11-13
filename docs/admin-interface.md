@@ -40,39 +40,27 @@ Quick links to all other admin pages.
 
 ### 2. All Students (`/admin/students`)
 
-**Cross-guide student management.**
+Students are not added here. Compass owns the people (issue 164): a student's row is made the first time Compass opens SigmaRead for them, from Compass's signed note, and keeps the name and grade as the note last gave them. A row from before that, with no Compass learner behind it, shows "Not in Compass".
 
 Table view with columns:
-- Name, Username, Guide, Grade, Reading Level, Age
+- Name, Reading Level, Grade
 - Sessions (this week / total), Avg Score, Status badge
 - Last active date
 
 Features:
-- Search/filter by name, guide, level, status
-- Sort by any column
-- Click → student detail (reuse guide's student detail page + insights)
-- Edit (✏️): name, guide, grade, age, articles per day, weekly session target, and reading level. A level change is a guide override (`docs/level-progression.md` rule 5): it resets the level mix to the default and writes `level_history`, which restarts the evaluation window. Every edit is written to `admin_audit_log`.
-- Bulk actions (not built): reset data
+- Search by name, filter by status, sort
+- Click → student detail (reports, insights, interests)
+- Edit (✏️): reading level and articles per day, SigmaRead's own reading settings. Name and grade are changed in Compass. A level change is a guide override (`docs/level-progression.md` rule 5): it resets the level mix to the default and writes `level_history`, which restarts the evaluation window. Every edit is written to `admin_audit_log`.
 
 ### 2a. Report Review (`/admin/reports`)
 
 Queue of recent comprehension reports with filters: all, low confidence, forced close, self-assessment gap, disputed, and missing report. A disputed report shows its flag and note in the summary column. Click a row for skills, evidence and the transcript.
 
-Guides can press "Disagree with this report?" on a session (score too high, score too low, or something else plus a note). Admins can flag from the same student page (All Students → 📋). The flag is stored on the report (`guide_flag`, `guide_note`, and who set it), shows under "Disputed" here, and is visible only to guides and admins. A guide can't withdraw an admin's flag. It doesn't change the score or level progression. It's a signal for tuning the report prompt.
+An admin can press "Disagree with this report?" on a session from the student page (All Students → 📋): score too high, score too low, or something else plus a note. The flag is stored on the report (`guide_flag`, `guide_note`, and who set it) and shows under "Disputed" here. It doesn't change the score or level progression. It's a signal for tuning the report prompt.
 
-### 3. All Guides (`/admin/guides`)
+### 3. Guides
 
-**Guide management.**
-
-Table view:
-- Name, Email, Student count, Active students this week
-- Total sessions across their students
-- Last login
-
-Features:
-- Add new guide (name, email; no password, since nobody signs in outside Compass)
-- Edit guide details
-- View guide's student list (link to `/admin/students?guide=X`)
+Removed 13 Nov 2026 (issue 164). Guides and guardians follow a student's reading in Compass, so SigmaRead keeps no guides, no guide assignment and no Guides page. The `guides`, `parents`, `student_parents`, `parent_conversations` and `parent_feedback` tables are still in the database, unused, until the owner agrees to drop them.
 
 ### 4. Content Management (`/admin/content`)
 
@@ -161,11 +149,9 @@ CREATE TABLE admins (
 | Route | Method | Description |
 |---|---|---|
 | `/api/admin/dashboard` | GET | System overview stats + alerts |
-| `/api/admin/students` | GET | All students across all guides |
-| `/api/admin/students/[id]` | PATCH | Edit a student; `readingLevel` is a level override (audited) |
-| `/api/admin/guides` | GET | All guides |
-| `/api/admin/guides` | POST | Create new guide |
-| `/api/admin/guides/[id]` | PATCH | Update guide |
+| `/api/admin/students` | GET | All students |
+| `/api/admin/students/[id]` | GET, PATCH | One student; edit reading level (a level override, audited) and articles per day |
+| `/api/admin/students/[id]/insights` | GET | Calibration, times, likes and level history for the student page |
 | `/api/admin/content` | GET | Article cache browser |
 | `/api/admin/content/[id]` | DELETE | Remove article from cache |
 | `/api/admin/content/generate` | POST | Manual article generation |
