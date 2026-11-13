@@ -57,15 +57,21 @@ export async function POST(req: NextRequest) {
   if (!student) {
     // Compass owns the people (issue 164): a learner Compass opens SigmaRead for and SigmaRead has
     // not met gets their row here, from the note. Two first launches at once make one row.
-    const person = personFromNote(claims.student);
-    const made = await db.insert(schema.students).values({ ...person, externalId: learnerId })
-      .onConflictDoNothing({ target: schema.students.externalId }).returning(columns);
-    [student] = made.length > 0 ? made : await linked();
+    // A failure here still signs out whoever was on the device before, like any note that signs nobody in
+    let created = false;
+    try {
+      const made = await db.insert(schema.students).values({ ...personFromNote(claims.student), externalId: learnerId })
+        .onConflictDoNothing({ target: schema.students.externalId }).returning(columns);
+      created = made.length > 0;
+      [student] = created ? made : await linked();
+    } catch (e) {
+      console.error(`[compass sign-in] making a row for learner ${learnerId} failed: ${e instanceof Error ? e.message : e}`);
+    }
     if (!student) {
       console.error(`[compass sign-in] no row could be made for learner ${learnerId}`);
       return signedOut(NextResponse.json({ error: "not_linked" }, { status: 404 }));
     }
-    if (made.length > 0) console.log(`[compass sign-in] student ${student.id} created for learner ${learnerId}`);
+    if (created) console.log(`[compass sign-in] student ${student.id} created for learner ${learnerId}`);
   } else {
     // The name and grade as Compass has them now. A failure here never fails the sign-in.
     try {

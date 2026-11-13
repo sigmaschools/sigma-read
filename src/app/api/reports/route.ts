@@ -55,11 +55,9 @@ export async function GET(req: NextRequest) {
     .where(eq(schema.readingSessions.studentId, studentId))
     .orderBy(desc(schema.readingSessions.startedAt));
 
-  const visible = sessions;
-
   // Separate completed from in-progress for the client
-  const completed = visible.filter(s => s.completedAt !== null);
-  const inProgress = visible.filter(s => s.completedAt === null);
+  const completed = sessions.filter(s => s.completedAt !== null);
+  const inProgress = sessions.filter(s => s.completedAt === null);
 
   return NextResponse.json({ completed, inProgress });
 }
