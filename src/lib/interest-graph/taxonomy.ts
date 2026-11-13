@@ -6,8 +6,8 @@
  * the topic; plurals, case and punctuation are handled by normalizePhrase, so list only real
  * alternatives ("great whites" for sharks, not "shark").
  *
- * drizzle/0011_interest_graph.sql is generated from this file (scripts/gen-topic-seed.ts), and
- * taxonomy.test.ts fails if the two drift.
+ * Compass holds the live map. This file supplies the aliases, and the tree is the fallback for
+ * tagging articles when Compass's map can't be read. A new topic is added in Compass.
  */
 
 export interface TopicNode {

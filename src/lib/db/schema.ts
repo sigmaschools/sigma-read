@@ -322,7 +322,9 @@ export const apiRequestLog = pgTable("api_request_log", {
 }, t => [index("api_request_log_client_time_idx").on(t.clientId, t.createdAt)]);
 
 // ─── Interest graph (see src/lib/interest-graph) ─────────────────────────────
-// Topics and signals refer to topics by slug, a stable ID that will travel to Compass.
+// Compass holds the topic map and each learner's interests. Only article_topics is used here;
+// topics, topic_aliases, topic_relations and interest_signals are unused, kept until the owner
+// agrees to drop them. Slugs are Compass topic ids.
 
 // The shared topic map: domain → category → topic
 export const topics = pgTable("topics", {

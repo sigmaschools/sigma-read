@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { learnerIdFrom, rankScores, replaceKeyFor, toAffinities, toEvidence, toSummary, type CompassInterest } from "./compass";
+import { learnerIdFrom, rankScores, replaceKeyFor, toAffinities, toEvidence, toSignals, toSummary, type CompassInterest } from "./compass";
 import { pickForFeed } from "./serving";
 
 const L = "0b5e3c1a-2f4d-4e6a-9b7c-1d2e3f4a5b6c";
@@ -87,4 +87,18 @@ const interest = (topicId: string, score: number, status: CompassInterest["statu
     assert.ok(!picks.includes(3), "an excluded item is never picked");
   }
   console.log("✅ rankScores drive the feed, excluded items left out");
+}
+
+{
+  const signals = toSignals([
+    { topicId: "sharks", type: "disliked", sourceRef: "article:7:rating:sharks:2", occurredAt: "2026-11-02T10:00:00Z", weight: -0.3 },
+    { type: "typed_interest", sourceRef: "profile:my clubhouse", occurredAt: "2026-11-01T10:00:00Z", weight: 0.6 },
+    { topicId: "sharks", type: "onboarding", sourceRef: "profile:shark", occurredAt: "2026-10-01T10:00:00Z", weight: 0.6 },
+    { topicId: "sharks", type: "some_new_type", sourceRef: "x:1", occurredAt: "2026-10-05T10:00:00Z", weight: 0.1 },
+  ]);
+  assert.deepEqual(signals.map(s => [s.topicSlug, s.signalType, s.sourceRef]), [
+    ["sharks", "onboarding", "profile:shark"], ["sharks", "disliked", "article:7:rating:sharks:2"],
+  ], "oldest first; events on no topic, and types SigmaRead doesn't know, are left out");
+  assert.equal(signals[0].createdAt.toISOString(), "2026-10-01T10:00:00.000Z");
+  console.log("✅ toSignals: SigmaRead's own evidence, read back from Compass");
 }

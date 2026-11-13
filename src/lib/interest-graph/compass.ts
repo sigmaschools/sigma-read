@@ -1,10 +1,10 @@
 /**
  * Compass's interest graph (app contract section 6, "Interests", section version 1.0).
  *
- * Compass keeps one record of each learner's interests for every Compass app. SigmaRead sends
- * its evidence there and reads interests, rankings, exploration topics and the tutor's summary
- * back. This file is the HTTP client and the pure mapping between the two shapes; index.ts
- * decides when to use it.
+ * Compass keeps the one record of each learner's interests, and the topic map, for every
+ * Compass app. SigmaRead sends its evidence there and reads interests, rankings, exploration
+ * topics, the tutor's summary, the topic map and its own evidence back. This file is the HTTP
+ * client and the pure mapping between the two shapes; index.ts decides when to use it.
  *
  * Rules from the contract that this file keeps:
  *   - The key stays on the server (COMPASS_INTERESTS_KEY, never a NEXT_PUBLIC_ variable).
@@ -14,7 +14,7 @@
  *   - Learners are named only by their Compass learner id, kept as students.external_id (6.1).
  */
 
-import type { Affinity, SignalType } from "./affinity";
+import { SIGNALS, type Affinity, type Signal, type SignalType } from "./affinity";
 import type { InterestSummary } from "./summary";
 import { SHOWN_MIN } from "./summary";
 
@@ -30,7 +30,7 @@ export const BATCH_MAX = 500;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Compass is used only when both settings are present; otherwise SigmaRead runs on its own graph */
+/** Compass is used only when both settings are present; without them SigmaRead runs without interests */
 export function compassConfigured(): boolean {
   return !!(process.env.COMPASS_URL && process.env.COMPASS_INTERESTS_KEY);
 }
@@ -80,6 +80,23 @@ export interface RankedItem {
 
 export interface ExploreTopic { topicId: string; label: string; score: number; near: string[] }
 
+/** One topic of the map (`GET /interests/topics`) */
+export interface MapTopic {
+  id: string;
+  label: string;
+  parentId?: string;
+  /** Broad to specific; a "thing" is one specific subject under a topic ("great white shark") */
+  kind: "domain" | "group" | "topic" | "thing";
+  minGrade: number;
+  /** Related topic ids with weights, 0 to 1 */
+  related?: Record<string, number>;
+}
+
+export interface TopicMap { version: string; topics: MapTopic[]; redirects: Record<string, string> }
+
+/** One event SigmaRead recorded, read back (`GET /interests/learners/{id}/evidence`); never the student's words */
+export interface OwnEvent { topicId?: string; type: string; sourceRef: string; occurredAt: string; weight: number }
+
 export type ControlAction = "remove" | "restore" | "not_anymore";
 export type ControlRole = "guide" | "guardian" | "admin" | "learner";
 
@@ -116,6 +133,47 @@ async function call<T>(method: "GET" | "POST", path: string, body?: unknown, tim
 }
 
 const enc = encodeURIComponent;
+
+let lastMap: TopicMap | null = null;
+
+/**
+ * The approved topic map. Compass answers 304 while it hasn't changed (the version is its ETag),
+ * so the map is downloaded only when it has. Null when Compass can't be reached.
+ */
+export async function fetchTopicMap(): Promise<TopicMap | null> {
+  if (!compassConfigured() || Date.now() < downUntil) return null;
+  try {
+    const res = await fetch(process.env.COMPASS_URL!.replace(/\/+$/, "") + "/api/v1/interests/topics", {
+      headers: {
+        Authorization: `Bearer ${process.env.COMPASS_INTERESTS_KEY}`,
+        Accept: "application/json",
+        ...(lastMap ? { "If-None-Match": lastMap.version } : {}),
+      },
+      signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+      cache: "no-store",
+    });
+    if (res.status === 304 && lastMap) return lastMap;
+    if (!res.ok) {
+      console.error(`Compass interests: GET /topics answered ${res.status}`);
+      if (res.status >= 500) downUntil = Date.now() + COOLDOWN_MS;
+      return null;
+    }
+    const map = (await res.json()) as TopicMap;
+    if (!Array.isArray(map?.topics) || map.topics.length === 0) return null;
+    lastMap = map;
+    return map;
+  } catch (e) {
+    console.error(`Compass interests: GET /topics failed: ${e instanceof Error ? e.name : "error"}`);
+    downUntil = Date.now() + COOLDOWN_MS;
+    return null;
+  }
+}
+
+/** Every event SigmaRead recorded for a learner (up to Compass's cap of 2000), newest first */
+export async function fetchOwnEvidence(learnerId: string): Promise<OwnEvent[] | null> {
+  const res = await call<{ events: OwnEvent[] }>("GET", `/learners/${enc(learnerId)}/evidence`, undefined, 5_000);
+  return res?.events ?? null;
+}
 
 /** Record evidence (or, with `importing`, the one-time history load), in batches of 500 */
 export async function sendEvidence(events: EvidenceEvent[], opts: { importing?: boolean } = {}): Promise<EvidenceOutcome[] | null> {
@@ -177,7 +235,7 @@ export async function sendControl(learnerId: string, topicId: string, action: Co
 
 // ─── Mapping (pure) ───────────────────────────────────────────────────────────
 
-/** SigmaRead's own signal, as it is written to interest_signals */
+/** SigmaRead's own signal, as it goes to Compass */
 export interface LocalSignal {
   topicSlug: string | null;
   phrase: string | null;
@@ -227,6 +285,14 @@ export function replaceKeyFor(s: Pick<LocalSignal, "signalType" | "sourceRef" | 
   return null;
 }
 
+/** SigmaRead's own events as signals on topics, oldest first (events that landed on no topic are left out) */
+export function toSignals(events: OwnEvent[]): Signal[] {
+  return events
+    .filter(e => e.topicId && Object.hasOwn(SIGNALS, e.type) && !Number.isNaN(Date.parse(e.occurredAt)))
+    .map(e => ({ topicSlug: e.topicId!, signalType: e.type as SignalType, weight: e.weight, sourceRef: e.sourceRef, createdAt: new Date(e.occurredAt) }))
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}
+
 /** Compass's interests in SigmaRead's affinity shape; rejected and removed both mean "never serve" */
 export function toAffinities(interests: CompassInterest[]): Affinity[] {
   return interests.map(i => ({
@@ -240,7 +306,7 @@ export function toAffinities(interests: CompassInterest[]): Affinity[] {
 
 const MAX_SHOWN = 8;
 
-/** The guide and parent panel (current, fading, removed) from Compass's interests */
+/** The admin panel (current, fading, removed) from Compass's interests */
 export function toSummary(interests: CompassInterest[]): InterestSummary & { labels: Map<string, string> } {
   const off = (i: CompassInterest) => i.status === "rejected" || i.status === "removed";
   const current = [...interests].sort((a, b) => b.score - a.score)

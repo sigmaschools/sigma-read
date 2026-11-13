@@ -4,8 +4,12 @@ What each student is into, as scores over a shared topic map, used to choose the
 Phase 1 of the design in the "Student interest graph" doc, plus chat-mention extraction and
 horizon topics from the map. Learned topic links come later.
 
+Compass holds the only record of a learner's interests and the only topic map. SigmaRead keeps
+no copy: it sends what a student does to Compass and asks Compass for scores, rankings and the
+map. The one thing it stores is which topics each of its own articles is about (`article_topics`).
+
 All code goes through `src/lib/interest-graph` (`recordSignals`, `getAffinities`, `getRelated`,
-`resolveTopics` and helpers), never the tables.
+`resolveTopics` and helpers).
 
 ## Compass
 
@@ -25,31 +29,40 @@ and the student's `external_id` holds their Compass learner id. The client is
 | the tutor's interest line | `GET /learners/{id}/context`, put in the prompt as given (contract 6.6), cached 3 minutes |
 | the adults' panel | `GET /learners/{id}` |
 | morning batch | `POST /interests/learners`, one call for every linked student |
-| history | `importHistory` (`POST /interests/import`): on a linked student's first read that finds nothing in Compass, and again in every morning batch (`syncToCompass`, which logs a "🧭 Compass sync" top-five comparison per student). `scripts/compass-import-interests.ts` does the same by hand |
+| the topic map | `GET /interests/topics`, re-read every 5 minutes with its ETag (`fetchTopicMap`) |
+| the "still into these?" history | `GET /learners/{id}/evidence`: SigmaRead's own events for the learner, without their words (contract 1.16) |
+| morning upkeep | `resendReadingState` (`POST /interests/import`): profile interests, thumbs and favorites that Compass's list of SigmaRead's events lacks |
 
-Reads time out after 2 seconds. On any error, timeout or `503`, and for students not linked,
-everything runs on SigmaRead's own graph as before (contract 6.7). Signals are still written
-locally first, so `interest_signals` stays a full copy until the switch has run for a while;
-an event Compass missed is sent again by the next morning batch's import, which is idempotent.
-A student's `external_id` is set when Compass first opens SigmaRead for them (the first students were linked by `drizzle/0014_link_compass_learners.sql`). A
-student's words are never logged when calling Compass (6.5).
+Reads time out after 2 seconds (the map and the evidence list after 5). When Compass is off, a
+call fails or times out, or a student is not linked, SigmaRead does what an app without
+interests does (contract 6.7):
 
-Topic slugs are Compass topic ids (Compass's seed keeps every SigmaRead slug). Article tagging
-and phrase matching still use SigmaRead's own topic map for now.
+- the feed is the unranked random mix, and the batch plans a student's articles from the
+  profile list on their row;
+- the tutor gets no interest line, no horizon topic comes from the map, the check-in is not
+  asked, and the adults' panel shows the plain profile list;
+- articles are still tagged, against the last map read or the one bundled in `taxonomy.ts`;
+- a declared interest, thumb or favorite that didn't reach Compass is sent again by the next
+  morning batch. A smaller signal (a pick, a pass-over, a chat mention, a check-in answer) is lost.
+
+A student's `external_id` is set when Compass first opens SigmaRead for them. A student's words
+are never logged when calling Compass (6.5).
+
+Topic slugs are Compass topic ids. Compass's map holds SigmaRead's topics plus specific "things"
+(kind `thing`); phrases and articles are matched only to the topics, though every label is known.
 
 ## Data
 
 | Table | Holds |
 | --- | --- |
-| `topics` | The shared map, three levels (domain → category → topic), keyed by stable `slug` |
-| `topic_aliases` | Extra phrases for a topic ("great whites" → `sharks`), stored normalized. `origin` is `seed`, `ai` or `admin` |
-| `topic_relations` | Links across the tree. Parents, children and siblings are related through `parent_slug` already |
 | `article_topics` | Topics of a base `article_cache` row. Level adaptations share their base's tags |
-| `interest_signals` | Append-only log: student, topic (or just the phrase, if it matched nothing), type, weight, `source_app`, `source_ref`, time |
 
-The seed map lives in `src/lib/interest-graph/taxonomy.ts`. `drizzle/0011_interest_graph.sql` is
-generated from it (`npx tsx scripts/gen-topic-seed.ts`), and a test fails if the two drift. Once
-0011 has shipped, add new topics with a new migration.
+`topics`, `topic_aliases`, `topic_relations` and `interest_signals` are still in the database
+and in `schema.ts`, unused, until the owner agrees to drop them.
+
+`src/lib/interest-graph/taxonomy.ts` holds the alias phrases ("great whites" → `sharks`) and a
+bundled copy of the topic tree, used only when Compass's map can't be read. A new topic is added
+in Compass; add its aliases here.
 
 ## Signals
 
@@ -66,15 +79,15 @@ generated from it (`npx tsx scripts/gen-topic-seed.ts`), and a test fails if the
 | `chat_mention` | +0.2 | After an article discussion, for each interest the student brought up themselves (see below) |
 | `show_different` | −0.1 | Defined for a later phase |
 
-`source_ref` makes recording idempotent: the same (student, type, ref) is stored once. Every call
+`source_ref` makes recording idempotent: Compass stores the same (learner, type, ref) once. Every call
 site wraps recording in `quietly()`, so a graph failure never breaks the student's page.
 
-Free text resolves by exact match on slug, label or alias (case, plurals, punctuation and filler
+Weights are Compass's; the table shows what it applies. Free text resolves by exact match on slug, label or alias (case, plurals, punctuation and filler
 like "facts about" are ignored, and short phrases match on their last words unless the words in
 front name a different topic that isn't an ancestor: "great white sharks" and "pet dogs" match, but
 "computer science" doesn't land on science). What's left can go
 to Haiku in one call per request (onboarding, typed interests, batch tagging), constrained to the
-topic list or "none". Personal facts and unsafe text map to none. Matches are saved as aliases.
+topic list or "none". Personal facts and unsafe text map to none. A model match is not remembered, so the batch asks again for a profile phrase that only the model can place.
 
 ### Chat mentions
 
@@ -84,13 +97,13 @@ student showed a personal interest in: things they like, do, play or want to rea
 that only restate the article, the article's own subject, personal or family facts and unsafe text
 are left out, and "none" is the usual answer. Each mention must quote the student's own words
 (checked against their messages as whole words, two words or more), dislikes, complaints and things the student only has to do are left out (hard or scary things they like still count), nothing is recorded for an article with no topics, and student text is escaped inside the prompt. The subjects go through
-`resolveTopics`; subjects over three words are dropped, AI matches are not saved as aliases (the subjects are model-written), and only topics outside the article's own (and their parents) are recorded, at most 3 per conversation, with
+`resolveTopics`; subjects over three words are dropped, and only topics outside the article's own (and their parents) are recorded, at most 3 per conversation, with
 `source_ref` `chat:<conversation>:<topic>`. Tutorials record nothing. Usage shows as "Chat
 interests" in the admin metrics. Logs show topic slugs only, never the student's words.
 
 ## Affinity
 
-Computed from the log on read, never stored:
+Computed by Compass from its log on each read (SigmaRead only reads the result):
 
     score = clamp(Σ weight · 0.5^(age / half-life), −1, 1)
 
@@ -108,15 +121,12 @@ The morning batch plans interest articles per student from `batchInterestsFor`
 (`src/lib/interest-graph/batch-interests.ts`): the profile list minus any phrase that resolves to
 a rejected or negative topic, plus up to 3 graph topics scoring 0.25 or more that the profile
 doesn't already name (an interest picked up in chat, a topic they keep choosing), strongest first,
-by label. Matching is exact, with no model call. If the graph can't be read, the batch plans from
-the profile as before (logged). The least-recently-featured rotation then picks up to 3 per student
+by label. Profile phrases match exactly, and the ones that don't go to Haiku once. If Compass
+can't be read, the batch plans from the profile (logged). The least-recently-featured rotation then picks up to 3 per student
 as before.
 
-The day's horizon article comes from `horizonTopicsFor` (`src/lib/interest-graph/horizon.ts`):
-for each student, the topics next to their 5 strongest (score 0.15 or more) through the map
-(siblings, children, related links; parents are groups, so never picked), scored by seed score × link weight and summed, so a
-topic next to several interests ranks higher. Topics the student already has a view on (score
-0.1 or more either way, or rejected) and broad groups (topics with children) are left out. Each
+The day's horizon article comes from `horizonTopicsFor`, which asks Compass for topics next to
+the student's strongest interests that they have no view on yet (`GET /learners/{id}/explore`). Each
 student's top 3 go into a shared pool with the model-suggested adjacent interests of students
 who have no graph data yet, and one topic not featured in the last 14 days is picked at random (a topic several students
 are near is more likely).
@@ -139,14 +149,15 @@ step) pick from the unseen articles at the student's level with `pickForFeed`
 - Candidates per level are a random sample of 60 unseen articles plus up to 40 tagged with the
   student's top 10 topics, so their interests are in the pool however large the cache gets.
   Seen articles are excluded in SQL. The batch ranks the 50 newest unseen.
-- "Never served" for rejected topics holds whenever the graph can be read; it is best-effort
-  during a database failure, when serving falls back to unranked.
+- "Never served" for rejected topics holds whenever Compass can be read; it is best-effort
+  during an outage, when serving falls back to unranked.
 
 ## "Still into these?"
 
 On a goal day, after the favorite pick, the page shows this check-in instead of the "anything you
 want to read about tomorrow?" question, so the student only ever sees one question. It is due
-two weeks after the last check-in (or after the student's first signal), and asks about up to
+two weeks after the last check-in (or after the student's first signal), read from SigmaRead's
+own events in Compass, and asks about up to
 three topics, most pressing first: two dislikes in a row, passed over 3+ times in 30 days, a
 declared interest with no positive signal for 30 days, then the most-served topics. Topics
 answered in the last 30 days and rejected topics are skipped. Each topic gets "Still love it",
@@ -156,16 +167,16 @@ before a topic's last check-in answer don't bring it back.
 
 ## What adults see
 
-The guide's student page and the parent's child view show an Interests panel
-(`src/components/InterestPanel.tsx`, `GET/POST /api/students/{id}/interests`): current interests
-(score 0.15 or more, at most 8, "new" when first seen in the last two weeks and not declared),
-declared interests that are fading, and topics the student or an adult turned off, each with
-remove or restore. Guides see their own students, parents their linked children, admins all.
-Before a student has any signals the panel shows their profile list as before.
+The admin's student page shows an Interests panel (`src/components/InterestPanel.tsx`,
+`GET/POST /api/students/{id}/interests`): current interests (score 0.15 or more, at most 8, "new"
+when first seen in the last two weeks and not declared), declared interests that are fading, and
+topics the student or an adult turned off, each with remove or restore (sent to Compass as a
+control). When Compass can't answer, or has nothing for the student yet, the panel shows their
+profile list with nothing to change.
 
 ## Upkeep
 
 The morning batch tags each new base article (the interest it searched for, then the rewrite's
-topic label), tags older untagged articles by exact match, and backfills signals from data
-recorded before the graph: profile interests (dated at signup), likes and dislikes, favorites.
+topic label), tags older untagged articles by exact match, and re-sends reading state Compass
+lacks (`resendReadingState`): profile interests (dated at signup), likes and dislikes, favorites.
 All of it is idempotent.
