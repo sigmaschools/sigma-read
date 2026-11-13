@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { parseStudentUpdate } from "@/lib/admin-student-update";
 import { DEFAULT_MIX } from "@/lib/level-progression-rules";
-import { auditInsert } from "@/lib/audit";
+import { auditInsert, auditWho } from "@/lib/audit";
 
 /** One student, for the admin student page */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -61,7 +61,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (Object.keys(changes).length > 0) {
     const set = Object.fromEntries(Object.entries(changes).map(([k, c]) => [k, c.to]));
     queries.push(db.update(schema.students).set(set).where(eq(schema.students.id, studentId)));
-    queries.push(auditInsert({ adminId: session.userId, action: "student.update", targetType: "student", targetId: studentId, details: changes }));
+    queries.push(auditInsert({ ...auditWho(session), action: "student.update", targetType: "student", targetId: studentId, details: changes }));
   }
   if (levelChanged) {
     // Same effect as an automatic level change in applyProgressionResult
@@ -71,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       queries.push(db.insert(schema.levelHistory).values({ studentId, fromLevel: student.readingLevel, toLevel: readingLevel }));
     }
     queries.push(auditInsert({
-      adminId: session.userId, action: "student.level_override", targetType: "student", targetId: studentId,
+      ...auditWho(session), action: "student.level_override", targetType: "student", targetId: studentId,
       details: { from: student.readingLevel, to: readingLevel },
     }));
   }

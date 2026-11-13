@@ -72,6 +72,9 @@ const check = (n: string, issuer = ISS) => verifyProfileNote(n, { issuer, keys: 
   assert.throws(() => checkAdult(note({ ...adult, adult: { ...adult.adult, email: 7 } })), /no adult/);
   assert.throws(() => checkAdult(note({ ...adult, adult: { ...adult.adult, id: "11111111-2222-3333-4444-555555555555" } })), /subject/);
   assert.throws(() => checkAdult(note({ ...adult, exp: NOW - 10 + 600 })), /lifetime/, "ten minutes is too long for an adult's note");
+  assert.equal(checkAdult(note(adult)).adult.staff, undefined, "a family's admin is not staff");
+  assert.equal(checkAdult(note({ ...adult, adult: { ...adult.adult, staff: true } })).adult.staff, true);
+  assert.throws(() => checkAdult(note({ ...adult, adult: { ...adult.adult, staff: "true" } })), /no adult/, "staff is true or absent, never a string");
   console.log("✅ adult notes");
 }
 

@@ -51,6 +51,8 @@ export interface CompassAdultNote {
   name: string;
   email?: string;
   roles: { school: string; schoolName: string; role: string }[];
+  /** Only ever `true`: the adult runs this Compass for every school (contract 1.15). Never granted from `roles` */
+  staff?: boolean;
 }
 
 export interface CompassAdultClaims extends Omit<CompassProfileClaims, "student"> {
@@ -101,6 +103,7 @@ export function verifyAdultNote(
   if (claims.student !== undefined) throw new ProfileError("a student's note does not open the admin pages");
   const a = claims.adult;
   if (!a || typeof a !== "object" || !Array.isArray(a.roles) || typeof a.name !== "string" || (a.email !== undefined && typeof a.email !== "string")) throw new ProfileError("no adult");
+  if (a.staff !== undefined && typeof a.staff !== "boolean") throw new ProfileError("no adult");
   if (typeof a.id !== "string" || a.id.toLowerCase() !== claims.sub.toLowerCase()) throw new ProfileError("adult is not the note's subject");
   return claims;
 }
