@@ -36,6 +36,8 @@ export const admins = pgTable("admins", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, t => [uniqueIndex("admins_external_id_unique").on(t.externalId)]);
 
+// No code reads or writes guides, parents, student_parents, parent_conversations or parent_feedback since issue 164:
+// guides and guardians follow reading in Compass. The tables are dropped by hand with the owner's go-ahead.
 export const guides = pgTable("guides", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -48,10 +50,10 @@ export const guides = pgTable("guides", {
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  username: text("username").notNull().unique(),
+  username: text("username").unique(), // left from the password sign-in; not set for a student Compass brings (migration 0022)
   passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
-  guideId: integer("guide_id").references(() => guides.id).notNull(),
-  externalId: text("external_id"), // Compass ID, set by an admin
+  guideId: integer("guide_id").references(() => guides.id), // no longer read or set: guides follow reading in Compass (migration 0022)
+  externalId: text("external_id"), // Compass learner id: who the student is. Set when Compass first opens SigmaRead for them
   readingLevel: integer("reading_level"), // 1-6, null until assessed
   gradeLevel: integer("grade_level"), // actual grade (2-8+)
   age: integer("age"), // student age

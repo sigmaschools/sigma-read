@@ -1,18 +1,11 @@
 /**
- * Validation for admin edits to a student (PATCH /api/admin/students/[id]).
+ * Validation for admin edits to a student's reading settings (PATCH /api/admin/students/[id]).
+ * Who the student is (name, grade) comes from Compass and is not edited here.
  * Pure, so it can be tested without a database.
  */
 
 export interface StudentUpdate {
-  name?: string;
-  guideId?: number;
-  gradeLevel?: number | null;
-  age?: number | null;
   dailyArticleCap?: number;
-  /** null means auto (dailyArticleCap × 5) */
-  weeklySessionTarget?: number | null;
-  /** Compass ID; null clears it */
-  externalId?: string | null;
   /** Handled separately: resets the feed mix and writes level history */
   readingLevel?: number;
 }
@@ -35,25 +28,8 @@ export function parseStudentUpdate(body: unknown): Result {
   const b = body as Record<string, unknown>;
   const update: StudentUpdate = {};
 
-  if ("name" in b && b.name !== undefined) {
-    if (typeof b.name !== "string" || !b.name.trim()) return { ok: false, error: "name must not be empty" };
-    if (b.name.trim().length > 100) return { ok: false, error: "name is too long" };
-    update.name = b.name.trim();
-  }
-
-  if ("externalId" in b && b.externalId !== undefined) {
-    if (b.externalId === null || b.externalId === "") update.externalId = null;
-    else if (typeof b.externalId !== "string" || !/^[\w.:-]{1,100}$/.test(b.externalId.trim())) {
-      return { ok: false, error: "externalId must be 1–100 letters, digits, or . _ : -" };
-    } else update.externalId = b.externalId.trim();
-  }
-
   const fields: [keyof StudentUpdate, number, number, boolean][] = [
-    ["guideId", 1, 2_147_483_647, false],
-    ["gradeLevel", 0, 12, true],
-    ["age", 4, 18, true],
     ["dailyArticleCap", 1, 20, false],
-    ["weeklySessionTarget", 1, 100, true],
     ["readingLevel", 1, 6, false],
   ];
   for (const [key, min, max, nullable] of fields) {

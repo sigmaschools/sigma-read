@@ -18,9 +18,6 @@ export async function GET() {
   const totalStudents = allStudents.length;
   const onboarded = allStudents.filter(s => s.onboardingComplete).length;
 
-  // Guide stats
-  const allGuides = await db.select({ id: schema.guides.id, name: schema.guides.name, email: schema.guides.email }).from(schema.guides);
-
   // Session stats
   const [sessionsToday] = await db.select({ count: count() }).from(schema.readingSessions)
     .where(gte(schema.readingSessions.startedAt, today));
@@ -120,16 +117,13 @@ export async function GET() {
     .catch(e => { console.error("admin_audit_log query failed:", e); return []; });
   const adminActions = recentActions.map(a => ({
     ...a,
-    targetName: a.targetType === "student" ? allStudents.find(s => s.id === a.targetId)?.name ?? null
-      : a.targetType === "guide" ? allGuides.find(g => g.id === a.targetId)?.name ?? null
-      : null,
+    targetName: a.targetType === "student" ? allStudents.find(s => s.id === a.targetId)?.name ?? null : null,
   }));
 
   return NextResponse.json({
     stats: {
       totalStudents,
       onboardedStudents: onboarded,
-      totalGuides: allGuides.length,
       sessionsToday: sessionsToday.count,
       sessionsThisWeek: sessionsThisWeek.count,
       sessionsTotal: sessionsTotal.count,
@@ -139,7 +133,6 @@ export async function GET() {
       lastBatchDate: latestBatch?.date || null,
     },
     batchRuns: batchRuns.rows,
-    guides: allGuides,
     alerts,
     adminActions,
   });

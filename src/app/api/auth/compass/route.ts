@@ -8,7 +8,7 @@ import { db, schema } from "@/lib/db";
 import { createToken } from "@/lib/auth";
 import { gradeToReadingLevel } from "@/lib/grade-to-level";
 import { markStarterPending, prepareStarterArticles } from "@/lib/starter-articles";
-import { profileFromNote, startingGrade } from "@/lib/compass-onboarding";
+import { personChanges, personFromNote, profileFromNote, startingGrade } from "@/lib/compass-onboarding";
 import { goalFromNote } from "@/lib/daily-goal";
 import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyProfileNote } from "@/lib/compass-profile";
 
@@ -16,7 +16,7 @@ import { compassBase, compassIssuer, compassKeys, noteKid, ProfileError, verifyP
  * Signs a student in from the profile note Compass opened SigmaRead with (app contract 1.1).
  * This is the way in: the page posts the note from `#compass_profile`, the server checks it
  * against Compass's published keys and signs in the student whose external_id is the note's
- * subject. No password is involved.
+ * subject, making their row the first time. No password is involved.
  */
 export async function POST(req: NextRequest) {
   const issuer = compassIssuer();
@@ -50,15 +50,42 @@ export async function POST(req: NextRequest) {
   }
 
   const learnerId = claims.sub.toLowerCase();
-  const [student] = await db
-    .select({ id: schema.students.id, onboardingComplete: schema.students.onboardingComplete, gradeLevel: schema.students.gradeLevel, dailyGoalArticles: schema.students.dailyGoalArticles })
-    .from(schema.students)
-    // external_id is unique and written lowercase (migration 0014)
-    .where(eq(schema.students.externalId, learnerId))
-    .limit(1);
+  const columns = { id: schema.students.id, name: schema.students.name, onboardingComplete: schema.students.onboardingComplete, gradeLevel: schema.students.gradeLevel, dailyGoalArticles: schema.students.dailyGoalArticles };
+  // external_id is unique and written lowercase (migration 0014)
+  const linked = () => db.select(columns).from(schema.students).where(eq(schema.students.externalId, learnerId)).limit(1);
+  let [student] = await linked();
   if (!student) {
-    console.warn(`[compass sign-in] no student linked to learner ${learnerId}`);
-    return signedOut(NextResponse.json({ error: "not_linked" }, { status: 404 }));
+    // Compass owns the people (issue 164): a learner Compass opens SigmaRead for and SigmaRead has
+    // not met gets their row here, from the note. Two first launches at once make one row.
+    // A failure here still signs out whoever was on the device before, like any note that signs nobody in
+    let created = false;
+    try {
+      const made = await db.insert(schema.students).values({ ...personFromNote(claims.student), externalId: learnerId })
+        .onConflictDoNothing({ target: schema.students.externalId }).returning(columns);
+      created = made.length > 0;
+      [student] = created ? made : await linked();
+    } catch (e) {
+      // The database's fault, not the learner's: a 503 reads as an outage and can be tried again
+      console.error(`[compass sign-in] making a row for learner ${learnerId} failed: ${e instanceof Error ? e.message : e}`);
+      return signedOut(NextResponse.json({ error: "Could not set up the student" }, { status: 503 }));
+    }
+    if (!student) {
+      console.error(`[compass sign-in] no row could be made for learner ${learnerId}`);
+      return signedOut(NextResponse.json({ error: "not_linked" }, { status: 404 }));
+    }
+    if (created) console.log(`[compass sign-in] student ${student.id} created for learner ${learnerId}`);
+  } else {
+    // The name and grade as Compass has them now. A failure here never fails the sign-in.
+    try {
+      const changes = personChanges(student, claims.student);
+      if (changes) {
+        await db.update(schema.students).set(changes).where(eq(schema.students.id, student.id));
+        student = { ...student, ...changes };
+        console.log(`[compass sign-in] student ${student.id} ${Object.keys(changes).join(" and ")} updated from Compass`);
+      }
+    } catch (e) {
+      console.error(`[compass sign-in] name and grade not updated for student ${student.id}: ${e instanceof Error ? e.message : e}`);
+    }
   }
 
   // The day's goal as Compass has it now (contract 1.11): kept so the home page ends the day there.

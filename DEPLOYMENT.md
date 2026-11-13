@@ -50,7 +50,6 @@ Git commits use `wvaughan@gmail.com` (required by Vercel team).
 | `/api/conversations` | Create new conversation |
 | `/api/conversations/[id]/chat` | Conversation turns |
 | `/api/conversations/[id]/self-assess` | Student self-assessment |
-| `/api/students` | List/create students |
 | `/api/reports` | Comprehension reports |
 
 ## Reset Pattern

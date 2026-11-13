@@ -13,23 +13,14 @@ export async function GET() {
   const students = await db.select({
     id: schema.students.id,
     name: schema.students.name,
-    username: schema.students.username,
-    guideId: schema.students.guideId,
     readingLevel: schema.students.readingLevel,
     gradeLevel: schema.students.gradeLevel,
-    age: schema.students.age,
     dailyArticleCap: schema.students.dailyArticleCap,
-    weeklySessionTarget: schema.students.weeklySessionTarget,
     externalId: schema.students.externalId,
     onboardingComplete: schema.students.onboardingComplete,
     totalSessionsCompleted: schema.students.totalSessionsCompleted,
     createdAt: schema.students.createdAt,
   }).from(schema.students).orderBy(schema.students.name);
-
-  const guides = await db.select({ id: schema.guides.id, name: schema.guides.name })
-    .from(schema.guides);
-  const guideMap: Record<number, string> = {};
-  guides.forEach(g => { guideMap[g.id] = g.name; });
 
   // Get total sessions per student (live count — do not use stored totalSessionsCompleted which is never incremented)
   const totalSessions = await db.select({
@@ -89,7 +80,6 @@ export async function GET() {
 
     return {
       ...s,
-      guideName: guideMap[s.guideId] || "Unknown",
       avgScore,
       sessionsThisWeek,
       totalSessionsCompleted: totalMap[s.id] || 0,

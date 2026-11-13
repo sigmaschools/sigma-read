@@ -31,7 +31,7 @@ Reads time out after 2 seconds. On any error, timeout or `503`, and for students
 everything runs on SigmaRead's own graph as before (contract 6.7). Signals are still written
 locally first, so `interest_signals` stays a full copy until the switch has run for a while;
 an event Compass missed is sent again by the next morning batch's import, which is idempotent.
-Students are linked by setting `external_id` in a data migration (`drizzle/0014_link_compass_learners.sql`). A
+A student's `external_id` is set when Compass first opens SigmaRead for them (the first students were linked by `drizzle/0014_link_compass_learners.sql`). A
 student's words are never logged when calling Compass (6.5).
 
 Topic slugs are Compass topic ids (Compass's seed keeps every SigmaRead slug). Article tagging

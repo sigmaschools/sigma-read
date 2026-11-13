@@ -8,8 +8,29 @@ import { parseStudentUpdate } from "@/lib/admin-student-update";
 import { DEFAULT_MIX } from "@/lib/level-progression-rules";
 import { auditInsert } from "@/lib/audit";
 
+/** One student, for the admin student page */
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const studentId = Number((await params).id);
+  if (!Number.isInteger(studentId) || studentId <= 0) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+  const [student] = await db.select({
+    id: schema.students.id,
+    name: schema.students.name,
+    readingLevel: schema.students.readingLevel,
+    gradeLevel: schema.students.gradeLevel,
+    interestProfile: schema.students.interestProfile,
+    onboardingComplete: schema.students.onboardingComplete,
+  }).from(schema.students).where(eq(schema.students.id, studentId)).limit(1);
+  if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
+  return NextResponse.json(student);
+}
+
 /**
- * Edit a student's profile and settings. A readingLevel change is a guide override
+ * Edit a student's reading settings (who the student is comes from Compass and is changed
+ * there). A readingLevel change is a guide override
  * (docs/level-progression.md): it resets the feed mix and writes level history, which
  * restarts the evaluation window.
  */
@@ -26,11 +47,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, studentId)).limit(1);
   if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
-
-  if (fields.guideId !== undefined && fields.guideId !== student.guideId) {
-    const [guide] = await db.select({ id: schema.guides.id }).from(schema.guides).where(eq(schema.guides.id, fields.guideId)).limit(1);
-    if (!guide) return NextResponse.json({ error: "Guide not found" }, { status: 400 });
-  }
 
   // Only record fields that actually change
   const changes: Record<string, { from: unknown; to: unknown }> = {};
@@ -60,26 +76,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }));
   }
   if (queries.length > 0) {
-    try {
-      await db.batch(queries as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
-    } catch (e) {
-      // Unique index on external_id
-      // Drizzle may wrap the driver error, so check its cause too
-      const err = e as { code?: string; cause?: { code?: string } };
-      if ((err.code ?? err.cause?.code) === "23505") return NextResponse.json({ error: "That Compass ID is already used by another student" }, { status: 409 });
-      throw e;
-    }
+    await db.batch(queries as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
   }
 
   const [updated] = await db.select({
     id: schema.students.id,
     name: schema.students.name,
-    guideId: schema.students.guideId,
     readingLevel: schema.students.readingLevel,
     gradeLevel: schema.students.gradeLevel,
-    age: schema.students.age,
     dailyArticleCap: schema.students.dailyArticleCap,
-    weeklySessionTarget: schema.students.weeklySessionTarget,
     externalId: schema.students.externalId,
   }).from(schema.students).where(eq(schema.students.id, studentId)).limit(1);
 

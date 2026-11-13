@@ -2,29 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { guideOwnsStudent } from "@/lib/ownership";
-import { eq, and, desc, isNotNull } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
+  // Admins only: guides and parents follow a student's reading in Compass
   const session = await getSession();
-  if (!session || (session.role !== "guide" && session.role !== "admin" && session.role !== "parent")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || session.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const studentId = parseInt(req.nextUrl.searchParams.get("studentId") || "0");
   if (!studentId) return NextResponse.json({ error: "Student ID required" }, { status: 400 });
-
-  // Parent must own this student
-  if (session.role === "parent") {
-    const [link] = await db.select({ id: schema.studentParents.id })
-      .from(schema.studentParents)
-      .where(and(eq(schema.studentParents.parentId, session.userId), eq(schema.studentParents.studentId, studentId)))
-      .limit(1);
-    if (!link) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // Guide must be assigned to this student
-  if (session.role === "guide" && !(await guideOwnsStudent(session.userId, studentId))) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
 
   // Get all reading sessions for this student with their reports
   const sessions = await db.select({
@@ -69,15 +55,9 @@ export async function GET(req: NextRequest) {
     .where(eq(schema.readingSessions.studentId, studentId))
     .orderBy(desc(schema.readingSessions.startedAt));
 
-  // A guide's disagreement with a report is staff-only
-  const staff = session.role === "guide" || session.role === "admin";
-  const visible = staff
-    ? sessions
-    : sessions.map(s => ({ ...s, forcedClose: null, guideFlag: null, guideNote: null, guideFlaggedAt: null, guideFlaggedRole: null, guideFlaggedBy: null }));
-
   // Separate completed from in-progress for the client
-  const completed = visible.filter(s => s.completedAt !== null);
-  const inProgress = visible.filter(s => s.completedAt === null);
+  const completed = sessions.filter(s => s.completedAt !== null);
+  const inProgress = sessions.filter(s => s.completedAt === null);
 
   return NextResponse.json({ completed, inProgress });
 }

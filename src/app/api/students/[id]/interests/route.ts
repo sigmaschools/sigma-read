@@ -2,21 +2,12 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { guideOwnsStudent } from "@/lib/ownership";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { interestSummaryFor, setTopicRemoved } from "@/lib/interest-graph";
 
-/** The adults who may see and edit a student's interests: their guide, a linked parent, or an admin */
-async function canManage(session: { role: string; userId: number }, studentId: number): Promise<boolean> {
-  if (session.role === "admin") return true;
-  if (session.role === "guide") return guideOwnsStudent(session.userId, studentId);
-  if (session.role === "parent") {
-    const [link] = await db.select({ id: schema.studentParents.id }).from(schema.studentParents)
-      .where(and(eq(schema.studentParents.parentId, session.userId), eq(schema.studentParents.studentId, studentId)))
-      .limit(1);
-    return !!link;
-  }
-  return false;
+/** Admins see and edit a student's interests here; guides and guardians do it in Compass */
+async function canManage(session: { role: string }): Promise<boolean> {
+  return session.role === "admin";
 }
 
 async function studentFrom(params: Promise<{ id: string }>) {
@@ -29,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const studentId = await studentFrom(params);
-  if (!studentId || !(await canManage(session, studentId))) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!studentId || !(await canManage(session))) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(await interestSummaryFor(studentId));
 }
 
@@ -38,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const studentId = await studentFrom(params);
-  if (!studentId || !(await canManage(session, studentId))) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!studentId || !(await canManage(session))) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json().catch(() => null);
   if (typeof body?.slug !== "string" || typeof body?.removed !== "boolean") {

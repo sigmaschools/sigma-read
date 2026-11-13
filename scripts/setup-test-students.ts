@@ -16,8 +16,8 @@ const DELETE_USERNAMES = ["teststudent", "newstudent"];
 // Students to ADD (replacing deleted ones + filling gaps)
 // Leave 2 un-onboarded for testing
 const NEW_STUDENTS = [
-  { name: "Noah Carter", username: "noah", guideId: 1, gradeLevel: 3, age: 8, readingLevel: 1, onboard: false },
-  { name: "Lily Thompson", username: "lily", guideId: 1, gradeLevel: 4, age: 9, readingLevel: 2, onboard: false },
+  { name: "Noah Carter", username: "noah", gradeLevel: 3, age: 8, readingLevel: 1, onboard: false },
+  { name: "Lily Thompson", username: "lily", gradeLevel: 4, age: 9, readingLevel: 2, onboard: false },
 ];
 
 async function main() {
@@ -55,8 +55,8 @@ async function main() {
       console.log(`  ⏭️ Skipped: ${s.name} (${s.username}) — already exists`);
       continue;
     }
-    await sql`INSERT INTO students (name, username, guide_id, grade_level, age, reading_level, onboarding_complete)
-      VALUES (${s.name}, ${s.username}, ${s.guideId}, ${s.gradeLevel}, ${s.age}, ${s.onboard ? s.readingLevel : null}, ${s.onboard})`;
+    await sql`INSERT INTO students (name, username, grade_level, age, reading_level, onboarding_complete)
+      VALUES (${s.name}, ${s.username}, ${s.gradeLevel}, ${s.age}, ${s.onboard ? s.readingLevel : null}, ${s.onboard})`;
     console.log(`  ✅ Created: ${s.name} (${s.username}) ${s.onboard ? "" : "— NOT onboarded (for testing)"}`);
   }
 
