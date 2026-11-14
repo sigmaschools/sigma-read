@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { eq, sql, count, desc } from "drizzle-orm";
+import { displayLevel } from "@/lib/reading-level";
 
 const PAGE_SIZE = 50;
 
@@ -54,6 +55,7 @@ async function handleQueue({ page, category, offset, params }: { page: number; c
     topic: schema.articleCache.topic,
     category: schema.articleCache.category,
     readingLevel: schema.articleCache.readingLevel,
+    measuredLevel: schema.articleCache.measuredLevel,
     generatedDate: schema.articleCache.generatedDate,
     sourceUrl: schema.articleCache.sourceUrl,
     flagged: schema.articleCache.flagged,
@@ -67,12 +69,13 @@ async function handleQueue({ page, category, offset, params }: { page: number; c
 
   // Step 2: Get all adaptations for this page of base articles
   const baseIds = rows.map(r => r.id);
-  let adaptations: { id: number; baseArticleId: number | null; readingLevel: number }[] = [];
+  let adaptations: { id: number; baseArticleId: number | null; readingLevel: number; measuredLevel: number | null }[] = [];
   if (baseIds.length > 0) {
     adaptations = await db.select({
       id: schema.articleCache.id,
       baseArticleId: schema.articleCache.baseArticleId,
       readingLevel: schema.articleCache.readingLevel,
+      measuredLevel: schema.articleCache.measuredLevel,
     }).from(schema.articleCache)
       .where(sql`${schema.articleCache.baseArticleId} = ANY(ARRAY[${sql.join(baseIds.map(id => sql`${id}`), sql`, `)}]::int[])`);
   }
@@ -81,8 +84,8 @@ async function handleQueue({ page, category, offset, params }: { page: number; c
   const grouped = rows.map(base => {
     const variants = adaptations.filter(a => a.baseArticleId === base.id);
     const levels = [
-      { id: base.id, level: base.readingLevel },
-      ...variants.map(v => ({ id: v.id, level: v.readingLevel }))
+      { id: base.id, level: base.readingLevel, measured: base.measuredLevel === null ? null : displayLevel(base.measuredLevel) },
+      ...variants.map(v => ({ id: v.id, level: v.readingLevel, measured: v.measuredLevel === null ? null : displayLevel(v.measuredLevel) }))
     ].sort((a, b) => a.level - b.level);
     return { ...base, levels };
   });

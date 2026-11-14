@@ -40,6 +40,16 @@ Compass Admin opens the admin pages from **Administration, Apps** (contract 1.10
 
 Guides and parents follow a student's reading in Compass (the Guide app and Review), so SigmaRead's own guide pages (`/guide`), parent page (`/parent`, with its chat), the weekly parent email and its one-click sign-in link (`/api/auth/auto-login`) are gone, and the password sign-in no longer accepts a guide or parent. Guide and parent rows stay in the database: every student still belongs to a guide, and history keeps its links. Admins can still view as a student, not as a guide; the admin Parents page went with the parent pages.
 
+## 7. The reading-level measure
+
+Compass owns the one estimate of how hard a text is to read, on an approximate Lexile scale (contract 1.17, section 17). SigmaRead asks it instead of keeping a formula of its own: `src/lib/reading-level.ts`, with the same server and key as the interest graph (`COMPASS_URL`, `COMPASS_INTERESTS_KEY`). The morning batch fetches what a writer should aim at for each level, measures every article it writes, rewrites a clear miss once, and stores the result on the article: [article-pipeline.md](./article-pipeline.md#reading-level-check). The rules SigmaRead keeps:
+
+- No copy of the formula, the word list or the sentence splitting.
+- Calls time out in 2 seconds (one text, guidance) or 5 (a batch) and never throw. When Compass doesn't answer, the article is stored unmeasured and a later run measures it; the batch never fails or stalls on the measure.
+- The model version is stored with every level, and an article measured by an older version is measured again.
+- People see the number as approximate, e.g. "710L (approximate)" (`displayLevel`), and only adults see it.
+- Only article text is sent, never a student's own words.
+
 ## The reading day
 
 The day's end screen is "See you tomorrow" on the home screen, `#finished`, shown only after the day's last article and its questions; no more articles are offered after it ([article-selection.md](./article-selection.md#daily-cap)). Compass's registry entry needs `doneWhen` `{"selector": "#finished"}` for Compass to close Sigma Read there.

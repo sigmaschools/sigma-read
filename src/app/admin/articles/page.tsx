@@ -15,7 +15,8 @@ interface QueueRow {
   flagged: boolean;
   reviewNote: string | null;
   createdAt: string;
-  levels: Array<{ id: number; level: number }>;
+  /** `measured` is Compass's reading-level estimate as people see it, e.g. "710L (approximate)"; null when unmeasured */
+  levels: Array<{ id: number; level: number; measured?: string | null }>;
 }
 
 interface LibraryRow {
@@ -344,6 +345,7 @@ export default function AdminArticlesPage() {
                         <button
                           key={lv.id}
                           onClick={(e) => { e.stopPropagation(); openPreview(lv.id); }}
+                          title={lv.measured ? `Measured ${lv.measured}` : "Not measured yet"}
                           className="px-2 py-0.5 text-xs font-medium rounded border border-[var(--border)] text-[var(--fg)] bg-white hover:border-[var(--accent)] hover:text-[var(--accent)] transition"
                         >
                           L{lv.level}

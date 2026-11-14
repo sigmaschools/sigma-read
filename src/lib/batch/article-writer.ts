@@ -43,6 +43,17 @@ export interface WriterOptions {
   model?: string;
   /** Extra request fields (thinking, output_config.effort) for a model under test */
   settings?: Record<string, unknown>;
+  /**
+   * What to aim at for the level, from Compass's reading-level measure (src/lib/reading-level.ts):
+   * a sentence on sentence length and vocabulary. Absent when Compass didn't answer; the prompt
+   * is then what it was before the measure.
+   */
+  guidance?: string;
+}
+
+/** The guidance line for a writer's prompt; nothing when there is no guidance */
+export function guidanceLine(guidance: string | undefined): string {
+  return guidance ? `\nSENTENCES AND WORDS: ${guidance} This sets the reading level: where it differs from the grade or the vocabulary rules, follow it.\n` : "";
 }
 
 /** How an article body is written; the reader renders it with src/lib/markdown.ts */
@@ -83,7 +94,7 @@ function request(opts: WriterOptions | undefined) {
   return { model, ...(opts?.settings ?? requestSettings(model, "writer")) };
 }
 
-export function rewritePrompt(topic: SourcedTopic): string {
+export function rewritePrompt(topic: SourcedTopic, guidance?: string): string {
   const guide = levelGuide[BASE_LEVEL];
   // Truncate source text to ~2000 words to keep prompt reasonable
   const sourceWords = topic.sourceText.split(/\s+/);
@@ -101,7 +112,7 @@ SOURCE MATERIAL:
 ${truncatedSource}
 
 VOCABULARY RULES: ${guide.vocab}
-
+${guidanceLine(guidance)}
 Requirements:
 - Tell ONE story well, the one in the brief. The source is your fact-check, not your outline: leave out everything in it that doesn't serve the story, even most of the page. Never a general overview of the subject.
 - Every fact, number, name and date must come from the source. Do not add information not in the source.
@@ -155,7 +166,7 @@ export async function rewriteFromSource(client: Client, topic: SourcedTopic, opt
   const response = await client.messages.create({
     ...request(opts),
     max_tokens: 4000,
-    messages: [{ role: "user", content: rewritePrompt(topic) }],
+    messages: [{ role: "user", content: rewritePrompt(topic, opts?.guidance) }],
   } as Anthropic.MessageCreateParamsNonStreaming);
   return parseRewrite(text(response), topic);
 }
@@ -165,7 +176,7 @@ export async function rewriteFromSource(client: Client, topic: SourcedTopic, opt
  * the way the spring 2026 articles were (StarCraft and swarm robots, the physics of a Nerf
  * blaster). It is marked for review (article_cache.review_note), since nothing checks it against a page.
  */
-export function knowledgePrompt(topic: SourcedTopic): string {
+export function knowledgePrompt(topic: SourcedTopic, guidance?: string): string {
   const guide = levelGuide[BASE_LEVEL];
   return `Write an original nonfiction article for a student, from your own knowledge.
 
@@ -174,7 +185,7 @@ Article type: ${topic.type}
 Target length: ${guide.words} words
 ${storyBrief(topic)}
 VOCABULARY RULES: ${guide.vocab}
-
+${guidanceLine(guidance)}
 Requirements:
 - Tell ONE story well, the one in the brief. Never a general overview of the subject.
 - Use only facts you are confident are true and well documented. No invented quotes, statistics, studies or people. If you are not sure of a number or a date, leave it out or round it ("about", "more than"). Prefer how things work and why, which you know well, over recent events, which you may not.
@@ -203,17 +214,17 @@ export async function writeFromKnowledge(client: Client, topic: SourcedTopic, op
   const response = await client.messages.create({
     ...request(opts),
     max_tokens: 4000,
-    messages: [{ role: "user", content: knowledgePrompt(topic) }],
+    messages: [{ role: "user", content: knowledgePrompt(topic, opts?.guidance) }],
   } as Anthropic.MessageCreateParamsNonStreaming);
   return parseRewrite(text(response), { ...topic, sourceUrl: null });
 }
 
-export function adaptPrompt(baseTitle: string, baseBody: string, targetLevel: number): string {
+export function adaptPrompt(baseTitle: string, baseBody: string, targetLevel: number, guidance?: string): string {
   const guide = levelGuide[targetLevel];
   return `Adapt this article to reading level ${targetLevel} (Lexile ${guide.lexile}, Grade ${guide.grade}, ${guide.words} words). Keep same facts, adjust vocabulary/complexity.
 
 ${guide.vocab}
-
+${guidanceLine(guidance)}
 Title: ${baseTitle}
 ---
 ${baseBody}
@@ -248,7 +259,47 @@ export async function adaptArticleToLevel(
   const response = await client.messages.create({
     ...request(opts),
     max_tokens: 4000,
-    messages: [{ role: "user", content: adaptPrompt(baseTitle, baseBody, targetLevel) }],
+    messages: [{ role: "user", content: adaptPrompt(baseTitle, baseBody, targetLevel, opts?.guidance) }],
   } as Anthropic.MessageCreateParamsNonStreaming);
   return parseAdapt(text(response), baseTitle);
+}
+
+/**
+ * A finished article measured well off its level's target (src/lib/reading-level.ts): the same
+ * article again, with only its sentences and word choices changed as the measure advises.
+ */
+export function revisePrompt(title: string, body: string, advice: string[], guidance?: string): string {
+  return `This article for a student came out at the wrong reading level. Rewrite it so it reads at the right one. Change only how it is written, never what it says.
+
+WHAT TO CHANGE:
+${advice.map(a => `- ${a}`).join("\n")}
+${guidanceLine(guidance)}
+Title: ${title}
+---
+${body}
+---
+
+Rules:
+- Keep the same story, the same order and the same opening approach.
+- Keep every fact, number, name and date exactly. Add no information and drop none that matters to the story.
+- Keep about the same length.
+- To lengthen sentences, join related ones; to shorten them, split them. Keep it natural: it must still read like a good article, not like an exercise.
+- Short paragraphs (2-4 sentences).
+${ARTICLE_FORMAT}
+
+Output ONLY JSON:
+{"title": "Article title", "body": "The rewritten article text."}`;
+}
+
+/** Rewrites an article once to bring it nearer its level; null when the model's answer can't be used */
+export async function reviseArticle(
+  client: Client, title: string, body: string, advice: string[], opts?: WriterOptions,
+): Promise<{ title: string; bodyText: string } | null> {
+  const response = await client.messages.create({
+    ...request(opts),
+    max_tokens: 4000,
+    messages: [{ role: "user", content: revisePrompt(title, body, advice, opts?.guidance) }],
+  } as Anthropic.MessageCreateParamsNonStreaming);
+  const parsed = parseAdapt(text(response), title);
+  return parsed ? { title: parsed.title, bodyText: parsed.bodyText } : null;
 }
