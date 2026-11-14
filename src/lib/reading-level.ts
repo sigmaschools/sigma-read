@@ -70,7 +70,7 @@ export function displayLevel(level: number): string {
 }
 
 /** True when the result is a clear miss worth one rewrite: reliable, 150L or more off, with something to act on */
-export function needsRewrite(m: Measured | null): m is Measured {
+export function needsRewrite(m: Measured | null): boolean {
   return !!m && m.reliable && m.difference !== null && Math.abs(m.difference) >= REWRITE_AT && m.advice.length > 0;
 }
 
@@ -102,7 +102,8 @@ async function call<T>(method: "GET" | "POST", path: string, body: unknown, time
     });
     if (!res.ok) {
       console.error(`Compass reading level: ${method} ${path.split("?")[0]} answered ${res.status}`);
-      if (res.status >= 500 || res.status === 429) downUntil = Date.now() + COOLDOWN_MS;
+      // A refused key (401, 403) won't start working mid-batch either
+      if (res.status >= 500 || res.status === 429 || res.status === 401 || res.status === 403) downUntil = Date.now() + COOLDOWN_MS;
       return null;
     }
     return (await res.json()) as T;
@@ -187,7 +188,7 @@ export async function landOnTarget<T extends { bodyText: string }>(args: {
 }): Promise<{ article: T; measured: Measured | null; rewritten: boolean }> {
   const measure = args.measure ?? measureArticle;
   const first = await measure(args.article.bodyText, args.level);
-  if (!needsRewrite(first)) return { article: args.article, measured: first, rewritten: false };
+  if (!first || !needsRewrite(first)) return { article: args.article, measured: first, rewritten: false };
   const second = await args.rewrite(first.advice, first).catch(() => null);
   if (!second?.bodyText) return { article: args.article, measured: first, rewritten: false };
   const again = await measure(second.bodyText, args.level);

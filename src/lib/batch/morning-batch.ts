@@ -1114,8 +1114,8 @@ async function runSteps(result: BatchResult) {
   if (topicPlans.length === 0 && newsPlans.length === 0) {
     console.log(`✅ Today's articles were all written earlier. Skipping generation.`);
     result.adaptations += await backfillAdaptations(levelsNeeded);
-    await quietly(measureUnmeasured(), "reading levels");
     result.served += await serveToStudents(students, studentInterests, today);
+    await quietly(measureUnmeasured(), "reading levels");
     console.log(`\n✅ Batch complete (served existing articles)\n`);
     return;
   }
@@ -1216,11 +1216,12 @@ async function runSteps(result: BatchResult) {
   // (also finishes adaptations a previous, timed-out call didn't get to)
   result.adaptations += await backfillAdaptations(levelsNeeded);
 
-  // Articles written while Compass's reading-level measure wasn't answering get their level now
-  await quietly(measureUnmeasured(), "reading levels");
-
   // Step 6: Serve to students
   result.served += await serveToStudents(students, studentInterests, today);
+
+  // Articles written while Compass's reading-level measure wasn't answering get their level now.
+  // After serving, so students never wait on it (serving doesn't read the level)
+  await quietly(measureUnmeasured(), "reading levels");
 
   console.log(`\n✅ Batch ${result.status}: ${written} base articles × ${levelsNeeded.size} levels this run\n`);
 }
