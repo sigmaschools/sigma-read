@@ -31,7 +31,8 @@ import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
 import { MODELS, requestSettings } from "../models";
-import { BASE_LEVEL, rewriteFromSource as writeBase, writeFromKnowledge as writeUnsourced, adaptArticleToLevel as writeAdaptation, type BaseArticle, type SourcedTopic } from "./article-writer";
+import { BASE_LEVEL, rewriteFromSource as writeBase, writeFromKnowledge as writeUnsourced, adaptArticleToLevel as writeAdaptation, reviseArticle, type BaseArticle, type SourcedTopic } from "./article-writer";
+import { guidanceForLevel, landOnTarget, measureArticles, storedLevel, targetForLevel, type StoredLevel } from "../reading-level";
 import { storyAngles, type StoryAngle } from "./story-angles";
 import { findDuplicate, type ExistingArticle } from "./dedup";
 import { writeGuideNotes } from "../tutor/guide-notes";
@@ -76,16 +77,75 @@ const UNSOURCED_NOTE = "No web page fit this story, so it was written from the m
  * knowledge. A page passed the content filter before it was used; an article written from
  * knowledge has no page, so the finished text goes through the same check instead.
  */
-async function writeBaseArticle(topic: SourcedTopic): Promise<BaseArticle | null> {
-  if (topic.sourceUrl) return writeBase(tracked(anthropic, "batch_rewrite"), topic);
-  const article = await writeUnsourced(tracked(anthropic, "batch_write"), topic);
-  if (!article) return null;
-  const kept = await filterSources([{ url: `knowledge:${topic.query}`, text: `${article.title}\n\n${article.bodyText}`, whole: true }]);
-  if (kept.length === 0) { console.log(`     🚫 Article written from knowledge failed the content check: "${article.title}"`); return null; }
-  return article;
+async function writeBaseArticle(topic: SourcedTopic): Promise<(BaseArticle & { level: StoredLevel }) | null> {
+  const guidance = (await guidanceForLevel(BASE_LEVEL))?.summary;
+  const written = topic.sourceUrl
+    ? await writeBase(tracked(anthropic, "batch_rewrite"), topic, { guidance })
+    : await writeUnsourced(tracked(anthropic, "batch_write"), topic, { guidance });
+  if (!written) return null;
+  // Measured (and rewritten once, if far off) before the content check, so the check reads the text that is stored
+  const { article, level } = await toTarget(written, BASE_LEVEL, guidance);
+  if (!topic.sourceUrl) {
+    const kept = await filterSources([{ url: `knowledge:${topic.query}`, text: `${article.title}\n\n${article.bodyText}`, whole: true }]);
+    if (kept.length === 0) { console.log(`     🚫 Article written from knowledge failed the content check: "${article.title}"`); return null; }
+  }
+  return { ...article, level };
 }
-const adaptArticleToLevel = (title: string, body: string, level: number) =>
-  writeAdaptation(tracked(anthropic, "batch_adapt"), title, body, level);
+async function adaptArticleToLevel(title: string, body: string, level: number) {
+  const guidance = (await guidanceForLevel(level))?.summary;
+  const adapted = await writeAdaptation(tracked(anthropic, "batch_adapt"), title, body, level, { guidance });
+  if (!adapted) return null;
+  const { article, level: measured } = await toTarget(adapted, level, guidance);
+  return { ...article, level: measured };
+}
+/**
+ * Compass's reading-level measure (src/lib/reading-level.ts): measure the finished article against
+ * its level's target, and send a clear miss back to the writer once, keeping the closer of the
+ * two. The title is kept. When Compass doesn't answer, the article goes on as written, unmeasured,
+ * and measureUnmeasured picks it up on a later run.
+ */
+async function toTarget<T extends { title: string; bodyText: string }>(article: T, level: number, guidance: string | undefined): Promise<{ article: T; level: StoredLevel }> {
+  const result = await landOnTarget({
+    level,
+    article,
+    rewrite: async (advice, first) => {
+      console.log(`     📏 L${level} measured ${first.level}L for a ${targetForLevel(level)}L target; rewriting once`);
+      const revised = await reviseArticle(tracked(anthropic, "batch_revise"), article.title, article.bodyText, advice, { guidance });
+      return revised ? { ...article, bodyText: revised.bodyText } : null;
+    },
+  }).catch(e => {
+    console.error("Reading level check failed:", e instanceof Error ? e.message : e);
+    return { article, measured: null, rewritten: false };
+  });
+  if (result.measured) console.log(`     📏 L${level}: ${result.measured.level}L (target ${targetForLevel(level)}L${result.rewritten ? ", after one rewrite" : ""}${result.measured.reliable ? "" : ", not reliable"})`);
+  return { article: result.article, level: storedLevel(result.measured) };
+}
+
+/**
+ * Measures cached articles that have no level yet (written while Compass was not answering, or
+ * before the measure existed) or whose level came from an older model version. Measuring is
+ * arithmetic on Compass's side, so this is cheap; nothing is rewritten here.
+ */
+async function measureUnmeasured(): Promise<number> {
+  const version = (await guidanceForLevel(BASE_LEVEL))?.modelVersion;
+  if (!version) return 0;
+  const rows = await sql`
+    SELECT id, body_text, reading_level FROM article_cache
+    WHERE flagged = false AND (measured_level IS NULL OR level_model_version IS DISTINCT FROM ${version})
+    ORDER BY id DESC LIMIT 300
+  `;
+  if (rows.length === 0) return 0;
+  const results = await measureArticles(rows.map(r => ({ text: r.body_text as string, level: r.reading_level as number })));
+  let stored = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const m = results[i];
+    if (!m) continue;
+    await sql`UPDATE article_cache SET measured_level = ${m.level}, level_model_version = ${m.modelVersion}, level_reliable = ${m.reliable} WHERE id = ${rows[i].id}`;
+    stored++;
+  }
+  if (stored > 0) console.log(`📏 Measured ${stored} articles that had no reading level`);
+  return stored;
+}
 /** Sigma's prep notes for a new base article, stored on its row; a failure leaves the tutor without notes, never without an article */
 const writeNotesFor = (cacheId: number, title: string, body: string) => quietly((async () => {
   const notes = await writeGuideNotes(tracked(anthropic, "guide_notes"), title, body);
@@ -979,8 +1039,8 @@ async function backfillAdaptations(levelsNeeded: Set<number>): Promise<number> {
     console.log(`  🔧 Backfilling ${base.topic} → L${level}`);
     const adapted = await adaptArticleToLevel(base.title, base.body_text, level);
     if (adapted) {
-      await sql`INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date)
-        VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources || [])}, ${adapted.estimatedReadTime}, ${base.category}, ${base.id}, ${base.generated_date})`;
+      await sql`INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date, measured_level, level_model_version, level_reliable)
+        VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources || [])}, ${adapted.estimatedReadTime}, ${base.category}, ${base.id}, ${base.generated_date}, ${adapted.level.measuredLevel}, ${adapted.level.levelModelVersion}, ${adapted.level.levelReliable})`;
       backfilled++;
     }
   });
@@ -1054,6 +1114,7 @@ async function runSteps(result: BatchResult) {
     console.log(`✅ Today's articles were all written earlier. Skipping generation.`);
     result.adaptations += await backfillAdaptations(levelsNeeded);
     result.served += await serveToStudents(students, studentInterests, today);
+    await quietly(measureUnmeasured(), "reading levels");
     console.log(`\n✅ Batch complete (served existing articles)\n`);
     return;
   }
@@ -1078,8 +1139,8 @@ async function runSteps(result: BatchResult) {
       const adapted = await adaptArticleToLevel(base.title, base.bodyText, level);
       if (adapted) {
         await sql`
-          INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date)
-          VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources)}, ${adapted.estimatedReadTime}, ${base.category}, ${base.id}, ${today})
+          INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date, measured_level, level_model_version, level_reliable)
+          VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources)}, ${adapted.estimatedReadTime}, ${base.category}, ${base.id}, ${today}, ${adapted.level.measuredLevel}, ${adapted.level.levelModelVersion}, ${adapted.level.levelReliable})
         `;
         result.adaptations++;
         console.log(`     📐 L${level}`);
@@ -1097,8 +1158,8 @@ async function runSteps(result: BatchResult) {
     if (blockedSet.has(article.topic.toLowerCase())) { console.log(`     🚫 Blocked topic`); return false; }
 
     const [inserted] = await sql`
-      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note)
-      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${t.sourceUrl}, ${t.sourceUrl}, ${t.sourceUrl ? null : UNSOURCED_NOTE})
+      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note, measured_level, level_model_version, level_reliable)
+      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${t.sourceUrl}, ${t.sourceUrl}, ${t.sourceUrl ? null : UNSOURCED_NOTE}, ${article.level.measuredLevel}, ${article.level.levelModelVersion}, ${article.level.levelReliable})
       RETURNING id
     `;
     result.baseArticles++;
@@ -1157,6 +1218,10 @@ async function runSteps(result: BatchResult) {
   // Step 6: Serve to students
   result.served += await serveToStudents(students, studentInterests, today);
 
+  // Articles written while Compass's reading-level measure wasn't answering get their level now.
+  // After serving, so students never wait on it (serving doesn't read the level)
+  await quietly(measureUnmeasured(), "reading levels");
+
   console.log(`\n✅ Batch ${result.status}: ${written} base articles × ${levelsNeeded.size} levels this run\n`);
 }
 
@@ -1194,8 +1259,8 @@ export async function writeInterestArticle(interest: string, level: number): Pro
     if (blocked.length > 0) return null;
 
     const [base] = await sql`
-      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note)
-      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl}, ${sourced.sourceUrl ? null : UNSOURCED_NOTE})
+      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note, measured_level, level_model_version, level_reliable)
+      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl}, ${sourced.sourceUrl ? null : UNSOURCED_NOTE}, ${article.level.measuredLevel}, ${article.level.levelModelVersion}, ${article.level.levelReliable})
       RETURNING id
     `;
     await quietly(tagCacheArticle(base.id, [interest, article.topic], { client: anthropic }), "article tagging");
@@ -1226,8 +1291,8 @@ async function atLevel(baseId: number, level: number): Promise<number | null> {
   const adapted = await adaptArticleToLevel(base.title, base.body_text, level);
   if (!adapted?.bodyText) return null;
   const [row] = await sql`
-    INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date)
-    VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources || [])}, ${adapted.estimatedReadTime}, ${base.category}, ${baseId}, ${base.generated_date})
+    INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, base_article_id, generated_date, measured_level, level_model_version, level_reliable)
+    VALUES (${adapted.title}, ${base.topic}, ${adapted.bodyText}, ${level}, ${JSON.stringify(base.sources || [])}, ${adapted.estimatedReadTime}, ${base.category}, ${baseId}, ${base.generated_date}, ${adapted.level.measuredLevel}, ${adapted.level.levelModelVersion}, ${adapted.level.levelReliable})
     RETURNING id
   `;
   return row.id as number;

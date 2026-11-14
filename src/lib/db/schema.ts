@@ -113,6 +113,11 @@ export const articleCache = pgTable("article_cache", {
   flagged: boolean("flagged").default(false).notNull(), // flagged = won't be served to new students
   guideNotes: jsonb("guide_notes").$type<GuideNotes>(), // Sigma's prep notes, written once on the base article (src/lib/tutor/guide-notes.ts)
   reviewNote: text("review_note"), // why an admin should look at this article (written without a source page); null = nothing to check
+  // Compass's reading-level measure of the body (src/lib/reading-level.ts): an estimate on an approximate
+  // Lexile scale, the model version that made it, and whether Compass called it reliable. All null = not measured yet
+  measuredLevel: integer("measured_level"),
+  levelModelVersion: varchar("level_model_version", { length: 20 }),
+  levelReliable: boolean("level_reliable"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

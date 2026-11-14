@@ -93,6 +93,19 @@ Level specifications:
 | L5 | 8 | 1000-1100 | 400-600 | Domain-specific with context. Complex structures. |
 | L6 | 8+ | 1150+ | 500-600 | Advanced vocabulary. Nuance and inference. |
 
+### Reading-level check
+
+Every article, base or adapted, is checked against its level's target with Compass's reading-level measure ([compass-integration.md](./compass-integration.md#7-the-reading-level-measure), `src/lib/reading-level.ts`). The target is the middle of the level's Lexile band: 450, 600, 750, 900, 1050, 1200.
+
+1. **Before writing**, the batch asks Compass what to aim at for the level (about 9 words a sentence at 500L, 11 at 700L, 14 at 900L, 18 at 1100L, plus how common the words should be) and puts that sentence in the writer's prompt. It is fetched once per level.
+2. **After writing**, the article is measured. Its level, the model version and whether the result was reliable are stored on the row (`measured_level`, `level_model_version`, `level_reliable`).
+3. **A clear miss is rewritten once.** When a reliable result is 150L or more from the target, the writer gets the article back with Compass's advice (`reviseArticle`: same story, same facts, only sentences and word choices change, title kept). The rewrite is measured, and the closer of the two is kept. There is never a second rewrite: one text is only good to about 150L, so chasing the number further would be chasing noise. An article written from the model's own knowledge goes through the content check after this, so the check reads the text that is stored.
+4. **When Compass doesn't answer** (not configured, an error, or no answer in a few seconds), the article goes out as written with no level stored, and the prompt is what it was before the measure existed. After one failed call the batch stops asking for a minute, so an outage costs one short wait and not one per article. Each run, after serving (so students never wait on it), `measureUnmeasured` measures cached articles that have no level or one from an older model version (up to 300 a run; nothing is rewritten there).
+
+Markdown lists are left out of the measure by Compass, so an article that is mostly a list may come back as not reliable; it is stored that way and never rewritten on that result. The measured level is shown to admins only, as approximate: hover a level on the Articles page.
+
+Serving still matches articles to students by their level label (1-6). Using the measured level to decide what fits a student is the next step, once every article in the pool has one.
+
 ### Step 5: Buffer Fill
 
 For each active student:
@@ -156,6 +169,9 @@ Shared pool of all generated articles.
 | base_article_id | int | Links adaptations to their base (null for base articles) |
 | generated_date | date | Which batch date produced this |
 | headline_source | text | Source URL for news articles |
+| measured_level | int | Compass's estimate of the article's reading level (approximate Lexile); null when unmeasured |
+| level_model_version | varchar(20) | The version of Compass's measure that made the estimate |
+| level_reliable | boolean | False when Compass flagged the result (very short text, mostly lists) |
 | created_at | timestamp | Creation time |
 
 ### Student Articles (`articles`)
