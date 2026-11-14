@@ -32,7 +32,7 @@ import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
 import { MODELS, requestSettings } from "../models";
 import { BASE_LEVEL, rewriteFromSource as writeBase, writeFromKnowledge as writeUnsourced, adaptArticleToLevel as writeAdaptation, reviseArticle, type BaseArticle, type SourcedTopic } from "./article-writer";
-import { guidanceForLevel, landOnTarget, measureArticles, storedLevel, targetForLevel, type StoredLevel } from "../reading-level";
+import { guidanceForLevel, landOnTarget, measureArticles, pickFitFirst, storedLevel, targetForLevel, type StoredLevel } from "../reading-level";
 import { storyAngles, type StoryAngle } from "./story-angles";
 import { findDuplicate, type ExistingArticle } from "./dedup";
 import { writeGuideNotes } from "../tutor/guide-notes";
@@ -961,7 +961,11 @@ async function serveToStudents(students: Student[], studentInterests: Map<number
     const picked = await pickWithoutRepeats(
       excluded => pickServing({
         own, candidates, needed, max: OWN_STORIES_MAX, excluded,
-        fill: (rest, n) => pickForFeed(rest, scoring, n, { avoid: new Set(recent) }),
+        // Articles that measured within about 100L of the level's target (or have no measure yet)
+        // fill first; one that measured further off is used only when those run out, so nobody
+        // gets fewer articles. Stories written for the student's own interests are not held to this
+        fill: (rest, n) => pickFitFirst(rest, n, student.reading_level, c => (c.row.measured_level as number | null) ?? null,
+          (from, k) => pickForFeed(from, scoring, k, { avoid: new Set(recent) })),
       }),
       async (unchecked, approved) => {
         const gist = (c: (typeof candidates)[number]) => ({ id: c.id, title: c.row.title as string, excerpt: excerpt(c.row.body_text) });

@@ -79,6 +79,19 @@ export function fitsLevel(measuredLevel: number | null, level: number): boolean 
   return measuredLevel === null ? null : Math.abs(measuredLevel - targetForLevel(level)) <= FIT_WITHIN;
 }
 
+/**
+ * Fills `n` places from articles that fit the level first (measured within FIT_WITHIN of its
+ * target, or not measured yet), and only then from the ones that measured further off, so a
+ * student never gets fewer articles because of the measure. `pick` chooses and orders within a
+ * group; `levelOf` gives a candidate's measured level.
+ */
+export function pickFitFirst<T>(candidates: T[], n: number, level: number, levelOf: (c: T) => number | null, pick: (from: T[], n: number) => T[]): T[] {
+  const fits = candidates.filter(c => fitsLevel(levelOf(c), level) !== false);
+  const picked = pick(fits, n);
+  if (picked.length >= n || fits.length === candidates.length) return picked;
+  return [...picked, ...pick(candidates.filter(c => fitsLevel(levelOf(c), level) === false), n - picked.length)];
+}
+
 // ─── HTTP ─────────────────────────────────────────────────────────────────────
 
 export function measureConfigured(): boolean {

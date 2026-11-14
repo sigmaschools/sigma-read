@@ -104,7 +104,7 @@ Every article, base or adapted, is checked against its level's target with Compa
 
 Markdown lists are left out of the measure by Compass, so an article that is mostly a list may come back as not reliable; it is stored that way and never rewritten on that result. The measured level is shown to admins only, as approximate: hover a level on the Articles page.
 
-Serving still matches articles to students by their level label (1-6). Using the measured level to decide what fits a student is the next step, once every article in the pool has one.
+**Serving.** Articles are still matched to students by their level label (1-6). Within that, the fill of a student's feed uses articles that measured within about 100L of the level's target first (`pickFitFirst`); an unmeasured article counts as fitting, and one that measured further off is used only when the others run out, so the measure never leaves a student with fewer articles. Stories written for the student's own interests are served regardless: they were measured and, if far off, rewritten when they were written.
 
 ### Step 5: Buffer Fill
 

@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import {
-  displayLevel, fitsLevel, guidanceForLevel, landOnTarget, measureArticle, measureArticles, needsRewrite,
+  displayLevel, fitsLevel, guidanceForLevel, pickFitFirst, landOnTarget, measureArticle, measureArticles, needsRewrite,
   resetReadingLevelState, storedLevel, targetForLevel, toMeasured, UNMEASURED, MEASURE_MAX_TEXTS, type Measured,
 } from "./reading-level";
 import { adaptPrompt, knowledgePrompt, revisePrompt, rewritePrompt, type SourcedTopic } from "./batch/article-writer";
@@ -32,6 +32,17 @@ async function main() {
   assert.equal(fitsLevel(840, 3), true);
   assert.equal(fitsLevel(860, 3), false);
   console.log("✅ targets are the level midpoints; a level is always shown as approximate");
+
+  // ─── Serving: articles that fit the level first ─────────────────────────────
+  const pool = [{ id: 1, at: 900 }, { id: 2, at: 760 }, { id: 3, at: null }, { id: 4, at: 600 }, { id: 5, at: 840 }];
+  const firstN = <T,>(from: T[], k: number) => from.slice(0, k);
+  const ids = (n: number) => pickFitFirst(pool, n, 3, c => c.at, firstN).map(c => c.id);
+  assert.deepEqual(ids(2), [2, 3], "fitting and unmeasured articles are used first");
+  assert.deepEqual(ids(3), [2, 3, 5]);
+  assert.deepEqual(ids(4), [2, 3, 5, 1], "one that is further off fills a place nothing else can");
+  assert.deepEqual(ids(9), [2, 3, 5, 1, 4], "never fewer articles than without the measure");
+  assert.deepEqual(pickFitFirst(pool, 2, 3, () => null, firstN).map(c => c.id), [1, 2], "an unmeasured pool is served as before");
+  console.log("✅ serving prefers articles within 100L of the level and never serves fewer");
 
   // ─── What comes back from Compass ───────────────────────────────────────────
   assert.equal(toMeasured(undefined, "1"), null);
