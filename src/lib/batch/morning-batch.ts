@@ -26,7 +26,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { neon } from "@neondatabase/serverless";
 import { normalizeInterestProfile } from "../normalize-interests";
 import { tracked } from "../ai-usage";
-import { backfillSignals, batchInterestsFor, clearPrefetched, feedScoring, getAffinities, horizonTopicsFor, prefetchInterests, quietly, syncToCompass, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
+import { batchInterestsFor, clearPrefetched, feedScoring, getAffinities, horizonTopicsFor, prefetchInterests, quietly, resendReadingState, tagCacheArticle, tagUntaggedCache, topicsForCache } from "../interest-graph";
 import { pickForFeed } from "../interest-graph/serving";
 import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
@@ -219,7 +219,7 @@ async function analyzeStudents(): Promise<{
     return probe ? [s.reading_level, probe] : [s.reading_level];
   }));
 
-  // Students linked to Compass: read all their interests in one call (no-op when Compass is off)
+  // Read every student's interests from Compass in one call (nothing is read when Compass is off or down)
   const fromCompass = await prefetchInterests(students.map(s => s.id as number));
   if (fromCompass > 0) console.log(`🧭 Interests for ${fromCompass} students read from Compass`);
 
@@ -229,8 +229,8 @@ async function analyzeStudents(): Promise<{
   for (const s of students) {
     const profile = normalizeInterestProfile(s.interest_profile);
     // The interest graph drops topics the student or an adult took off and adds strong topics
-    // the profile doesn't name; if it fails, plan from the profile as before
-    const interests = await batchInterestsFor(s.id, profile.interests).catch(e => {
+    // the profile doesn't name; when Compass can't answer, or this fails, plan from the profile
+    const interests = await batchInterestsFor(s.id, profile.interests, { client: anthropic }).catch(e => {
       console.error(`  ⚠️ Interest graph unavailable for ${s.name}, planning from profile:`, e);
       return profile.interests;
     });
@@ -1090,13 +1090,12 @@ async function runSteps(result: BatchResult) {
   // Always flag expired articles first — before threshold checks or serving
   await flagExpiredArticles();
 
-  // Interest graph upkeep: tag older articles and turn pre-graph likes, favorites and
-  // profile interests into signals. Exact matches only, and idempotent, so it's cheap to repeat.
+  // Interest graph upkeep: tag older articles, and send Compass any like, favorite or profile
+  // interest it is missing (lost while it was unreachable). Idempotent, so it's cheap to repeat.
   await quietly((async () => {
     const tagged = await tagUntaggedCache();
-    const signals = await backfillSignals();
-    if (tagged || signals) console.log(`🧭 Interest graph: tagged ${tagged} articles, backfilled ${signals} signals`);
-    await syncToCompass(students.map(s => s.id as number));
+    const resent = await resendReadingState(students.map(s => s.id as number));
+    if (tagged || resent) console.log(`🧭 Interest graph: tagged ${tagged} articles, sent Compass ${resent} signals it was missing`);
   })(), "batch upkeep");
 
   // Step 2: Plan daily mix

@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { flattenTaxonomy, RELATED } from "./taxonomy";
-import { topicSeedSql } from "./seed-sql";
 import { matchKey } from "./resolve";
 
 const topics = flattenTaxonomy();
@@ -39,13 +36,4 @@ const slugs = new Set(topics.map(t => t.slug));
 {
   for (const [a, b] of RELATED) assert.ok(slugs.has(a) && slugs.has(b), `related pair uses real slugs: ${a}, ${b}`);
   console.log("✅ related links point at real topics");
-}
-
-{
-  const file = readFileSync(join(__dirname, "../../../drizzle/0011_interest_graph.sql"), "utf8");
-  assert.equal(file, topicSeedSql(), "drizzle/0011_interest_graph.sql is stale: run npx tsx scripts/gen-topic-seed.ts");
-  for (const statement of file.split(/;\s*$/m).map(s => s.trim()).filter(Boolean)) {
-    assert.ok(!statement.includes("$$"), "no dollar quoting");
-  }
-  console.log("✅ seed migration matches the taxonomy");
 }
