@@ -1,9 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { db, schema } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { eq } from "drizzle-orm";
-import { interestSummaryFor, setTopicRemoved } from "@/lib/interest-graph";
+import { interestSummaryFor, setTopicRemoved, topicLabels } from "@/lib/interest-graph";
 
 /** Admins see and edit a student's interests here; guides and guardians do it in Compass */
 async function canManage(session: { role: string }): Promise<boolean> {
@@ -35,9 +33,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (typeof body?.slug !== "string" || typeof body?.removed !== "boolean") {
     return NextResponse.json({ error: "slug and removed are required" }, { status: 400 });
   }
-  const [topic] = await db.select({ slug: schema.topics.slug }).from(schema.topics).where(eq(schema.topics.slug, body.slug)).limit(1);
-  if (!topic) return NextResponse.json({ error: "Unknown topic" }, { status: 400 });
+  if (!(await topicLabels([body.slug])).has(body.slug)) return NextResponse.json({ error: "Unknown topic" }, { status: 400 });
 
-  await setTopicRemoved(studentId, topic.slug, body.removed, session);
+  // Compass holds the record. If it doesn't confirm the change, the panel shows what still stands
+  await setTopicRemoved(studentId, body.slug, body.removed, session);
   return NextResponse.json(await interestSummaryFor(studentId));
 }
