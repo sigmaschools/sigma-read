@@ -133,7 +133,8 @@ interface RawResult {
 
 /** One result from Compass as SigmaRead keeps it; null when it carries no level (a text with no words) */
 export function toMeasured(raw: RawResult | undefined, modelVersion: string): Measured | null {
-  if (!raw || typeof raw.level !== "number" || !Number.isFinite(raw.level) || !modelVersion) return null;
+  // A version too long for its column (varchar 20) would fail the article's insert; such a result is not kept
+  if (!raw || typeof raw.level !== "number" || !Number.isFinite(raw.level) || !modelVersion || modelVersion.length > 20) return null;
   const difference = typeof raw.target?.difference === "number" ? raw.target.difference : null;
   const advice = Array.isArray(raw.target?.advice) ? raw.target.advice.filter((a): a is string => typeof a === "string" && a.trim() !== "") : [];
   return { level: Math.round(raw.level), modelVersion, reliable: raw.reliable === true, difference, advice };

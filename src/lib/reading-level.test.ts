@@ -37,6 +37,7 @@ async function main() {
   assert.equal(toMeasured(undefined, "1"), null);
   assert.equal(toMeasured({ reliable: false }, "1"), null, "a text with no words has no level");
   assert.equal(toMeasured({ level: 700 }, ""), null, "a level is never kept without its model version");
+  assert.equal(toMeasured({ level: 700 }, "x".repeat(21)), null, "a version that wouldn't fit its column is not kept");
   assert.deepEqual(
     toMeasured({ level: 912.4, reliable: true, target: { difference: 162, advice: ["Shorten the sentences.", "", 3] } }, "1"),
     { level: 912, modelVersion: "1", reliable: true, difference: 162, advice: ["Shorten the sentences."] },
