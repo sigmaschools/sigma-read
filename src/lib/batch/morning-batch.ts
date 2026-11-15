@@ -218,9 +218,10 @@ async function analyzeStudents(): Promise<{
   // read_since and unread are both taken as they stood when today's run first started
   // (batch_runs.started_at is set once a day and kept across resumed calls): articles finished
   // between the start of the last complete run before today and the start of today's, and unread
-  // articles the student already had then. So every resumed call of today's run plans for the
-  // same students and levels, whatever was served or read in between, and tomorrow's count
-  // starts where today's stopped. Run by hand with no row for today, "the start" is now.
+  // articles the student already had then. So what an earlier call of today's run served never
+  // takes a student out of a resumed call's plan, and tomorrow's count starts where today's
+  // stopped. (A student who reads one of those older articles during the run can only gain a
+  // story, never lose one.) Run by hand with no row for today, "the start" is now.
   const students = await sql`
     WITH run AS (
       SELECT
