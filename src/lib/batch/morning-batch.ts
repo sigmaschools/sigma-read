@@ -196,9 +196,9 @@ interface Student {
   adjacent_interests: string[] | null;
   daily_article_cap: number;
   feed_mix: FeedMix | null;
-  /** Articles finished since the last complete batch run before today */
+  /** Articles finished between the last complete batch run before today and the start of today's */
   read_since: number;
-  /** Unread articles in the student's buffer */
+  /** Unread articles in the student's buffer when today's run started */
   unread: number;
 }
 
@@ -215,16 +215,25 @@ async function analyzeStudents(): Promise<{
   studentInterests: Map<number, string[]>; // studentId → ordered interest list
   recentTopics: Set<string>;
 }> {
-  // read_since counts from the start of the last complete run before today, so every resumed
-  // call of today's run sees the same number
+  // read_since and unread are both taken as they stood when today's run first started
+  // (batch_runs.started_at is set once a day and kept across resumed calls): articles finished
+  // between the start of the last complete run before today and the start of today's, and unread
+  // articles the student already had then. So every resumed call of today's run plans for the
+  // same students and levels, whatever was served or read in between, and tomorrow's count
+  // starts where today's stopped. Run by hand with no row for today, "the start" is now.
   const students = await sql`
+    WITH run AS (
+      SELECT
+        COALESCE((SELECT started_at FROM batch_runs WHERE run_date = CURRENT_DATE), NOW()::timestamp) AS today_start,
+        COALESCE((SELECT MAX(started_at) FROM batch_runs WHERE run_date < CURRENT_DATE AND status = 'complete'), 'epoch'::timestamp) AS last_start
+    )
     SELECT s.id, s.name, s.reading_level, s.interest_profile, s.adjacent_interests, s.daily_article_cap, s.feed_mix,
-      (SELECT COUNT(*) FROM articles a WHERE a.student_id = s.id AND a.read = false)::int AS unread,
+      (SELECT COUNT(*) FROM articles a
+        WHERE a.student_id = s.id AND a.read = false AND a.created_at < run.today_start)::int AS unread,
       (SELECT COUNT(DISTINCT rs.article_id) FROM reading_sessions rs
-        WHERE rs.student_id = s.id AND rs.completed_at > COALESCE(
-          (SELECT MAX(started_at) FROM batch_runs WHERE run_date < CURRENT_DATE AND status = 'complete'),
-          'epoch'::timestamp))::int AS read_since
-    FROM students s WHERE s.onboarding_complete = true AND s.reading_level IS NOT NULL
+        WHERE rs.student_id = s.id AND rs.completed_at > run.last_start AND rs.completed_at <= run.today_start)::int AS read_since
+    FROM students s CROSS JOIN run
+    WHERE s.onboarding_complete = true AND s.reading_level IS NOT NULL
   ` as Student[];
 
   // Articles are adapted to the levels of the students who get stories today. A student in a

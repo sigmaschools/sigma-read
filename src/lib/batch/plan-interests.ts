@@ -12,15 +12,16 @@
  *
  * The order still matters: the batch has a time limit and resumes, so every student's first
  * interest is written before anyone's second, and an interest several students share goes first
- * within a rank.
- *
- * @param wants each student's candidate interests for today, best first (least recently
- *   featured); students who have waited longest for an article of their own come first
- * @returns every distinct interest, in the order to write them
+ * within a rank (`pickInterests`).
  */
+
 /** A student gets at most this many stories of their own a morning */
 export const STORIES_MAX = 3;
-/** The home screen shows this many unread articles; a student with fewer gets stories whether or not they read */
+/**
+ * The home screen shows this many unread articles (docs/article-selection.md, "The Feed"; the
+ * student page asks for a top-up below the same number); a student with fewer gets stories
+ * whether or not they read
+ */
 export const HOME_SHOWS = 5;
 
 /**
@@ -47,6 +48,11 @@ export function studentWants(interests: string[], wanted: number, lastFeatured: 
   return [...interests].sort((a, b) => rank(a) - rank(b)).slice(0, Math.max(0, wanted)).filter(i => !writtenToday.has(i));
 }
 
+/**
+ * @param wants each student's candidate interests for today, best first (least recently
+ *   featured); students who have waited longest for an article of their own come first
+ * @returns every distinct interest, in the order to write them
+ */
 export function pickInterests(wants: string[][]): string[] {
   const picked: string[] = [];
   const maxRank = Math.max(0, ...wants.map(w => w.length));
