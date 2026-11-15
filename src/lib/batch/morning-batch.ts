@@ -9,8 +9,8 @@
  * call stops cleanly before the serverless time limit; the next call continues.
  *
  * Process:
- * 1. Analyze active students: interests, reading levels, aggregate interest pool
- * 2. Plan daily mix: 60% interest / 20% news / 20% horizon per student
+ * 1. Analyze active students: interests, reading levels, aggregate interest pool, who read since the last batch
+ * 2. Plan daily mix for the students who read: a story for each article read (up to 3), one news, one horizon; nothing when nobody read
  * 3. Source content: interest → story angles → web search → fetch → content filter and story gate
  * 4. Write: the writer model tells the story from the page at L4 (or from its own knowledge, marked for review, when no page fits)
  * 5. Adapt each article to all needed reading levels using Sonnet
@@ -38,7 +38,7 @@ import { findDuplicate, type ExistingArticle } from "./dedup";
 import { writeGuideNotes } from "../tutor/guide-notes";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
 import { recentArticles, recentTopics } from "../recent-reading";
-import { pickInterests } from "./plan-interests";
+import { pickInterests, storiesWanted, studentWants } from "./plan-interests";
 import { pickServing } from "./serve-picks";
 import { probeLevelOf, probeServeCount, probeSlotOrder, type FeedMix } from "../level-progression-rules";
 import { KID_NEWS_DOMAINS, NEWS_DOMAINS, NEWS_TOPICS, STORY_DOMAINS, isGrokipediaPagePath } from "./sources";
@@ -196,7 +196,14 @@ interface Student {
   adjacent_interests: string[] | null;
   daily_article_cap: number;
   feed_mix: FeedMix | null;
+  /** Articles finished since the last complete batch run before today */
+  read_since: number;
+  /** Unread articles in the student's buffer */
+  unread: number;
 }
+
+/** How many stories of their own this student gets written today (plan-interests.ts) */
+const wantedBy = (s: Student) => storiesWanted(Number(s.read_since) || 0, Number(s.unread) || 0);
 
 
 // ─── Step 1: Analyze Students ───────────────────────────────────────────────
@@ -208,13 +215,21 @@ async function analyzeStudents(): Promise<{
   studentInterests: Map<number, string[]>; // studentId → ordered interest list
   recentTopics: Set<string>;
 }> {
+  // read_since counts from the start of the last complete run before today, so every resumed
+  // call of today's run sees the same number
   const students = await sql`
-    SELECT id, name, reading_level, interest_profile, adjacent_interests, daily_article_cap, feed_mix
-    FROM students WHERE onboarding_complete = true AND reading_level IS NOT NULL
+    SELECT s.id, s.name, s.reading_level, s.interest_profile, s.adjacent_interests, s.daily_article_cap, s.feed_mix,
+      (SELECT COUNT(*) FROM articles a WHERE a.student_id = s.id AND a.read = false)::int AS unread,
+      (SELECT COUNT(DISTINCT rs.article_id) FROM reading_sessions rs
+        WHERE rs.student_id = s.id AND rs.completed_at > COALESCE(
+          (SELECT MAX(started_at) FROM batch_runs WHERE run_date < CURRENT_DATE AND status = 'complete'),
+          'epoch'::timestamp))::int AS read_since
+    FROM students s WHERE s.onboarding_complete = true AND s.reading_level IS NOT NULL
   ` as Student[];
 
-  // A student in a level probe also reads at the probe level, so articles are adapted to it too
-  const levelsNeeded = new Set(students.flatMap(s => {
+  // Articles are adapted to the levels of the students who get stories today. A student in a
+  // level probe also reads at the probe level, so articles are adapted to it too
+  const levelsNeeded = new Set(students.filter(s => wantedBy(s) > 0).flatMap(s => {
     const probe = probeLevelOf(s.reading_level, s.feed_mix);
     return probe ? [s.reading_level, probe] : [s.reading_level];
   }));
@@ -294,8 +309,9 @@ async function planDailyArticles(
     r.last_featured_at ? new Date(r.last_featured_at as string) : null,
   ]));
 
-  // Per student: their top-3 least-recently-featured interests, all of them written today (no
-  // cap: quality and personal fit over cost). An interest already written today (by an earlier
+  // Per student: their least-recently-featured interests, one for each article they read since
+  // the last batch, up to three (no cap across students: quality and personal fit over cost;
+  // `students` here are only the ones who get stories today). An interest already written today (by an earlier
   // run that hit its time limit, or a new student's starter article) is left out, so a resumed
   // run picks up where the last one stopped. The order matters for the same reason: every
   // student's first interest is written before anyone's second (plan-interests.ts), and students
@@ -303,13 +319,12 @@ async function planDailyArticles(
   // students.
   const writtenToday = new Set((await sql`SELECT interest FROM interest_rotation WHERE last_featured_at = CURRENT_DATE`).map(r => (r.interest as string).toLowerCase()));
   const featured = (interest: string) => lastFeaturedMap.get(interest)?.getTime() ?? 0;
-  // Today's writes take the student's slots first, so a resumed run doesn't move on to a fourth interest
-  const rank = (interest: string) => writtenToday.has(interest) ? -1 : featured(interest);
   const wants = students
     .map(student => {
       const interests = (studentInterests.get(student.id) || []).map(i => i.toLowerCase().trim());
-      // NULL = never featured = highest priority
-      return [...interests].sort((a, b) => rank(a) - rank(b)).slice(0, 3).filter(i => !writtenToday.has(i));
+      // One story for each article the student read since the last batch, up to three; never
+      // featured = highest priority; today's writes take the student's places first
+      return studentWants(interests, wantedBy(student), featured, writtenToday);
     })
     .map(w => ({ w, latest: Math.max(0, ...w.map(featured)), r: Math.random() }))
     .sort((a, b) => a.latest - b.latest || a.r - b.r)
@@ -1098,8 +1113,21 @@ async function runSteps(result: BatchResult) {
     if (tagged || resent) console.log(`🧭 Interest graph: tagged ${tagged} articles, sent Compass ${resent} signals it was missing`);
   })(), "batch upkeep");
 
+  // Stories are written for students who read since the last batch (plan-interests.ts), and the
+  // day's news and horizon article with them. When nobody read (a weekend, a day off, only
+  // unused test accounts), nothing is written: everyone still has their unread articles.
+  const writeFor = students.filter(s => wantedBy(s) > 0);
+  console.log(`✍️  Writing for ${writeFor.length} of ${students.length} students${writeFor.length > 0 ? `: ${writeFor.map(s => `${s.name} (read ${s.read_since}, ${s.unread} unread, ${wantedBy(s)} stories)`).join(", ")}` : ""}`);
+  if (writeFor.length === 0) {
+    console.log(`✅ Nobody has read since the last batch. Nothing to write today.`);
+    result.served += await serveToStudents(students, studentInterests, today);
+    await quietly(measureUnmeasured(), "reading levels");
+    console.log(`\n✅ Batch complete (nothing to write)\n`);
+    return;
+  }
+
   // Step 2: Plan daily mix
-  const plans = await planDailyArticles(interestMap, students, recentTopics, studentInterests);
+  const plans = await planDailyArticles(interestMap, writeFor, recentTopics, studentInterests);
 
   // The plan already leaves out what an earlier run today wrote (interests in today's rotation,
   // the horizon article); the news plans are alternatives for one article, kept only while
