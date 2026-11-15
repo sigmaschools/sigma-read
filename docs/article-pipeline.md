@@ -60,7 +60,8 @@ The content filter (`filterSources` in `morning-batch.ts`, the standard model) r
 
 `planDailyArticles` in `morning-batch.ts` builds the day's plan from each student:
 
-- **Interests.** Each active student's three least-recently-featured interests (`interest_rotation` keeps the dates), all of them. Every student's first interest is written before anyone's second, and an interest several students share is written once (`src/lib/batch/plan-interests.ts`). There is no cap on the count: the user's standing decision (2026-11-08) is to pay for specific, personal articles rather than save with a shared set of broad ones, which is what the Oct 29 to Nov 8 planner did (fewest articles covering the most students).
+- **Written to need.** A student gets one new story for each article they finished since the last complete batch, up to three (`storiesWanted` in `src/lib/batch/plan-interests.ts`). A student who did not read (a weekend, a day off, a test account nobody is using) gets none, and their unread stories wait for them; a student whose unread articles would not fill the home screen (fewer than 5) gets enough to fill it whether or not they read. When no student gets stories, the run writes nothing at all, news and horizon included, and only serves. Until 2026-11-15 every student got three stories every day, read or not, which wrote 21 a week for a student whose goal is 12.
+- **Interests.** For each student who gets stories today, their least-recently-featured interests (`interest_rotation` keeps the dates), as many as they get stories. Every student's first interest is written before anyone's second, and an interest several students share is written once (`src/lib/batch/plan-interests.ts`). There is no cap on the count: the user's standing decision (2026-11-08) is to pay for specific, personal articles rather than save with a shared set of broad ones, which is what the Oct 29 to Nov 8 planner did (fewest articles covering the most students).
 - **News.** One article a day from the candidates in Step 1.
 - **Horizon.** One topic next to a student's interests that they haven't shown a view on, from the interest graph (or model-suggested adjacent interests for students without graph data), drawn at random so no one student's list decides every day.
 
@@ -70,13 +71,13 @@ Articles go into the shared pool and are served to every student who has the int
 
 - **Model:** `MODELS.writer` in `src/lib/models.ts` (see [ai-models.md](./ai-models.md) for the choice and its test). Prompts live in `src/lib/batch/article-writer.ts`, shared by the batch, new students' first articles and `npm run eval:articles`.
 - **Level:** Generated at L4 (Grade 7) as the base
-- **Count:** every planned interest (up to 3 per student, shared interests once) + 1 news + 1 horizon; no cap
+- **Count:** every planned interest (one per article a student read, up to 3 per student, shared interests once) + 1 news + 1 horizon; nothing on a day when nobody read; no cap across students
 - **Brief:** the writer gets the story angle ("tell ONE story") and the source page as its fact-check, not its outline; every fact, number, name and date comes from the source. Without a source it writes from its own knowledge and the article is marked for review (Step 1)
 - **Prompt:** Includes editorial neutrality rules, vocabulary constraints, word count targets
 
 ### Step 4: Level Adaptation
 
-Each base article is adapted to all reading levels needed by active students.
+Each base article is adapted to the reading levels of the students who get stories that day (and their probe levels). A level nobody is reading at is not written; when a student at that level reads again, the backfill step adapts the last 7 days' articles to it.
 
 - **Model:** `MODELS.writer`, same as the base article (each article is written once for every student, so the writer's cost is small next to the conversations)
 - **Process:** Adjust vocabulary, sentence complexity, word count, detail level
