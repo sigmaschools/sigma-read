@@ -183,22 +183,24 @@ export default function ConversationPage() {
         {/* Article Panel — always visible */}
         {article && (
           <>
-            {/* Desktop: side panel */}
-            <div className="hidden lg:flex w-[580px] border-r border-[var(--border)] flex-col bg-[#fafafa] flex-shrink-0">
-              <div className="flex-1 overflow-y-auto px-8 py-8">
+            {/* From 700 wide (tablets, open folding phones, computers): the article stays on the
+                left while the student answers on the right. It shares the width evenly until
+                there is room for its full 580. */}
+            <div className="hidden min-[700px]:flex w-1/2 lg:w-[580px] border-r border-[var(--border)] flex-col bg-[#fafafa] flex-shrink-0">
+              <div className="flex-1 overflow-y-auto px-5 py-6 lg:px-8 lg:py-8">
                 <h2 className="text-xl font-semibold mb-1 leading-snug">{article.title}</h2>
                 <p className="text-xs text-[var(--muted)] mb-6 uppercase tracking-wider">{article.topic}</p>
                 {renderArticleBody(article.bodyText)}
               </div>
             </div>
-            {/* Tablet/mobile: toggle button + bottom drawer */}
+            {/* A phone held upright is too narrow for two columns: button + bottom drawer */}
             <MobileArticleDrawer article={article} renderBody={renderArticleBody} />
           </>
         )}
 
         {/* Chat column */}
         <div className="flex-1 flex flex-col min-w-0 max-w-2xl mx-auto w-full">
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 space-y-4">
             {messages.filter((msg) => msg.content !== "I just finished reading the article." && msg.type !== "coaching").map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
@@ -226,7 +228,7 @@ export default function ConversationPage() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="px-6 py-4 border-t border-[var(--border)]">
+          <div className="px-4 py-4 sm:px-6 border-t border-[var(--border)]">
             {complete ? (
               <div className="space-y-4">
                 {coachingFeedback && (
@@ -288,7 +290,7 @@ export default function ConversationPage() {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
                     placeholder="Type your response…"
-                    className="flex-1 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
+                    className="flex-1 min-w-0 px-4 py-2.5 border border-[var(--border)] rounded-xl text-[15px] outline-none focus:border-[var(--accent)] transition"
                     disabled={loading}
                     autoFocus
                   />
@@ -326,15 +328,15 @@ export default function ConversationPage() {
   );
 }
 
-// Mobile/tablet article drawer
+// Narrow-screen article drawer
 function MobileArticleDrawer({ article, renderBody }: { article: ArticleData; renderBody: (text: string) => React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="lg:hidden">
+    <div className="min-[700px]:hidden">
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 left-4 z-40 px-3 py-2 bg-white border border-[var(--border)] rounded-xl shadow-md text-sm text-[var(--muted)] hover:text-[var(--fg)] transition"
+        className="fixed bottom-24 left-4 z-40 px-3 py-2 bg-white border border-[var(--border)] rounded-xl shadow-md text-sm text-[var(--muted)] hover:text-[var(--fg)] transition"
       >
         📖 Article
       </button>
