@@ -11,6 +11,7 @@ import { parseProgressResponse, clampDelta } from "@/lib/progress-scoring";
 import { REPLY_SCHEMA } from "@/lib/report-schema";
 import { parseJsonResponse } from "@/lib/claude-json";
 import { ANSWER_POINTS_MAX_STUDENT_MESSAGES, HELP_NOTE, lastAnswerWasThin, pointsForScore } from "@/lib/answer-points";
+import { pointsForTier } from "@/lib/answer-score";
 
 /** Safety backstop: wrap up after this many real student messages */
 export const MAX_STUDENT_MESSAGES = 6;
@@ -89,6 +90,8 @@ export interface TurnResult {
   usedFallback: "closing_question" | "empty" | null;
   /** With answer points: the bar's move for the student's answer (null on the opener or without answer points) */
   points: number | null;
+  /** With answer points: the grade-level scorer's tier for the answer (0-3), null if it didn't run */
+  tier?: number | null;
 }
 
 /**
@@ -118,6 +121,11 @@ export async function runTutorTurn(args: {
    * call on the last turn only.
    */
   answerPoints?: boolean;
+  /**
+   * With answer points: rates the answer for the student's grade (answer-score.ts), run beside the
+   * tutor's reply. Its tier sets the bar's move; without it, or if it fails, the tutor's score does.
+   */
+  scoreAnswer?: (question: string, answer: string) => Promise<number | null>;
 }): Promise<TurnResult> {
   const exchangeNumber = args.messages.filter(m => m.role === "user").length;
   if (args.answerPoints && exchangeNumber > 0) return answerPointsTurn(args, exchangeNumber);
@@ -222,10 +230,15 @@ async function answerPointsTurn(args: TurnArgs, exchangeNumber: number): Promise
   const conversation: ModelMessage[] = args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
   // The answers before this one: was the last of them thin? Then this one may need an easier way in
   const help = lastAnswerWasThin(args.messages.slice(0, -1));
-  const first = await askTutor(args, help ? [...conversation, { role: "user", content: HELP_NOTE }] : conversation);
+  const answer = args.messages.at(-1)?.content ?? "";
+  const question = lastTutorMessage(args.messages.slice(0, -1)) ?? "";
+  const [first, tier] = await Promise.all([
+    askTutor(args, help ? [...conversation, { role: "user", content: HELP_NOTE }] : conversation),
+    args.scoreAnswer ? args.scoreAnswer(question, answer).catch(() => null) : Promise.resolve(null),
+  ]);
 
   const progressDelta = clampDelta(first.progressDelta);
-  const points = pointsForScore(progressDelta);
+  const points = tier !== null ? pointsForTier(tier) : pointsForScore(progressDelta);
   const bar = args.priorProgress + points;
   const closing: ClosingKind | null = bar >= 100 && exchangeNumber >= 3 ? "earned"
     : exchangeNumber >= ANSWER_POINTS_MAX_STUDENT_MESSAGES ? "forced" : null;
@@ -257,7 +270,7 @@ async function answerPointsTurn(args: TurnArgs, exchangeNumber: number): Promise
     message = FALLBACK_CLOSING;
   }
 
-  return { message, progressDelta, progressScore: Math.min(100, bar), complete: closing !== null, closing, usedFallback, points };
+  return { message, progressDelta, progressScore: Math.min(100, bar), complete: closing !== null, closing, usedFallback, points, tier };
 }
 
 const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;

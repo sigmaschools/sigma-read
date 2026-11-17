@@ -17,6 +17,7 @@ import { sigmaExchange } from "@/lib/tutor/conversation";
 import { guideNotesForArticle } from "@/lib/tutor/notes-store";
 import { tutorDesignForNewConversation, type TutorDesign } from "@/lib/tutor/design";
 import { answerPointsOn } from "@/lib/answer-points";
+import { scoreAnswer } from "@/lib/answer-score";
 
 const anthropic = new Anthropic();
 
@@ -42,7 +43,7 @@ function computeActiveDiscussionSeconds(msgs: { role: string; timestamp?: string
 }
 
 /** `points`: the bar's move for a student answer, on conversations with answer points */
-type StoredMessage = { role: string; content: string; timestamp?: string; type?: string; points?: number };
+type StoredMessage = { role: string; content: string; timestamp?: string; type?: string; points?: number; tier?: number };
 
 /** What the client gets back after a turn; on the closing turn, the report block for Compass too */
 interface TurnResponse {
@@ -249,13 +250,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     maxWords: maxWordsForLevel(level),
     spring,
     answerPoints,
+    scoreAnswer: answerPoints
+      ? (question, answer) => scoreAnswer(tracked(anthropic, "answer_score", session.userId), { articleText: article.bodyText, level, question, answer })
+      : undefined,
   });
   const cleanText = turn.message;
   const isComplete = turn.complete;
   const newProgressScore = turn.progressScore;
 
   // The answer keeps its points, so the bar can be rebuilt and the next turn knows if it was thin
-  if (answerPoints && turn.points !== null) messages[messages.length - 1].points = turn.points;
+  if (answerPoints && turn.points !== null) {
+    messages[messages.length - 1].points = turn.points;
+    if (typeof turn.tier === "number") messages[messages.length - 1].tier = turn.tier;
+  }
   messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
 
   // Save updated messages, conversation style, and progress score

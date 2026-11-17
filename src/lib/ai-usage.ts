@@ -13,7 +13,7 @@ export type AiFeature =
   | "feed_event" | "article_generate" | "parent_chat" | "interest_resolve" | "chat_mentions"
   | "batch_adjacent" | "batch_search" | "batch_source_pick" | "batch_filter" | "batch_rewrite" | "batch_adapt" | "batch_dedup"
   | "batch_angles" | "batch_write" | "batch_revise"
-  | "serve_repeats" | "observer" | "guide_notes";
+  | "serve_repeats" | "observer" | "guide_notes" | "answer_score";
 
 type CreateResult = { model?: string; usage?: Anthropic.Usage };
 
