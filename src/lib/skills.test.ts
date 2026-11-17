@@ -35,3 +35,14 @@ const r = (main_idea: string, inference = "not_tested") => ({
   assert.equal(SHARED_SKILL_IDS.connection, null, "connection is not a test skill");
   console.log("✅ skill areas and shared ids");
 }
+
+{
+  // A report-v3 report rates the new skills like any other
+  const v3 = { skills: { main_idea: "shown", key_details: "shown", inference: "partly", vocabulary: "not_tested", text_structure: "shown", author_purpose: "not_shown", text_evidence: "not_tested", connection: "partly" } };
+  const { rows } = skillSummary([v3]);
+  const row = (s: string) => rows.find(x => x.skill === s)!;
+  assert.equal(row("text_structure").shown, 1);
+  assert.equal(row("author_purpose").notShown, 1);
+  assert.equal(row("text_evidence").tested, 0);
+  console.log("✅ skillSummary counts report-v3 skills");
+}

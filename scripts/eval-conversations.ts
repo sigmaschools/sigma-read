@@ -24,7 +24,7 @@ import { buildStudentSystemPrompt } from "./eval/student-sim";
 import { checkTranscript, wordCount, type Msg, type Violation } from "./eval/checks";
 import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle, maxWordsForLevel } from "../src/lib/prompts";
 import { runTutorTurn, type ClosingKind } from "../src/lib/conversation-turn";
-import { REPORT_SCHEMA, type ComprehensionReport } from "../src/lib/report-schema";
+import { REPORT_SCHEMA, SKILLS, type ComprehensionReport } from "../src/lib/report-schema";
 import { parseJsonResponse } from "../src/lib/claude-json";
 import { MODELS, forJob, requestSettings } from "../src/lib/models";
 
@@ -191,11 +191,13 @@ function summarize(results: Result[]): string {
   }
   lines.push("");
 
-  lines.push("## Report skills", "", "| Skill | Shown | Partly | Not shown | Not tested |", "| --- | --- | --- | --- | --- |");
-  const skillNames = [...new Set(ok.flatMap(r => Object.keys(r.report?.skills ?? {})))];
-  for (const skill of skillNames) {
-    const n = (rating: string) => ok.filter(r => (r.report?.skills as Record<string, string> | undefined)?.[skill] === rating).length;
-    lines.push(`| ${skill} | ${n("shown")} | ${n("partly")} | ${n("not_shown")} | ${n("not_tested")} |`);
+  lines.push("## Report skills", "", "| Skill | Shown | Partly | Not shown | Not tested | Missing |", "| --- | --- | --- | --- | --- | --- |");
+  const reported = ok.filter(r => r.report);
+  for (const skill of SKILLS) {
+    const rating = (r: Result) => (r.report?.skills as Record<string, string> | undefined)?.[skill];
+    const n = (value: string) => reported.filter(r => rating(r) === value).length;
+    const missing = reported.filter(r => !rating(r)).length;
+    lines.push(`| ${skill} | ${n("shown")} | ${n("partly")} | ${n("not_shown")} | ${n("not_tested")} | ${missing} |`);
   }
   lines.push("");
 

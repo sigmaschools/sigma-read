@@ -11,7 +11,8 @@ export type Skill = (typeof SKILLS)[number];
 
 /**
  * Each skill's id in the reading skill names Compass and the reading test practice app share
- * (compass-lab #403), grouped by area as standardized reading reports group them.
+ * (proposed on compass-lab #403; change them here if that settles differently), grouped by area
+ * as standardized reading reports group them. Not sent anywhere yet.
  * `connection` is this app's own engagement signal and has none.
  */
 export const SHARED_SKILL_IDS: Record<Skill, string | null> = {

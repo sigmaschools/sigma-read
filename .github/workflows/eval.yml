@@ -12,13 +12,13 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: eval-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   eval:
-    if: github.event.label.name == 'eval'
+    # Same-repo PRs only: a fork's run has no key
+    if: github.event.label.name == 'eval' && github.event.pull_request.head.repo.full_name == github.repository
+    concurrency:
+      group: eval-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -45,6 +45,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: npm run eval -- $EVAL_ARGS --label=before
       - name: After (this pull request)
+        if: always()
         working-directory: head
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
