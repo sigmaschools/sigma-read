@@ -1,6 +1,7 @@
 # Sample articles for a pull request that changes how articles are written: one per text structure,
 # written with this branch's writer prompts, for a person to read before the batch uses them.
-# Runs only when the PR carries the "samples" label (remove and re-add to run again).
+# Runs when the PR gets the "samples" label (level 3) or "samples-<level>", e.g. "samples-6"
+# (remove and re-add to run again).
 name: Article samples
 
 on:
@@ -13,7 +14,7 @@ permissions:
 jobs:
   samples:
     # Same-repo PRs only: a fork's run has no key
-    if: github.event.label.name == 'samples' && github.event.pull_request.head.repo.full_name == github.repository
+    if: startsWith(github.event.label.name, 'samples') && github.event.pull_request.head.repo.full_name == github.repository
     concurrency:
       group: samples-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -29,7 +30,11 @@ jobs:
       - name: Write samples
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: npx tsx scripts/sample-structures.ts --level=3
+          LABEL: ${{ github.event.label.name }}
+        run: |
+          LEVEL="${LABEL#samples-}"
+          case "$LEVEL" in [1-6]) ;; *) LEVEL=3 ;; esac
+          npx tsx scripts/sample-structures.ts --level="$LEVEL"
       - name: Summary
         if: always()
         run: |

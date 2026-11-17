@@ -25,22 +25,25 @@ const TOPICS: Record<string, string> = {
   description: "Minecraft",
 };
 
+async function sample(anthropic: Anthropic, id: (typeof TEXT_STRUCTURES)[number]["id"]) {
+  const topic: SourcedTopic = { query: TOPICS[id], type: "interest", sourceUrl: null, sourceText: "", structure: id };
+  const base = await writeFromKnowledge(anthropic, topic);
+  if (!base) return { asked: id, error: "writer gave no usable answer" };
+  const adapted = level === BASE_LEVEL ? null : await adaptArticleToLevel(anthropic, base.title, base.bodyText, level);
+  return {
+    asked: id,
+    named: base.textStructure,
+    interest: TOPICS[id],
+    title: adapted?.title ?? base.title,
+    body: adapted?.bodyText ?? base.bodyText,
+    words: (adapted?.bodyText ?? base.bodyText).split(/\s+/).filter(Boolean).length,
+  };
+}
+
 async function main() {
   const anthropic = new Anthropic();
-  const results = await Promise.all(TEXT_STRUCTURES.map(async ({ id }) => {
-    const topic: SourcedTopic = { query: TOPICS[id], type: "interest", sourceUrl: null, sourceText: "", structure: id };
-    const base = await writeFromKnowledge(anthropic, topic);
-    if (!base) return { asked: id, error: "writer gave no usable answer" };
-    const adapted = level === BASE_LEVEL ? null : await adaptArticleToLevel(anthropic, base.title, base.bodyText, level);
-    return {
-      asked: id,
-      named: base.textStructure,
-      interest: TOPICS[id],
-      title: adapted?.title ?? base.title,
-      body: adapted?.bodyText ?? base.bodyText,
-      words: (adapted?.bodyText ?? base.bodyText).split(/\s+/).filter(Boolean).length,
-    };
-  }));
+  // One failed call loses only its own sample
+  const results = await Promise.all(TEXT_STRUCTURES.map(({ id }) => sample(anthropic, id).catch(e => ({ asked: id, error: e instanceof Error ? e.message : String(e) }))));
   mkdirSync("structure-samples", { recursive: true });
   writeFileSync("structure-samples/samples.json", JSON.stringify({ level, results }, null, 2));
   const md = results.map(r => "error" in r
