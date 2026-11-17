@@ -21,6 +21,7 @@ import { adaptPrompt, knowledgePrompt, parseRewrite, rewritePrompt, type Sourced
   const all = TEXT_STRUCTURES.map(s => s.id);
   assert.equal(nextStructure(["sequence", ...all.filter(s => s !== "sequence")]), "description");
   assert.equal(nextStructure(["description", "sequence", "sequence"]), "cause_effect", "least used wins");
+  assert.equal(nextStructure([null, "sequence"]), "cause_effect", "only the newest article's own structure is excluded");
   // Twenty articles in a row cover all five, four times each
   const made: string[] = [];
   for (let i = 0; i < 20; i++) made.unshift(nextStructure(made.slice(0, 10)));

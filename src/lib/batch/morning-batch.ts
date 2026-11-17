@@ -85,6 +85,7 @@ async function writeBaseArticle(sourced: SourcedTopic): Promise<(BaseArticle & {
     ? await writeBase(tracked(anthropic, "batch_rewrite"), topic, { guidance })
     : await writeUnsourced(tracked(anthropic, "batch_write"), topic, { guidance });
   if (!written) return null;
+  if (topic.structure && written.textStructure !== topic.structure) console.log(`     🧱 Asked for ${topic.structure}, the writer used ${written.textStructure ?? "one it didn't name"}`);
   // Measured (and rewritten once, if far off) before the content check, so the check reads the text that is stored
   const { article, level } = await toTarget(written, BASE_LEVEL, guidance);
   if (!topic.sourceUrl) {

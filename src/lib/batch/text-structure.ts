@@ -52,7 +52,7 @@ export function nextStructure(recent: readonly (string | null)[]): TextStructure
     const lastSeen = known.indexOf(id); // 0 = newest; -1 = not in the window
     return { count: known.filter(s => s === id).length, age: lastSeen === -1 ? Infinity : lastSeen };
   };
-  const newest = known.find(s => s !== null) ?? null;
+  const newest = known[0] ?? null;
   let best: TextStructure | null = null;
   for (const { id } of TEXT_STRUCTURES) {
     if (id === newest) continue;
