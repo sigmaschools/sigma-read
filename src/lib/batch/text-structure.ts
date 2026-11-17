@@ -36,7 +36,7 @@ const IDS: readonly string[] = TEXT_STRUCTURES.map(s => s.id);
 /** The structure the model named, or null when it named none we know */
 export function parseStructure(raw: unknown): TextStructure | null {
   if (typeof raw !== "string") return null;
-  const id = raw.trim().toLowerCase().replace(/[\s-]+/g, "_").replace(/_and_/g, "_");
+  const id = raw.trim().toLowerCase().replace(/\s*[&/]\s*/g, " and ").replace(/[\s-]+/g, "_").replace(/_and_/g, "_");
   return IDS.includes(id) ? (id as TextStructure) : null;
 }
 

@@ -7,6 +7,8 @@ import { adaptPrompt, knowledgePrompt, parseRewrite, rewritePrompt, type Sourced
   assert.equal(parseStructure("Cause and effect"), "cause_effect");
   assert.equal(parseStructure("compare-contrast"), "compare_contrast");
   assert.equal(parseStructure(" Sequence "), "sequence");
+  assert.equal(parseStructure("compare/contrast"), "compare_contrast");
+  assert.equal(parseStructure("Cause & effect"), "cause_effect");
   assert.equal(parseStructure("narrative"), null);
   assert.equal(parseStructure(3), null);
   console.log("✅ parseStructure");
