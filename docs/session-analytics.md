@@ -106,6 +106,24 @@ GROUP BY a.category;
 
 ---
 
+## Engagement Baseline
+
+Changes that aim at the reading skills a standardized reading test measures (inferring word meanings, reading between the lines, pointing to evidence, text structure) are kept only if students enjoy SigmaRead as much as before. These weekly numbers decide that, not the automated evals. Admin, Metrics, "Engagement by Week" shows the last eight weeks for all students or one student (`src/lib/engagement.ts`, `/api/admin/metrics/engagement`).
+
+| Number | How it is counted |
+|---|---|
+| Students reading, pieces finished | A piece counts when its discussion completes |
+| Daily goal reached | Days a student finished their goal ÷ days they finished at least one piece. Uses each student's current goal, since past goals are not stored |
+| Like rate | Thumbs up ÷ thumbs given (pieces with no thumb are left out) |
+| Favorites picked | Favorites ÷ goal days (the pick is offered when the goal is reached) |
+| Felt it went well | Self-assessments of "really well" or "pretty well" ÷ all self-assessments |
+| Score middle half, median, share in 60–75 | Comprehension report scores; 60–75 is the target zone in `product-boundary.md` |
+| Lookups per piece | Tap-to-define lookups ÷ pieces finished. Lookups are saved in `word_lookups` from 17 Nov 2026 (migration 0025), so earlier weeks show 0 |
+
+Days and weeks are counted in US Central time, weeks starting Monday, because a student's own time zone is not stored. Every number except lookups is rebuilt from rows the app already keeps, so earlier weeks serve as the baseline straight away. Make one change at a time, read the student's column before and for two weeks after, and roll back a change after which daily goal completion falls for two weeks running. Test learner accounts read too: pick the student in the menu to see one student's numbers alone.
+
+---
+
 ## Planned Future Tracking
 
 ### High Priority
