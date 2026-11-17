@@ -32,9 +32,9 @@ export const ANSWER_SCORE_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-/** Takes out anything shaped like the prompt's own tags, so typed text can't close the fence early */
+/** Escapes angle brackets, so no typed text can form a tag and close the fence early */
 export function fenced(text: string): string {
-  return text.replace(/<\/?\s*(student_answer|tutor_message)\s*>/gi, "");
+  return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export function answerScorePrompt(args: { articleText: string; level: number; question: string; answer: string }): string {
