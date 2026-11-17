@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { levelToLexile, buildLevelReport, buildComprehensionReport, reportJson } from "./compass-report";
+import { SHARED_SKILL_IDS } from "./report-schema";
 
 assert.deepEqual([1, 2, 3, 4, 5, 6].map(levelToLexile), [450, 600, 750, 900, 1050, 1200]);
 assert.equal(levelToLexile(0), 450);
@@ -41,7 +42,7 @@ const report = buildComprehensionReport({
   articleText: "One two  three\nfour",
   articleLevel: 4,
   score: 82,
-  skills: { main_idea: "shown" },
+  skills: { main_idea: "shown", inference: "partly", text_structure: "not_tested", connection: "shown" },
   selfAssessment: null,
   finishedAt: new Date("2026-11-03T12:00:00Z"),
   levelBefore: 3,
@@ -58,6 +59,31 @@ for (const k of ["article", "words", "overall", "skills", "selfRating", "finishe
   assert.ok(k in report, `comprehension report has ${k}`);
 }
 console.log("✅ comprehension report carries the 0.1 fields and the level fields");
+
+// Contract 1.20: each rating also goes under its shared reading skill id; the app's own keys stay
+assert.deepEqual(report.skills, {
+  main_idea: "shown", inference: "partly", text_structure: "not_tested", connection: "shown",
+  "reading.informational-key-ideas.main-idea": "shown",
+  "reading.informational-key-ideas.inference": "partly",
+  "reading.informational-craft.text-structure": "not_tested",
+});
+const odd = buildComprehensionReport({
+  articleTitle: "x", articleText: "", articleLevel: 2, score: 50, skills: { main_idea: "great", made_up: "shown" }, selfAssessment: null,
+  finishedAt: null, levelBefore: null, levelAfter: null, currentLevel: 2,
+});
+assert.deepEqual(odd.skills, { main_idea: "great", made_up: "shown" }, "unknown skills and ratings get no shared id");
+// Every id exactly as Compass lists it (compass-lab server/learnerrecord/skills.go); Compass ignores an id it doesn't know
+assert.deepEqual(SHARED_SKILL_IDS, {
+  main_idea: "reading.informational-key-ideas.main-idea",
+  key_details: "reading.informational-key-ideas.key-details",
+  inference: "reading.informational-key-ideas.inference",
+  vocabulary: "reading.vocabulary.context-clues",
+  text_structure: "reading.informational-craft.text-structure",
+  author_purpose: "reading.informational-craft.author-purpose",
+  text_evidence: "reading.informational-craft.evidence",
+  connection: null,
+});
+console.log("✅ ratings go under the shared reading skill ids");
 
 // Older reports without stored levels: before = after = current level
 const old = buildComprehensionReport({

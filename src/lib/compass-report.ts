@@ -7,6 +7,8 @@
  * No student name, email or other personal details go into a report.
  */
 
+import { withSharedSkillIds } from "./report-schema";
+
 /**
  * Sigma Read places students in six reading levels, not exact Lexile measures.
  * Each level is reported as the middle of its Lexile band (see levelGuide in src/lib/prompts):
@@ -97,7 +99,7 @@ export function buildComprehensionReport(args: {
     article: args.articleTitle,
     words: args.articleText.split(/\s+/).filter(w => w.length > 0).length,
     overall: args.score,
-    skills: args.skills ?? {},
+    skills: withSharedSkillIds(args.skills ?? {}),
     selfRating: args.selfAssessment,
     finishedAt: args.finishedAt ? args.finishedAt.toISOString() : null,
     articleLexile: levelToLexile(args.articleLevel),
