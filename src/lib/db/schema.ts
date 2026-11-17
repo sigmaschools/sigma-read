@@ -27,6 +27,8 @@ export const blockedTopics = pgTable("blocked_topics", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Unused by the app since admins come from Compass (staff). Kept until the owner agrees to drop it;
+// scripts/sim-guard.ts still counts its rows to recognise production.
 export const admins = pgTable("admins", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

@@ -213,7 +213,8 @@ export async function PATCH(req: NextRequest) {
       await db.insert(schema.blockedTopics).values({
         topic: article.topic,
         reason: "Flagged by admin",
-        blockedBy: session.userId,
+        // An admin has no row here (they come from Compass); the audit log says who it was
+        blockedBy: session.userId > 0 ? session.userId : null,
       });
     }
   } else {
