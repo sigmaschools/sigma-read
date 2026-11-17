@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { REPORT_FLAG_LABELS, type ReportFlag } from "@/lib/skills";
+import { REPORT_FLAG_LABELS, SKILL_LABELS as SHARED_SKILL_LABELS, type ReportFlag } from "@/lib/skills";
 
 interface Row {
   conversationId: number;
@@ -49,9 +49,7 @@ const FILTERS = [
   { value: "missing", label: "Missing report" },
 ];
 
-const SKILL_LABELS: Record<string, string> = {
-  main_idea: "Main idea", key_details: "Key details", vocabulary: "Vocabulary", inference: "Inference", connection: "Connection",
-};
+const SKILL_LABELS: Record<string, string> = SHARED_SKILL_LABELS; // one list for every admin page
 
 const SKILL_COLORS: Record<string, string> = {
   shown: "bg-green-50 text-green-700", partly: "bg-amber-50 text-amber-700",

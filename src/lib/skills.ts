@@ -6,8 +6,17 @@
 import { SKILLS, type Skill } from "./report-schema";
 
 export const SKILL_LABELS: Record<Skill, string> = {
-  main_idea: "Main idea", key_details: "Key details", vocabulary: "Vocabulary", inference: "Inference", connection: "Connection",
+  main_idea: "Main idea", key_details: "Key details", inference: "Inference", vocabulary: "Word meaning from context",
+  text_structure: "Text structure", author_purpose: "Author's purpose", text_evidence: "Evidence from the text", connection: "Connection",
 };
+
+/** The areas guides see skills under, in the order standardized reading reports use */
+export const SKILL_AREAS: { label: string; skills: Skill[] }[] = [
+  { label: "Nonfiction: key ideas", skills: ["main_idea", "key_details", "inference"] },
+  { label: "Nonfiction: craft and structure", skills: ["text_structure", "author_purpose", "text_evidence"] },
+  { label: "Vocabulary", skills: ["vocabulary"] },
+  { label: "Engagement", skills: ["connection"] },
+];
 
 export const SKILL_RATING_LABELS: Record<string, string> = {
   shown: "shown", partly: "partly", not_shown: "not shown", not_tested: "not tested",

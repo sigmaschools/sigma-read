@@ -24,7 +24,7 @@ import { buildStudentSystemPrompt } from "./eval/student-sim";
 import { checkTranscript, wordCount, type Msg, type Violation } from "./eval/checks";
 import { comprehensionConversationPrompt, comprehensionReportPrompt, pickConversationStyle, maxWordsForLevel } from "../src/lib/prompts";
 import { runTutorTurn, type ClosingKind } from "../src/lib/conversation-turn";
-import { REPORT_SCHEMA, type ComprehensionReport } from "../src/lib/report-schema";
+import { REPORT_SCHEMA, SKILLS, type ComprehensionReport } from "../src/lib/report-schema";
 import { parseJsonResponse } from "../src/lib/claude-json";
 import { MODELS, forJob, requestSettings } from "../src/lib/models";
 
@@ -188,6 +188,16 @@ function summarize(results: Result[]): string {
     const rs = ok.filter(r => r.level === level);
     const mean = (xs: number[]) => xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1) : "-";
     lines.push(`| L${level} | ${rs.length} | ${mean(rs.map(r => r.exchanges))} | ${rs.filter(r => r.closing === "forced").length} | ${mean(rs.flatMap(r => r.report ? [r.report.score] : []))} | ${mean(rs.map(r => r.tutorAvgWords))} |`);
+  }
+  lines.push("");
+
+  lines.push("## Report skills", "", "| Skill | Shown | Partly | Not shown | Not tested | Missing |", "| --- | --- | --- | --- | --- | --- |");
+  const reported = ok.filter(r => r.report);
+  for (const skill of SKILLS) {
+    const rating = (r: Result) => (r.report?.skills as Record<string, string> | undefined)?.[skill];
+    const n = (value: string) => reported.filter(r => rating(r) === value).length;
+    const missing = reported.filter(r => !rating(r)).length;
+    lines.push(`| ${skill} | ${n("shown")} | ${n("partly")} | ${n("not_shown")} | ${n("not_tested")} | ${missing} |`);
   }
   lines.push("");
 

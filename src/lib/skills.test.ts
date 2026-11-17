@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { skillSummary } from "./skills";
+import { SKILL_AREAS, skillSummary } from "./skills";
+import { SHARED_SKILL_IDS, SKILLS } from "./report-schema";
 
 const r = (main_idea: string, inference = "not_tested") => ({
   skills: { main_idea, key_details: "not_tested", vocabulary: "not_tested", inference, connection: "not_tested" },
@@ -13,6 +14,7 @@ const r = (main_idea: string, inference = "not_tested") => ({
   const inf = rows.find(x => x.skill === "inference")!;
   assert.deepEqual([inf.tested, inf.shown, inf.partly], [2, 1, 1]);
   assert.equal(rows.find(x => x.skill === "vocabulary")!.tested, 0);
+  for (const skill of ["text_structure", "author_purpose", "text_evidence"]) assert.equal(rows.find(x => x.skill === skill)!.tested, 0, `${skill} is untested on a report from before it existed`);
   console.log("✅ skillSummary tallies tested skills only");
 }
 
@@ -22,4 +24,25 @@ const r = (main_idea: string, inference = "not_tested") => ({
   assert.equal(reports, 10);
   assert.equal(rows[0].shown, 10, "only the newest 10 count");
   console.log("✅ skillSummary uses the newest reports");
+}
+
+{
+  // Every skill sits in exactly one area, and every shared id is unique
+  const placed = SKILL_AREAS.flatMap(a => a.skills);
+  assert.deepEqual([...placed].sort(), [...SKILLS].sort());
+  const ids = Object.values(SHARED_SKILL_IDS).filter(Boolean);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(SHARED_SKILL_IDS.connection, null, "connection is not a test skill");
+  console.log("✅ skill areas and shared ids");
+}
+
+{
+  // A report-v3 report rates the new skills like any other
+  const v3 = { skills: { main_idea: "shown", key_details: "shown", inference: "partly", vocabulary: "not_tested", text_structure: "shown", author_purpose: "not_shown", text_evidence: "not_tested", connection: "partly" } };
+  const { rows } = skillSummary([v3]);
+  const row = (s: string) => rows.find(x => x.skill === s)!;
+  assert.equal(row("text_structure").shown, 1);
+  assert.equal(row("author_purpose").notShown, 1);
+  assert.equal(row("text_evidence").tested, 0);
+  console.log("✅ skillSummary counts report-v3 skills");
 }
