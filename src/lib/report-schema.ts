@@ -11,8 +11,8 @@ export type Skill = (typeof SKILLS)[number];
 
 /**
  * Each skill's id in the reading skill names Compass and the reading test practice app share
- * (proposed on compass-lab #403; change them here if that settles differently), grouped by area
- * as standardized reading reports group them. Not sent anywhere yet.
+ * (Compass app contract 1.20, agreed on compass-lab #403), grouped by area as standardized
+ * reading reports group them. Compass counts ratings sent under these ids on its Mastery page.
  * `connection` is this app's own engagement signal and has none.
  */
 export const SHARED_SKILL_IDS: Record<Skill, string | null> = {
@@ -28,6 +28,16 @@ export const SHARED_SKILL_IDS: Record<Skill, string | null> = {
 
 export const SKILL_RATINGS = ["shown", "partly", "not_shown", "not_tested"] as const;
 export type SkillRating = (typeof SKILL_RATINGS)[number];
+
+/** The report's ratings plus each one again under its shared id, for Compass. Unknown skills or ratings get no shared id. */
+export function withSharedSkillIds(skills: Record<string, string>): Record<string, string> {
+  const out = { ...skills };
+  for (const [skill, rating] of Object.entries(skills)) {
+    const id = Object.hasOwn(SHARED_SKILL_IDS, skill) ? SHARED_SKILL_IDS[skill as Skill] : null;
+    if (id && (SKILL_RATINGS as readonly string[]).includes(rating)) out[id] = rating;
+  }
+  return out;
+}
 
 export const RATINGS = ["Exceptional", "Strong", "Solid", "Developing", "Struggled"] as const;
 

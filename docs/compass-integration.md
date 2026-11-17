@@ -13,6 +13,8 @@ Compass's page agent reads `<script type="application/json" data-compass-report>
 | `comprehension` | The conversation page, once the discussion is complete (and again after the self-rating) | `article`, `words`, `overall`, `skills`, `selfRating`, `finishedAt`, `articleLexile`, `levelBefore`, `levelAfter`, `appVersion` | `buildComprehensionReport` in `src/lib/compass-report.ts`, data from `src/lib/compass-report-data.ts` |
 | `level` | Every signed-in student screen (`src/app/student/layout.tsx`), refreshed on navigation and after a level may have changed | `value` (Lexile), `setAt`, `history`, `appVersion` | `buildLevelReport`, served by `/api/student/compass-level` |
 
+`skills` holds the report's own ratings (`main_idea: "shown"` and so on) and, since contract 1.20, each rating again under its shared reading skill id (`reading.informational-key-ideas.main-idea`; the map is `SHARED_SKILL_IDS` in `src/lib/report-schema.ts`). Compass counts the shared ids on its Mastery page "Reading skills" card and ignores the rest. `connection` has no shared id.
+
 Levels are reported in Lexile as the middle of each level's band (L1 450 to L6 1200, `levelToLexile`). `appVersion` is the deploy's short commit. Building a report never fails a student's request (`safeComprehensionCompassReport`). Tests: `src/lib/compass-report.test.ts`.
 
 ## 2. No API of SigmaRead's own
