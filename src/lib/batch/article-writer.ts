@@ -7,6 +7,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { MODELS, requestSettings } from "../models";
 import type { StoryAngle } from "./story-angles";
+import { parseStructure, STRUCTURE_FIELD, structureLine, type TextStructure } from "./text-structure";
 
 export const BASE_LEVEL = 4;
 
@@ -28,11 +29,15 @@ export interface SourcedTopic {
   sourceText: string;
   /** The one story to tell (story-angles.ts); the interest itself when absent */
   angle?: StoryAngle;
+  /** How to organize the article (text-structure.ts); the writer chooses when absent */
+  structure?: TextStructure;
 }
 
 export interface BaseArticle {
   title: string; topic: string; bodyText: string; sourceUrl: string | null;
   sources: string[]; estimatedReadTime: number; category: string;
+  /** The structure the writer says it used; null when it named none we know */
+  textStructure: TextStructure | null;
 }
 
 /** Only messages.create is used, so a usage-tracked client works too */
@@ -107,7 +112,7 @@ export function rewritePrompt(topic: SourcedTopic, guidance?: string): string {
 Reading level: ${BASE_LEVEL} (Lexile ${guide.lexile}, Grade ${guide.grade})
 Article type: ${topic.type}
 Target length: ${guide.words} words
-${storyBrief(topic)}
+${storyBrief(topic)}${structureLine(topic.structure)}
 SOURCE MATERIAL:
 ${truncatedSource}
 
@@ -133,6 +138,7 @@ Output format:
   "title": "Article title",
   "topic": "Topic tag (1-3 words)",
   "body": "The full article text.",
+  ${STRUCTURE_FIELD}
   "estimated_read_time_minutes": 3
 }
 
@@ -157,6 +163,7 @@ export function parseRewrite(raw: string, topic: SourcedTopic): BaseArticle | nu
       sources: topic.sourceUrl ? [topic.sourceUrl] : [],
       estimatedReadTime: parsed.estimated_read_time_minutes || 3,
       category: topic.type === "interest" ? "interest" : topic.type === "news" ? "news" : "general",
+      textStructure: parseStructure(parsed.structure),
     };
   } catch { return null; }
 }
@@ -183,7 +190,7 @@ export function knowledgePrompt(topic: SourcedTopic, guidance?: string): string 
 Reading level: ${BASE_LEVEL} (Lexile ${guide.lexile}, Grade ${guide.grade})
 Article type: ${topic.type}
 Target length: ${guide.words} words
-${storyBrief(topic)}
+${storyBrief(topic)}${structureLine(topic.structure)}
 VOCABULARY RULES: ${guide.vocab}
 ${guidanceLine(guidance)}
 Requirements:
@@ -203,6 +210,7 @@ Output format:
   "title": "Article title",
   "topic": "Topic tag (1-3 words)",
   "body": "The full article text.",
+  ${STRUCTURE_FIELD}
   "estimated_read_time_minutes": 3
 }
 
@@ -233,6 +241,7 @@ ${baseBody}
 Rules:
 - Keep the same title (or simplify for lower levels)
 - Keep all key facts accurate
+- Keep how the article is organized: the same order of parts and the same linking words (first, because, unlike, the problem was), simplified where needed
 - Adjust sentence length and vocabulary to match target grade
 - Short paragraphs (2-4 sentences)
 ${ARTICLE_FORMAT}

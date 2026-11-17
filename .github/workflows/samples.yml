@@ -1,0 +1,48 @@
+# Sample articles for a pull request that changes how articles are written: one per text structure,
+# written with this branch's writer prompts, for a person to read before the batch uses them.
+# Runs when the PR gets the "samples" label (level 3) or "samples-<level>", e.g. "samples-6"
+# (remove and re-add to run again).
+name: Article samples
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  samples:
+    # Same-repo PRs only: a fork's run has no key
+    if: startsWith(github.event.label.name, 'samples') && github.event.pull_request.head.repo.full_name == github.repository
+    concurrency:
+      group: samples-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The key reaches only the writing step, never the install
+      - run: npm ci --no-audit --no-fund
+      - name: Write samples
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LABEL: ${{ github.event.label.name }}
+        run: |
+          LEVEL="${LABEL#samples-}"
+          case "$LEVEL" in [1-6]) ;; *) LEVEL=3 ;; esac
+          npx tsx scripts/sample-structures.ts --level="$LEVEL"
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f structure-samples/samples.md ]; then
+            cat structure-samples/samples.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: structure-samples
+          path: structure-samples/

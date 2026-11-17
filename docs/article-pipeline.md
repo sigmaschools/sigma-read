@@ -74,6 +74,7 @@ Articles go into the shared pool and are served to every student who has the int
 - **Count:** every planned interest (one per article a student read, up to 3 per student, shared interests once) + 1 news + 1 horizon; nothing on a day when nobody read; no cap across students
 - **Brief:** the writer gets the story angle ("tell ONE story") and the source page as its fact-check, not its outline; every fact, number, name and date comes from the source. Without a source it writes from its own knowledge and the article is marked for review (Step 1)
 - **Prompt:** Includes editorial neutrality rules, vocabulary constraints, word count targets
+- **Structure (since 17 Nov 2026):** each base article is asked for one of five ways of organizing nonfiction: sequence, cause and effect, problem and solution, compare and contrast, description (`src/lib/batch/text-structure.ts`). The batch asks for the one used least among the last ten base articles, ties going to the one used longest ago, never the same as the newest, so a reader meets all five. Reading tests ask students to name a text's structure; nothing on screen changes. The structure serves the story and is never a template; when a story can't be told that way the writer picks another, names it in its answer, and that name is stored in `article_cache.text_structure` (base articles only; adaptations keep the base's organization). A failed lookup lets the writer choose, as before.
 
 ### Step 4: Level Adaptation
 
@@ -173,6 +174,7 @@ Shared pool of all generated articles.
 | measured_level | int | Compass's estimate of the article's reading level (approximate Lexile); null when unmeasured |
 | level_model_version | varchar(20) | The version of Compass's measure that made the estimate |
 | level_reliable | boolean | False when Compass flagged the result (very short text, mostly lists) |
+| text_structure | text | How a base article is organized, as its writer named it (Step 3); null on adaptations and older articles |
 | created_at | timestamp | Creation time |
 
 ### Student Articles (`articles`)
