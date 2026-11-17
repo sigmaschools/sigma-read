@@ -14,6 +14,7 @@ const r = (main_idea: string, inference = "not_tested") => ({
   const inf = rows.find(x => x.skill === "inference")!;
   assert.deepEqual([inf.tested, inf.shown, inf.partly], [2, 1, 1]);
   assert.equal(rows.find(x => x.skill === "vocabulary")!.tested, 0);
+  for (const skill of ["text_structure", "author_purpose", "text_evidence"]) assert.equal(rows.find(x => x.skill === skill)!.tested, 0, `${skill} is untested on a report from before it existed`);
   console.log("✅ skillSummary tallies tested skills only");
 }
 
