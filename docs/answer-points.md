@@ -11,7 +11,7 @@ A student who wants to be done can rush the discussion with a run of short answe
 - The tutor still scores every answer 0-40, the same score it always gave (`progressDelta`: 0-10 a non-answer, 11-20 a fact repeated, 21-30 an explanation in their own words, 31-40 an inference or connection; quality, not length).
 - That score now sets how far the bar moves (`pointsForScore` in `src/lib/answer-points.ts`): 2 for a non-answer, 5 for a fact repeated, 16-25 for an explanation, 26-35 for an inference. About four or five good answers fill the bar; ten thin ones don't.
 - A good answer's points (16 or more) rise from the end of the bar and fade. The best answers (26 or more) rise bigger, bolder and in their own colour (`--great`). A thin answer moves the bar without a number, so a reader who is trying and stuck doesn't watch a string of small numbers; the tutor asks for more in its own words, as it always has. (On the classic tutor, which isn't the one students get today, the quiet-kid nudge doesn't run on this path, and a goodbye that ends in a question falls back to a fixed goodbye rather than being rewritten.)
-- The bar is taller than before and stays on screen when the discussion ends, so the last answer's fill is seen.
+- The bar is taller than before and stays on screen when the discussion ends, so the last answer's fill is seen. A line under it says "Better answers move the bar further." (owner, 17 Nov: students need to be told how the bar works). The points are large (about the size of a heading, the best ones bigger still) and the track glows as they land: the first, smaller version was too easy to miss on a phone.
 
 ## Rules that keep it honest
 
