@@ -22,7 +22,7 @@ const s = (studentId: number, iso: string, extra: Partial<EngagementInput["sessi
   // Student 1 (goal 3): Monday 3 pieces (goal met), Tuesday 1 piece. Student 2 (goal 2): Wednesday 2 pieces.
   const input: EngagementInput = {
     goals: new Map([[1, 3], [2, 2]]),
-    lookupsSince: at("2026-11-16T15:05:00Z"),
+    lookupsSince: at("2026-11-16T14:00:00Z"),
     sessions: [
       s(1, "2026-11-16T15:00:00Z", { liked: true, score: 62, selfAssessment: "pretty_well" }),
       s(1, "2026-11-16T15:20:00Z", { liked: true, score: 70, selfAssessment: "really_well" }),
@@ -85,6 +85,10 @@ const s = (studentId: number, iso: string, extra: Partial<EngagementInput["sessi
   // Weeks before lookups were first saved show no rate, not zero
   const before = weeklyEngagement({ goals: new Map(), sessions: [s(1, "2026-11-10T15:00:00Z"), s(1, "2026-11-17T15:00:00Z")], favorites: [], lookups: [], lookupsSince: at("2026-11-17T12:00:00Z") }, Z);
   assert.deepEqual(before.map(w => w.lookupsPerPiece), [null, 0]);
+  // In the week lookups began, pieces finished before the first lookup are left out of the rate
+  const partial = weeklyEngagement({ goals: new Map(), favorites: [], sessions: [s(1, "2026-11-16T15:00:00Z"), s(1, "2026-11-18T15:00:00Z")],
+    lookups: [{ studentId: 1, createdAt: at("2026-11-18T14:55:00Z") }], lookupsSince: at("2026-11-18T14:55:00Z") }, Z);
+  assert.equal(partial[0].lookupsPerPiece, 1);
   assert.deepEqual(weeklyEngagement({ goals: new Map(), sessions: [s(1, "2026-11-17T15:00:00Z")], favorites: [], lookups: [] }, Z).map(w => w.lookupsPerPiece), [null], "no lookup saved yet");
   console.log("✅ weeklyEngagement edges");
 }

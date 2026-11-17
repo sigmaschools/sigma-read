@@ -36,6 +36,7 @@ async function main() {
       await sql`DELETE FROM conversations WHERE reading_session_id IN (
         SELECT id FROM reading_sessions WHERE student_id = ${student.id}
       )`;
+      await sql`DELETE FROM word_lookups WHERE student_id = ${student.id}`;
       await sql`DELETE FROM reading_sessions WHERE student_id = ${student.id}`;
       await sql`DELETE FROM articles WHERE student_id = ${student.id}`;
       await sql`DELETE FROM article_favorites WHERE student_id = ${student.id}`;

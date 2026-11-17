@@ -19,18 +19,20 @@ export default function EngagementTable() {
   const [readers, setReaders] = useState<Engagement["readers"]>([]);
   const [weeks, setWeeks] = useState<EngagementWeek[] | null>(null);
   const [lookupsSince, setLookupsSince] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let current = true; // a slower answer for an earlier choice is dropped
     fetch(`/api/admin/metrics/engagement${student ? `?student=${student}` : ""}`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((d: Engagement) => {
         if (!current) return;
+        setFailed(false);
         setLookupsSince(d.lookupsSince ?? null);
         setWeeks(d.weeks ?? []);
         if (!student) setReaders(d.readers ?? []);
       })
-      .catch(() => { if (current) setWeeks([]); });
+      .catch(() => { if (current) { setFailed(true); setWeeks([]); } });
     return () => { current = false; };
   }, [student]);
 
@@ -62,7 +64,9 @@ export default function EngagementTable() {
         </select>
       </div>
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-x-auto">
-        {weeks === null ? (
+        {failed ? (
+          <p className="p-4 text-sm text-[var(--muted)]">Couldn&apos;t load the engagement numbers. Reload to try again.</p>
+        ) : weeks === null ? (
           <p className="p-4 text-sm text-[var(--muted)]">Loading…</p>
         ) : weeks.length === 0 ? (
           <p className="p-4 text-sm text-[var(--muted)]">No reading in the last eight weeks.</p>

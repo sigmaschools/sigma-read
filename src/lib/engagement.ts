@@ -48,9 +48,16 @@ export interface EngagementWeek {
   lookupsPerPiece: number | null; // null before lookups were saved
 }
 
+const formats = new Map<string, Intl.DateTimeFormat>();
+
 export function localDate(at: Date, zone: string = REPORT_ZONE): string {
-  // en-CA formats as YYYY-MM-DD
-  return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(at);
+  let f = formats.get(zone);
+  if (!f) {
+    // en-CA formats as YYYY-MM-DD
+    f = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" });
+    formats.set(zone, f);
+  }
+  return f.format(at);
 }
 
 export function weekOf(date: string): string {
@@ -74,7 +81,7 @@ export function weeklyEngagement(input: EngagementInput, zone: string = REPORT_Z
   type Acc = {
     students: Set<number>;
     perDay: Map<string, number>; // "student|date" → pieces
-    pieces: number; liked: number; disliked: number; favorites: number; lookups: number;
+    pieces: number; piecesSinceLookups: number; liked: number; disliked: number; favorites: number; lookups: number;
     scores: number[];
     self: EngagementWeek["selfAssessment"];
   };
@@ -82,7 +89,7 @@ export function weeklyEngagement(input: EngagementInput, zone: string = REPORT_Z
   const acc = (week: string): Acc => {
     let a = weeks.get(week);
     if (!a) {
-      a = { students: new Set(), perDay: new Map(), pieces: 0, liked: 0, disliked: 0, favorites: 0, lookups: 0, scores: [],
+      a = { students: new Set(), perDay: new Map(), pieces: 0, piecesSinceLookups: 0, liked: 0, disliked: 0, favorites: 0, lookups: 0, scores: [],
         self: { really_well: 0, pretty_well: 0, not_sure: 0, lost: 0 } };
       weeks.set(week, a);
     }
@@ -94,6 +101,7 @@ export function weeklyEngagement(input: EngagementInput, zone: string = REPORT_Z
     const a = acc(weekOf(date));
     a.students.add(s.studentId);
     a.pieces++;
+    if (input.lookupsSince && s.completedAt >= input.lookupsSince) a.piecesSinceLookups++;
     const key = `${s.studentId}|${date}`;
     a.perDay.set(key, (a.perDay.get(key) ?? 0) + 1);
     if (s.liked === true) a.liked++;
@@ -133,7 +141,8 @@ export function weeklyEngagement(input: EngagementInput, zone: string = REPORT_Z
       scoreP75: quantile(scores, 0.75),
       inTargetZone: ratio(inZone, scores.length),
       lookups: a.lookups,
-      lookupsPerPiece: lookupWeek !== null && week >= lookupWeek ? ratio(a.lookups, a.pieces) : null,
+      // In the week lookups began, only pieces finished after the first lookup count
+      lookupsPerPiece: lookupWeek !== null && week >= lookupWeek ? ratio(a.lookups, a.piecesSinceLookups) : null,
     };
   });
 }
