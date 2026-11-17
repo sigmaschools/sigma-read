@@ -38,7 +38,7 @@ export function DiscussionBar({ progress, answerPoints, pop }: {
           </span>
         )}
         {/* The track glows as a good answer lands; the fill keeps its own slide */}
-        {pop && tier !== "quiet" && <div key={`glow-${pop.key}`} className="bar-glow pointer-events-none absolute inset-0 rounded-full" />}
+        {pop && tier !== "quiet" && <div key={`glow-${pop.key}`} className={`${tier === "great" ? "bar-glow-great" : "bar-glow"} pointer-events-none absolute inset-0 rounded-full`} />}
         <div className={`${answerPoints ? "h-3" : "h-1.5"} bg-gray-200 rounded-full overflow-hidden`}>
           <div
             className="h-full rounded-full transition-all duration-500 ease-out"
