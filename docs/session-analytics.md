@@ -118,7 +118,7 @@ Changes that aim at the reading skills a standardized reading test measures (inf
 | Favorites picked | Favorites ÷ goal days (the pick is offered when the goal is reached) |
 | Felt it went well | Self-assessments of "really well" or "pretty well" ÷ all self-assessments |
 | Score middle half, median, share in 60–75 | Comprehension report scores; 60–75 is the target zone in `product-boundary.md` |
-| Lookups per piece | Tap-to-define lookups ÷ pieces finished. Lookups are saved in `word_lookups` from 17 Nov 2026 (migration 0025), so earlier weeks show 0 |
+| Lookups per piece | Tap-to-define lookups ÷ pieces finished. Lookups are saved in `word_lookups` from migration 0025 (Nov 2026); weeks before the first saved lookup show "—" |
 
 Days and weeks are counted in US Central time, weeks starting Monday, because a student's own time zone is not stored. Every number except lookups is rebuilt from rows the app already keeps, so earlier weeks serve as the baseline straight away. Make one change at a time, read the student's column before and for two weeks after, and roll back a change after which daily goal completion falls for two weeks running. Test learner accounts read too: pick the student in the menu to see one student's numbers alone.
 

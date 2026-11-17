@@ -3,7 +3,7 @@
 // A change to what students read or how Sigma talks is kept only if these hold
 // (docs/session-analytics.md, "Engagement baseline"). Everything here is computed
 // from rows the app already keeps, so any past week can be read back, except
-// word lookups, which are saved only from migration 0025 on.
+// word lookups, which are saved only from migration 0025 on (the first saved lookup marks the start).
 
 import { dailyGoalOf } from "./daily-goal";
 
@@ -21,6 +21,8 @@ export interface EngagementInput {
   lookups: { studentId: number; createdAt: Date }[];
   // The day's goal in pieces, by student; a student missing here uses the default
   goals: Map<number, number | null>;
+  // When lookups were first saved; weeks before it show no lookup rate rather than zero
+  lookupsSince?: Date | null;
 }
 
 export interface EngagementWeek {
@@ -43,7 +45,7 @@ export interface EngagementWeek {
   scoreP75: number | null;
   inTargetZone: number | null; // share of scores in the target zone
   lookups: number;
-  lookupsPerPiece: number | null;
+  lookupsPerPiece: number | null; // null before lookups were saved
 }
 
 export function localDate(at: Date, zone: string = REPORT_ZONE): string {
@@ -102,6 +104,7 @@ export function weeklyEngagement(input: EngagementInput, zone: string = REPORT_Z
   for (const f of input.favorites) acc(weekOf(localDate(f.createdAt, zone))).favorites++;
   for (const l of input.lookups) acc(weekOf(localDate(l.createdAt, zone))).lookups++;
 
+  const lookupWeek = input.lookupsSince ? weekOf(localDate(input.lookupsSince, zone)) : null;
   return [...weeks.entries()].sort(([x], [y]) => x.localeCompare(y)).map(([week, a]) => {
     let goalDays = 0;
     for (const [key, n] of a.perDay) {
@@ -130,7 +133,7 @@ export function weeklyEngagement(input: EngagementInput, zone: string = REPORT_Z
       scoreP75: quantile(scores, 0.75),
       inTargetZone: ratio(inZone, scores.length),
       lookups: a.lookups,
-      lookupsPerPiece: ratio(a.lookups, a.pieces),
+      lookupsPerPiece: lookupWeek !== null && week >= lookupWeek ? ratio(a.lookups, a.pieces) : null,
     };
   });
 }

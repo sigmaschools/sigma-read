@@ -6,6 +6,7 @@ import type { EngagementWeek } from "@/lib/engagement";
 interface Engagement {
   weeks: EngagementWeek[];
   readers: { id: number; name: string }[];
+  lookupsSince: string | null;
 }
 
 const pct = (n: number | null) => (n === null ? "—" : `${Math.round(n * 100)}%`);
@@ -17,15 +18,20 @@ export default function EngagementTable() {
   const [student, setStudent] = useState("");
   const [readers, setReaders] = useState<Engagement["readers"]>([]);
   const [weeks, setWeeks] = useState<EngagementWeek[] | null>(null);
+  const [lookupsSince, setLookupsSince] = useState<string | null>(null);
 
   useEffect(() => {
+    let current = true; // a slower answer for an earlier choice is dropped
     fetch(`/api/admin/metrics/engagement${student ? `?student=${student}` : ""}`)
       .then(r => r.json())
       .then((d: Engagement) => {
+        if (!current) return;
+        setLookupsSince(d.lookupsSince ?? null);
         setWeeks(d.weeks ?? []);
         if (!student) setReaders(d.readers ?? []);
       })
-      .catch(() => setWeeks([]));
+      .catch(() => { if (current) setWeeks([]); });
+    return () => { current = false; };
   }, [student]);
 
   const rows: { label: string; hint: string; value: (w: EngagementWeek) => string }[] = [
@@ -42,7 +48,7 @@ export default function EngagementTable() {
     { label: "Score, middle half", hint: "25th to 75th percentile", value: w => (w.scoreP25 === null ? "—" : `${Math.round(w.scoreP25)}–${Math.round(w.scoreP75!)}`) },
     { label: "Score median", hint: "", value: w => (w.scoreMedian === null ? "—" : String(Math.round(w.scoreMedian))) },
     { label: "Scores in 60–75", hint: "the target zone", value: w => pct(w.inTargetZone) },
-    { label: "Lookups per piece", hint: "saved from 17 Nov 2026", value: w => num(w.lookupsPerPiece, 2) },
+    { label: "Lookups per piece", hint: lookupsSince ? `saved from ${new Date(lookupsSince).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : "none saved yet", value: w => num(w.lookupsPerPiece, 2) },
   ];
 
   return (
