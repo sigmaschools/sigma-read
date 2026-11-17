@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import EngagementTable from "./EngagementTable";
 
 interface Usage {
   byFeature: { feature: string; calls: number; pricedCalls: number; cost: number; inputTokens: number; outputTokens: number }[];
@@ -50,6 +51,8 @@ export default function AdminMetricsPage() {
   return (
     <div className="p-8 max-w-6xl">
       <h1 className="text-2xl font-semibold mb-6">System Metrics</h1>
+
+      <EngagementTable />
 
       {/* Tracked AI spend */}
       <div className="mb-8">

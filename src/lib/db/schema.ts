@@ -389,3 +389,14 @@ export const interestSignals = pgTable("interest_signals", {
   uniqueIndex("interest_signals_source_unique").on(t.studentId, t.signalType, t.sourceRef),
   index("interest_signals_student_time_idx").on(t.studentId, t.createdAt),
 ]);
+
+// Every tap-to-define lookup, so a word a student did not know can come back to them
+// and so lookups per piece can be counted (src/lib/engagement.ts). `word` is lower case as tapped.
+export const wordLookups = pgTable("word_lookups", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id, { onDelete: "cascade" }).notNull(),
+  articleId: integer("article_id").references(() => articles.id, { onDelete: "set null" }),
+  word: text("word").notNull(),
+  sentence: text("sentence"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, t => [index("word_lookups_student_time_idx").on(t.studentId, t.createdAt)]);
