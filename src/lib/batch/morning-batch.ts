@@ -32,6 +32,7 @@ import { isIndexPage, isOlderThan } from "./search-filters";
 import { parseSourcePick, type SearchResult } from "./source-pick";
 import { MODELS, requestSettings } from "../models";
 import { BASE_LEVEL, rewriteFromSource as writeBase, writeFromKnowledge as writeUnsourced, adaptArticleToLevel as writeAdaptation, reviseArticle, type BaseArticle, type SourcedTopic } from "./article-writer";
+import { nextStructure, type TextStructure } from "./text-structure";
 import { guidanceForLevel, landOnTarget, measureArticles, pickFitFirst, storedLevel, targetForLevel, type StoredLevel } from "../reading-level";
 import { storyAngles, type StoryAngle } from "./story-angles";
 import { findDuplicate, type ExistingArticle } from "./dedup";
@@ -77,8 +78,9 @@ const UNSOURCED_NOTE = "No web page fit this story, so it was written from the m
  * knowledge. A page passed the content filter before it was used; an article written from
  * knowledge has no page, so the finished text goes through the same check instead.
  */
-async function writeBaseArticle(topic: SourcedTopic): Promise<(BaseArticle & { level: StoredLevel }) | null> {
+async function writeBaseArticle(sourced: SourcedTopic): Promise<(BaseArticle & { level: StoredLevel }) | null> {
   const guidance = (await guidanceForLevel(BASE_LEVEL))?.summary;
+  const topic = { ...sourced, structure: sourced.structure ?? await structureForNextArticle() };
   const written = topic.sourceUrl
     ? await writeBase(tracked(anthropic, "batch_rewrite"), topic, { guidance })
     : await writeUnsourced(tracked(anthropic, "batch_write"), topic, { guidance });
@@ -90,6 +92,19 @@ async function writeBaseArticle(topic: SourcedTopic): Promise<(BaseArticle & { l
     if (kept.length === 0) { console.log(`     🚫 Article written from knowledge failed the content check: "${article.title}"`); return null; }
   }
   return { ...article, level };
+}
+/**
+ * The structure the next base article is asked for (text-structure.ts): the least used among the
+ * last ten base articles. When the lookup fails the writer chooses, as it did before.
+ */
+async function structureForNextArticle(): Promise<TextStructure | undefined> {
+  try {
+    const recent = await sql`SELECT text_structure FROM article_cache WHERE base_article_id IS NULL ORDER BY id DESC LIMIT 10`;
+    return nextStructure(recent.map(r => r.text_structure as string | null));
+  } catch (e) {
+    console.error("Text structure lookup failed:", e instanceof Error ? e.message : e);
+    return undefined;
+  }
 }
 async function adaptArticleToLevel(title: string, body: string, level: number) {
   const guidance = (await guidanceForLevel(level))?.summary;
@@ -1200,13 +1215,13 @@ async function runSteps(result: BatchResult) {
     if (blockedSet.has(article.topic.toLowerCase())) { console.log(`     🚫 Blocked topic`); return false; }
 
     const [inserted] = await sql`
-      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note, measured_level, level_model_version, level_reliable)
-      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${t.sourceUrl}, ${t.sourceUrl}, ${t.sourceUrl ? null : UNSOURCED_NOTE}, ${article.level.measuredLevel}, ${article.level.levelModelVersion}, ${article.level.levelReliable})
+      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note, measured_level, level_model_version, level_reliable, text_structure)
+      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${t.sourceUrl}, ${t.sourceUrl}, ${t.sourceUrl ? null : UNSOURCED_NOTE}, ${article.level.measuredLevel}, ${article.level.levelModelVersion}, ${article.level.levelReliable}, ${article.textStructure})
       RETURNING id
     `;
     result.baseArticles++;
     written++;
-    console.log(`     ✅ "${article.title}" (${t.sourceUrl ? `source: ${t.sourceUrl.substring(0, 50)}...` : "from knowledge, marked for review"})`);
+    console.log(`     ✅ "${article.title}" (${t.sourceUrl ? `source: ${t.sourceUrl.substring(0, 50)}...` : "from knowledge, marked for review"}; structure: ${article.textStructure ?? "not named"})`);
     // The interest the batch searched for is the article's main topic; the rewrite's own tag is a fallback
     await quietly(tagCacheArticle(inserted.id, t.type === "news" ? [article.topic] : [t.query, article.topic], { client: anthropic }), "article tagging");
     await writeNotesFor(inserted.id, article.title, article.bodyText);
@@ -1301,8 +1316,8 @@ export async function writeInterestArticle(interest: string, level: number): Pro
     if (blocked.length > 0) return null;
 
     const [base] = await sql`
-      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note, measured_level, level_model_version, level_reliable)
-      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl}, ${sourced.sourceUrl ? null : UNSOURCED_NOTE}, ${article.level.measuredLevel}, ${article.level.levelModelVersion}, ${article.level.levelReliable})
+      INSERT INTO article_cache (title, topic, body_text, reading_level, sources, estimated_read_time, category, generated_date, headline_source, source_url, review_note, measured_level, level_model_version, level_reliable, text_structure)
+      VALUES (${article.title}, ${article.topic}, ${article.bodyText}, ${BASE_LEVEL}, ${JSON.stringify(article.sources)}, ${article.estimatedReadTime}, ${article.category}, ${today}, ${sourced.sourceUrl}, ${sourced.sourceUrl}, ${sourced.sourceUrl ? null : UNSOURCED_NOTE}, ${article.level.measuredLevel}, ${article.level.levelModelVersion}, ${article.level.levelReliable}, ${article.textStructure})
       RETURNING id
     `;
     await quietly(tagCacheArticle(base.id, [interest, article.topic], { client: anthropic }), "article tagging");
