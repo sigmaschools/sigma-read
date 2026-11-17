@@ -21,18 +21,21 @@ assert.doesNotMatch(p, /Crows remember faces/, "the article goes in the cached s
 assert.match(p, /Tell me why that matters\./);
 assert.match(p, /they can tell who was mean to them/);
 assert.match(p, /not length/i);
+assert.match(p, /<student_answer>\nthey can tell who was mean to them\n<\/student_answer>/, "the answer is fenced as data");
 console.log("✅ prompt is level-anchored");
 
 function fake(text: string, stop = "end_turn") {
   const calls: unknown[] = [];
-  const client = { messages: { create: async (req: unknown) => { calls.push(req); return { stop_reason: stop, content: [{ type: "text", text }] }; } } } as unknown as Anthropic;
-  return { client, calls };
+  const options: unknown[] = [];
+  const client = { messages: { create: async (req: unknown, opts?: unknown) => { calls.push(req); options.push(opts); return { stop_reason: stop, content: [{ type: "text", text }] }; } } } as unknown as Anthropic;
+  return { client, calls, options };
 }
 
 async function main() {
   const ok = fake(JSON.stringify({ reason: "explains with a detail", tier: 2 }));
   assert.equal(await scoreAnswer(ok.client, { articleText: "Crows remember faces.", level: 3, question: "q", answer: "a" }), 2);
   assert.match(JSON.stringify(ok.calls[0]), /Crows remember faces/);
+  assert.deepEqual(ok.options[0], { timeout: 8000, maxRetries: 0 }, "a slow scorer gives up quickly");
   const odd = fake(JSON.stringify({ reason: "", tier: 9 }));
   assert.equal(await scoreAnswer(odd.client, { articleText: "x", level: 3, question: "q", answer: "a" }), null, "out-of-range tier is ignored");
   const refused = fake("", "refusal");
