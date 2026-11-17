@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { CompassReport, LEVEL_CHANGED_EVENT } from "@/components/CompassReport";
 import { ArticleBody } from "@/components/ArticleBody";
 import { chatTurn } from "@/lib/chat-stream";
+import { DiscussionBar } from "@/components/DiscussionBar";
 
 interface Message {
   role: "user" | "assistant";
@@ -28,6 +29,9 @@ export default function ConversationPage() {
   const [selfAssessment, setSelfAssessment] = useState<string | null>(null);
   const [studentTurnCount, setStudentTurnCount] = useState(0);
   const [progressScore, setProgressScore] = useState(0);
+  // Answer points (src/lib/answer-points.ts): the bar moves by answer quality, good answers' points rise above it
+  const [answerPoints, setAnswerPoints] = useState(false);
+  const [pop, setPop] = useState<{ points: number; key: number } | null>(null);
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [coachingFeedback, setCoachingFeedback] = useState<string | null>(null);
   const [feedbackSecondsLeft, setFeedbackSecondsLeft] = useState<number | null>(null);
@@ -71,6 +75,7 @@ export default function ConversationPage() {
           setMessages(data.existingMessages as Message[]);
           setStudentTurnCount((data.existingMessages as Message[]).filter((m) => m.role === "user").length);
           if (data.progressScore !== undefined) setProgressScore(data.progressScore);
+          if (data.answerPoints) setAnswerPoints(true);
           if (data.complete) {
             setComplete(true);
             if (data.compassReport) setCompassReport(data.compassReport);
@@ -80,6 +85,7 @@ export default function ConversationPage() {
           }
         } else if (data.message) {
           setMessages([{ role: "assistant", content: data.message }]);
+          if (data.answerPoints) setAnswerPoints(true);
         }
         setLoading(false);
       })
@@ -89,8 +95,10 @@ export default function ConversationPage() {
         chatTurn(String(id), "__resume_check__", openerDelta)
           .then((data) => {
             if (data.error) { router.push("/student"); return; }
+            if (data.answerPoints) setAnswerPoints(true);
             if (data.existingMessages && data.existingMessages.length > 0) {
               setMessages(data.existingMessages as Message[]);
+              if (data.progressScore !== undefined) setProgressScore(data.progressScore);
               if (data.complete) setComplete(true);
             } else if (data.message) {
               setMessages([{ role: "assistant", content: data.message }]);
@@ -127,6 +135,10 @@ export default function ConversationPage() {
       });
       showReply(data.message ?? "");
       if (data.progressScore !== undefined) setProgressScore(data.progressScore);
+      if (data.answerPoints) {
+        setAnswerPoints(true);
+        if (typeof data.points === "number") setPop({ points: data.points, key: Date.now() });
+      }
       if (data.complete) {
         setComplete(true);
         if (data.compassReport) setCompassReport(data.compassReport);
@@ -302,25 +314,11 @@ export default function ConversationPage() {
                     Send
                   </button>
                 </div>
-                {/* Progress bar */}
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500 ease-out"
-                      style={{
-                        width: `${Math.min(100, progressScore)}%`,
-                        backgroundColor: progressScore >= 100
-                          ? "#22c55e"
-                          : progressScore >= 50
-                          ? "#86efac"
-                          : "#d1d5db",
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-gray-400 tracking-wide flex-shrink-0">DONE</span>
-                </div>
+                {!answerPoints && <DiscussionBar progress={progressScore} answerPoints={false} pop={null} />}
               </>
             )}
+            {/* With answer points the bar stays in place when the discussion ends, so the last fill is seen */}
+            {answerPoints && <DiscussionBar progress={progressScore} answerPoints pop={pop} />}
           </div>
         </div>
       </div>

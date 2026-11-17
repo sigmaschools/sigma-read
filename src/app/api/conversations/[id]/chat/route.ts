@@ -16,6 +16,7 @@ import { tutorInterestContext } from "@/lib/interest-graph";
 import { sigmaExchange } from "@/lib/tutor/conversation";
 import { guideNotesForArticle } from "@/lib/tutor/notes-store";
 import { tutorDesignForNewConversation, type TutorDesign } from "@/lib/tutor/design";
+import { answerPointsOn } from "@/lib/answer-points";
 
 const anthropic = new Anthropic();
 
@@ -40,7 +41,8 @@ function computeActiveDiscussionSeconds(msgs: { role: string; timestamp?: string
   return Math.round(activeMs / 1000);
 }
 
-type StoredMessage = { role: string; content: string; timestamp?: string; type?: string };
+/** `points`: the bar's move for a student answer, on conversations with answer points */
+type StoredMessage = { role: string; content: string; timestamp?: string; type?: string; points?: number };
 
 /** What the client gets back after a turn; on the closing turn, the report block for Compass too */
 interface TurnResponse {
@@ -49,6 +51,10 @@ interface TurnResponse {
   progressScore: number;
   coachingFeedback?: string | null;
   compassReport?: object | null;
+  /** The bar moves by answer quality on this conversation (answer-points.ts) */
+  answerPoints?: boolean;
+  /** With answer points: this answer's move of the bar */
+  points?: number | null;
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -68,15 +74,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const [article] = await db.select().from(schema.articles).where(eq(schema.articles.id, readingSession.articleId)).limit(1);
   const [student] = await db.select().from(schema.students).where(eq(schema.students.id, session.userId)).limit(1);
 
+  const isTutorial = article.category === "tutorial";
+  // Which tutor runs this conversation is fixed on its first turn, so a switch of the default
+  // mid-conversation never changes the voice halfway through
+  const storedMessages: StoredMessage[] = conversation.messages || [];
+  const design: TutorDesign = isTutorial ? "classic" : (conversation.tutorDesign as TutorDesign | null) ?? (message === "__resume_check__" && storedMessages.length === 0 ? tutorDesignForNewConversation() : "classic");
+  // The bar moves by answer quality for listed learners only (answer-points.ts)
+  const answerPoints = answerPointsOn({ externalId: student.externalId, design, isTutorial, priorMessages: storedMessages });
+
   // Handle resume check — return existing messages if any
   if (message === "__resume_check__") {
-    const existing = conversation.messages || [];
+    const existing = storedMessages;
     if (existing.length > 0) {
       return NextResponse.json({
         existingMessages: existing,
         complete: conversation.complete,
         progressScore: conversation.progressScore || 0,
         compassReport: conversation.complete ? await safeComprehensionCompassReport(conversationId) : null,
+        answerPoints,
       });
     }
     // No existing messages — fall through to generate opener
@@ -93,12 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const exchangeNumber = messages.filter(m => m.role === "user").length;
-  const isTutorial = article.category === "tutorial";
   const level = student.readingLevel || 2;
-
-  // Which tutor runs this conversation is fixed on its first turn, so a switch of the default
-  // mid-conversation never changes the voice halfway through
-  const design: TutorDesign = isTutorial ? "classic" : (conversation.tutorDesign as TutorDesign | null) ?? (isOpener ? tutorDesignForNewConversation() : "classic");
 
   const finish = async (cleanText: string, closing: ClosingKind | null, newProgressScore: number): Promise<TurnResponse> => {
     // Mark article as read, close the reading session, and generate the report and coaching tip
@@ -238,11 +248,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     priorProgress: conversation.progressScore || 0,
     maxWords: maxWordsForLevel(level),
     spring,
+    answerPoints,
   });
   const cleanText = turn.message;
   const isComplete = turn.complete;
   const newProgressScore = turn.progressScore;
 
+  // The answer keeps its points, so the bar can be rebuilt and the next turn knows if it was thin
+  if (answerPoints && turn.points !== null) messages[messages.length - 1].points = turn.points;
   messages.push({ role: "assistant", content: cleanText, timestamp: new Date().toISOString() });
 
   // Save updated messages, conversation style, and progress score
@@ -253,6 +266,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   await db.update(schema.conversations).set(updateData).where(eq(schema.conversations.id, conversationId));
 
-  if (isComplete) return NextResponse.json(await finish(cleanText, turn.closing, newProgressScore));
-  return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore });
+  const pointsFields = answerPoints ? { answerPoints: true, points: turn.points } : {};
+  if (isComplete) return NextResponse.json({ ...(await finish(cleanText, turn.closing, newProgressScore)), ...pointsFields });
+  return NextResponse.json({ message: cleanText, complete: isComplete, progressScore: newProgressScore, ...pointsFields });
 }
