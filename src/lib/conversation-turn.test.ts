@@ -368,6 +368,8 @@ async function main() {
     const failed = await runTutorTurn({ client: scored.client, model: "test", systemPrompt: "", messages: pts(convo(2), [20]), priorProgress: 20, maxWords: 15, spring: true, answerPoints: true, scoreAnswer: async () => { throw new Error("down"); } });
     assert.equal(failed.points, 5, "falls back to the tutor's score");
     assert.equal(failed.tier, null);
+    const threwAtOnce = await runTutorTurn({ client: scored.client, model: "test", systemPrompt: "", messages: pts(convo(2), [20]), priorProgress: 20, maxWords: 15, spring: true, answerPoints: true, scoreAnswer: () => { throw new Error("sync"); } });
+    assert.equal(threwAtOnce.points, 5, "a scorer that throws before returning a promise also falls back");
 
     // Without answer points nothing changes: points stay null
     const off = fakeClient({ message: "Tell me more.", progressDelta: 25 });

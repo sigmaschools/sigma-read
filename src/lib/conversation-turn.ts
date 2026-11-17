@@ -234,7 +234,7 @@ async function answerPointsTurn(args: TurnArgs, exchangeNumber: number): Promise
   const question = lastTutorMessage(args.messages.slice(0, -1)) ?? "";
   const [first, tier] = await Promise.all([
     askTutor(args, help ? [...conversation, { role: "user", content: HELP_NOTE }] : conversation),
-    args.scoreAnswer ? args.scoreAnswer(question, answer).catch(() => null) : Promise.resolve(null),
+    args.scoreAnswer ? Promise.resolve().then(() => args.scoreAnswer!(question, answer)).catch(() => null) : Promise.resolve(null),
   ]);
 
   const progressDelta = clampDelta(first.progressDelta);
