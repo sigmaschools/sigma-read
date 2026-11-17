@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { levelToLexile, buildLevelReport, buildComprehensionReport, reportJson } from "./compass-report";
+import { SHARED_SKILL_IDS } from "./report-schema";
 
 assert.deepEqual([1, 2, 3, 4, 5, 6].map(levelToLexile), [450, 600, 750, 900, 1050, 1200]);
 assert.equal(levelToLexile(0), 450);
@@ -71,6 +72,17 @@ const odd = buildComprehensionReport({
   finishedAt: null, levelBefore: null, levelAfter: null, currentLevel: 2,
 });
 assert.deepEqual(odd.skills, { main_idea: "great", made_up: "shown" }, "unknown skills and ratings get no shared id");
+// Every id exactly as Compass lists it (compass-lab server/learnerrecord/skills.go); Compass ignores an id it doesn't know
+assert.deepEqual(SHARED_SKILL_IDS, {
+  main_idea: "reading.informational-key-ideas.main-idea",
+  key_details: "reading.informational-key-ideas.key-details",
+  inference: "reading.informational-key-ideas.inference",
+  vocabulary: "reading.vocabulary.context-clues",
+  text_structure: "reading.informational-craft.text-structure",
+  author_purpose: "reading.informational-craft.author-purpose",
+  text_evidence: "reading.informational-craft.evidence",
+  connection: null,
+});
 console.log("✅ ratings go under the shared reading skill ids");
 
 // Older reports without stored levels: before = after = current level
