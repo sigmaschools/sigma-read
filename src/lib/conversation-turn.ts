@@ -10,6 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { parseProgressResponse, clampDelta } from "@/lib/progress-scoring";
 import { REPLY_SCHEMA } from "@/lib/report-schema";
 import { parseJsonResponse } from "@/lib/claude-json";
+import { ANSWER_POINTS_MAX_STUDENT_MESSAGES, HELP_NOTE, lastAnswerWasThin, pointsForScore } from "@/lib/answer-points";
 
 /** Safety backstop: wrap up after this many real student messages */
 export const MAX_STUDENT_MESSAGES = 6;
@@ -74,7 +75,8 @@ export const FALLBACK_PROMPT = "Tell me a little more about that.";
 /** Used if the model returns an empty opener */
 export const FALLBACK_OPENER = "Tell me about the part of the article that stuck with you most.";
 
-export interface TurnMessage { role: string; content: string }
+/** `points`: the bar's move for a student answer, on conversations with answer points (answer-points.ts) */
+export interface TurnMessage { role: string; content: string; points?: number }
 
 export interface TurnResult {
   message: string;
@@ -85,6 +87,8 @@ export interface TurnResult {
   closing: ClosingKind | null;
   /** Set when the model's message was replaced, so evals can count model failures */
   usedFallback: "closing_question" | "empty" | null;
+  /** With answer points: the bar's move for the student's answer (null on the opener or without answer points) */
+  points: number | null;
 }
 
 /**
@@ -107,8 +111,16 @@ export async function runTutorTurn(args: {
    * quiet-kid nudge, the rewrite pass for questions and long turns), as it ran from May to October 2026
    */
   spring?: boolean;
+  /**
+   * Answer points (answer-points.ts): priorProgress is the bar, each answer moves it by its
+   * quality, the talk closes on the turn the bar fills, the backstop is later, and a second thin
+   * answer gets help. The closing is decided after the answer is scored, so it costs a second
+   * call on the last turn only.
+   */
+  answerPoints?: boolean;
 }): Promise<TurnResult> {
   const exchangeNumber = args.messages.filter(m => m.role === "user").length;
+  if (args.answerPoints && exchangeNumber > 0) return answerPointsTurn(args, exchangeNumber);
   const forceComplete = exchangeNumber >= MAX_STUDENT_MESSAGES;
   // The threshold was reached on an earlier turn; the tutor's reply then still expected an answer,
   // so the closing comes one exchange later, here.
@@ -122,34 +134,7 @@ export async function runTutorTurn(args: {
   const nudged = !closing && !args.spring && needsQuietNudge(args.messages);
   if (nudged) finalMessages.push({ role: "user", content: QUIET_NUDGE });
 
-  async function ask(messages: typeof finalMessages) {
-    // The system prompt (article and rules) is the same every turn: cache it, so turns after the
-    // first read it at a tenth of the input price
-    const request = {
-      ...args.settings,
-      model: args.model,
-      max_tokens: 1024,
-      system: [{ type: "text" as const, text: args.systemPrompt, cache_control: { type: "ephemeral" as const } }],
-      messages,
-    } as Anthropic.MessageCreateParamsNonStreaming;
-    const settingsOutput = ((args.settings as { output_config?: object } | undefined)?.output_config ?? {});
-    const response = await args.client.messages.create({
-      ...request,
-      output_config: { ...settingsOutput, format: { type: "json_schema", schema: REPLY_SCHEMA } },
-    } as Anthropic.MessageCreateParamsNonStreaming).catch(e => {
-      // If the API ever rejects the schema (e.g. a model without structured outputs), keep the
-      // student's chat working: retry as plain text and let parseProgressResponse handle it
-      if (e instanceof Anthropic.BadRequestError) {
-        console.error("Structured tutor turn rejected, retrying as text:", e.message);
-        return args.client.messages.create(request);
-      }
-      throw e;
-    });
-    // Structured output guarantees the JSON shape; fall back to the old text parser on a refusal or cut-off
-    const assistantText = response.content.filter(b => b.type === "text").map(b => b.text).join("");
-    const structured = parseJsonResponse<{ message: string; progressDelta: number }>(response);
-    return structured?.message?.trim() ? structured : parseProgressResponse(assistantText);
-  }
+  const ask = (messages: typeof finalMessages) => askTutor(args, messages);
 
   const parsed = await ask(finalMessages);
   // The prompt bans quiz-show questions and long turns, but the model still slips (live tests):
@@ -191,7 +176,87 @@ export async function runTutorTurn(args: {
   // turn closes cleanly.
   const complete = closing !== null;
 
-  return { message, progressDelta, progressScore, complete, closing, usedFallback };
+  return { message, progressDelta, progressScore, complete, closing, usedFallback, points: null };
+}
+
+type TurnArgs = Parameters<typeof runTutorTurn>[0];
+type ModelMessage = { role: "user" | "assistant"; content: string };
+
+/** One call to the tutor model; returns its message and its 0-40 score for the student's answer */
+async function askTutor(args: TurnArgs, messages: ModelMessage[]): Promise<{ message: string; progressDelta: number }> {
+  // The system prompt (article and rules) is the same every turn: cache it, so turns after the
+  // first read it at a tenth of the input price
+  const request = {
+    ...args.settings,
+    model: args.model,
+    max_tokens: 1024,
+    system: [{ type: "text" as const, text: args.systemPrompt, cache_control: { type: "ephemeral" as const } }],
+    messages,
+  } as Anthropic.MessageCreateParamsNonStreaming;
+  const settingsOutput = ((args.settings as { output_config?: object } | undefined)?.output_config ?? {});
+  const response = await args.client.messages.create({
+    ...request,
+    output_config: { ...settingsOutput, format: { type: "json_schema", schema: REPLY_SCHEMA } },
+  } as Anthropic.MessageCreateParamsNonStreaming).catch(e => {
+    // If the API ever rejects the schema (e.g. a model without structured outputs), keep the
+    // student's chat working: retry as plain text and let parseProgressResponse handle it
+    if (e instanceof Anthropic.BadRequestError) {
+      console.error("Structured tutor turn rejected, retrying as text:", e.message);
+      return args.client.messages.create(request);
+    }
+    throw e;
+  });
+  // Structured output guarantees the JSON shape; fall back to the old text parser on a refusal or cut-off
+  const assistantText = response.content.filter(b => b.type === "text").map(b => b.text).join("");
+  const structured = parseJsonResponse<{ message: string; progressDelta: number }>(response);
+  return structured?.message?.trim() ? structured : parseProgressResponse(assistantText);
+}
+
+/**
+ * A student answer with answer points on. The tutor replies and scores the answer as usual; the
+ * score becomes the bar's move. If that fills the bar (after at least 3 answers), or this is the
+ * backstop answer, the reply is asked again as the goodbye, so the talk ends on the turn the bar
+ * fills and never asks a question nobody will answer.
+ */
+async function answerPointsTurn(args: TurnArgs, exchangeNumber: number): Promise<TurnResult> {
+  const conversation: ModelMessage[] = args.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+  // The answers before this one: was the last of them thin? Then this one may need an easier way in
+  const help = lastAnswerWasThin(args.messages.slice(0, -1));
+  const first = await askTutor(args, help ? [...conversation, { role: "user", content: HELP_NOTE }] : conversation);
+
+  const progressDelta = clampDelta(first.progressDelta);
+  const points = pointsForScore(progressDelta);
+  const bar = args.priorProgress + points;
+  const closing: ClosingKind | null = bar >= 100 && exchangeNumber >= 3 ? "earned"
+    : exchangeNumber >= ANSWER_POINTS_MAX_STUDENT_MESSAGES ? "forced" : null;
+
+  let message = (first.message || "").replace("[CONVERSATION_COMPLETE]", "").trim();
+  if (closing) {
+    const instruction = args.spring ? SPRING_CLOSING_INSTRUCTION : closingInstruction(closing, args.maxWords);
+    const goodbye = await askTutor(args, [...conversation, { role: "user", content: instruction }]).catch(e => {
+      console.error("Tutor goodbye failed:", e);
+      return null;
+    });
+    message = (goodbye?.message || "").replace("[CONVERSATION_COMPLETE]", "").trim();
+  } else if (!args.spring) {
+    // The classic tutor keeps its rewrite pass for quiz-shaped or long turns
+    const problem = rewriteReason(message, args.maxWords, false, lastTutorMessage(args.messages));
+    if (problem) {
+      const retry = await askTutor(args, [...conversation, { role: "user", content: problem.instruction(message) }]).catch(() => null);
+      if (retry?.message?.trim()) message = retry.message.trim();
+    }
+  }
+
+  let usedFallback: TurnResult["usedFallback"] = null;
+  if (!message) {
+    usedFallback = "empty";
+    message = closing ? FALLBACK_CLOSING : FALLBACK_PROMPT;
+  } else if (closing && endsWithQuestion(message)) {
+    usedFallback = "closing_question";
+    message = FALLBACK_CLOSING;
+  }
+
+  return { message, progressDelta, progressScore: Math.min(100, bar), complete: closing !== null, closing, usedFallback, points };
 }
 
 const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;

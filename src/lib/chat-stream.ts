@@ -11,6 +11,10 @@ export interface TurnData {
   progressScore?: number;
   coachingFeedback?: string | null;
   compassReport?: object | null;
+  /** The bar moves by answer quality on this conversation (src/lib/answer-points.ts) */
+  answerPoints?: boolean;
+  /** With answer points: the student's last answer's move of the bar */
+  points?: number | null;
   existingMessages?: { role: string; content: string; type?: string }[];
   error?: string;
 }

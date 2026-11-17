@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
 import { runTutorTurn, endsWithQuestion, closingInstruction, closingTargetWords, FALLBACK_CLOSING, FALLBACK_PROMPT, FALLBACK_OPENER, OPENER_INSTRUCTION, QUIET_NUDGE, SPRING_CLOSING_INSTRUCTION, SPRING_OPENER_INSTRUCTION, needsQuietNudge, endsWithClosedQuestion, rewriteReason, questionInARow, type TurnMessage } from "./conversation-turn";
+import { HELP_NOTE } from "./answer-points";
 
 /** Fake client that returns a fixed reply and records the messages it was sent */
 function fakeClient(reply: { message: string; progressDelta: number }) {
@@ -298,6 +299,68 @@ async function main() {
     await runTutorTurn({ client: opener.client, model: "test", systemPrompt: "", messages: [], priorProgress: 0, maxWords: 15, spring: true });
     assert.equal(opener.calls[0][0].content, SPRING_OPENER_INSTRUCTION);
     console.log("✅ spring tutor turn");
+  }
+
+  // ─── Answer points: the bar moves by quality and the talk ends when it fills ─
+  {
+    const pts = (messages: TurnMessage[], points: number[]) => {
+      let i = 0;
+      return messages.map(m => (m.role === "user" ? { ...m, points: points[i++] } : m));
+    };
+    const spring = (client: Anthropic, messages: TurnMessage[], priorProgress: number) =>
+      runTutorTurn({ client, model: "test", systemPrompt: "", messages, priorProgress, maxWords: 15, spring: true, answerPoints: true });
+
+    // A thin answer moves the bar a little and the talk goes on
+    const thin = fakeClient({ message: "Tell me what the chirp is warning about.", progressDelta: 15 });
+    const t = await spring(thin.client, pts(convo(2), [20]), 20);
+    assert.equal(t.points, 5);
+    assert.equal(t.progressScore, 25);
+    assert.equal(t.complete, false);
+    assert.equal(thin.calls.length, 1);
+
+    // The answer that fills the bar ends the talk on this turn, not one exchange later
+    const full = fakeClient({ message: "Yeah, the battery.", progressDelta: 25 });
+    const f = await spring(full.client, pts(convo(4), [20, 20, 30]), 85);
+    assert.equal(f.points, 20, "the filling answer still earns its points");
+    assert.equal(f.progressScore, 100, "the bar stops at full");
+    assert.equal(f.complete, true);
+    assert.equal(f.closing, "earned");
+    assert.equal(full.calls.length, 2, "the reply is asked again as the goodbye");
+    assert.equal(full.calls[1].at(-1)!.content, SPRING_CLOSING_INSTRUCTION);
+    assert.notEqual(full.calls[0].at(-1)!.content, SPRING_CLOSING_INSTRUCTION);
+
+    // The old six-message backstop no longer cuts the talk short
+    const six = fakeClient({ message: "Tell me more about the drum.", progressDelta: 15 });
+    const s = await spring(six.client, pts(convo(6), [5, 5, 5, 5, 5]), 25);
+    assert.equal(s.complete, false);
+
+    // At the new backstop it ends unfinished, and the last answer still counts
+    const last = fakeClient({ message: "Thanks for sticking with it.", progressDelta: 25 });
+    const l = await spring(last.client, pts(convo(10), [5, 5, 5, 5, 5, 5, 5, 5, 5]), 45);
+    assert.equal(l.complete, true);
+    assert.equal(l.closing, "forced");
+    assert.equal(l.progressScore, 65);
+
+    // After a thin answer the tutor gets the help note; after a good one it doesn't
+    const help = fakeClient({ message: "Look at the part about the battery and tell me what it says.", progressDelta: 10 });
+    await spring(help.client, pts(convo(3), [20, 5]), 25);
+    assert.equal(help.calls[0].at(-1)!.content, HELP_NOTE);
+    const noHelp = fakeClient({ message: "Tell me more.", progressDelta: 10 });
+    await spring(noHelp.client, pts(convo(3), [5, 20]), 25);
+    assert.ok(!noHelp.calls[0].some(m => m.content === HELP_NOTE));
+
+    // The opener carries no points
+    const open = fakeClient({ message: "I thought it was interesting that sirens spin. Tell me how.", progressDelta: 0 });
+    const o = await spring(open.client, [], 0);
+    assert.equal(o.points, null);
+    assert.equal(o.progressScore, 0);
+
+    // Without answer points nothing changes: points stay null
+    const off = fakeClient({ message: "Tell me more.", progressDelta: 25 });
+    const n = await run(off.client, convo(1), 0);
+    assert.equal(n.points, null);
+    assert.equal(n.progressScore, 25);
+    console.log("✅ answer points turn");
   }
 
   // ─── Deltas are clamped ────────────────────────────────────────────────────
