@@ -67,7 +67,7 @@ export function nextStructure(recent: readonly (string | null)[]): TextStructure
 export function structureLine(structure: TextStructure | undefined): string {
   if (!structure) return "";
   const { brief } = TEXT_STRUCTURES.find(s => s.id === structure)!;
-  return `\nHOW IT IS ORGANIZED: ${brief} Use this structure for the whole article, so a reader could say how it is organized, but let it serve the story: never a template, never a label like "Cause:". If the story truly can't be told this way, use whichever of ${IDS.join(", ")} fits it best.\n`;
+  return `\nHOW IT IS ORGANIZED: ${brief} Use this structure for the whole article, so a reader could say how it is organized, but let it serve the story: never a template, never a label like "Cause:", and never a reason to add a fact the material doesn't give you. If the story truly can't be told this way, use whichever of ${IDS.join(", ")} fits it best.\n`;
 }
 
 /** The line that asks the writer to name the structure it used, inside the output JSON */
