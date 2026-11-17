@@ -6,6 +6,8 @@ import { cleanLookup } from "./word-lookup-clean";
   assert.deepEqual(cleanLookup("don't", ""), { word: "don't", sentence: null });
   assert.deepEqual(cleanLookup("'well-known'", undefined), { word: "well-known", sentence: null });
   assert.deepEqual(cleanLookup("Café.", ""), { word: "café", sentence: null }, "accented letters are kept");
+  assert.deepEqual(cleanLookup("cafe\u0301", ""), { word: "caf\u00e9", sentence: null }, "a decomposed accent is kept");
+  assert.deepEqual(cleanLookup("don\u2019t", ""), { word: "don't", sentence: null }, "a curly apostrophe is a plain one");
   assert.equal(cleanLookup("", "x"), null);
   assert.equal(cleanLookup("123", "x"), null);
   assert.equal(cleanLookup(42, "x"), null);

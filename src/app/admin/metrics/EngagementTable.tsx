@@ -57,7 +57,7 @@ export default function EngagementTable() {
     <div className="mb-8">
       <div className="flex items-baseline justify-between mb-3">
         <h2 className="text-lg font-semibold">Engagement by Week</h2>
-        <select value={student} onChange={e => { setWeeks(null); setStudent(e.target.value); }}
+        <select value={student} onChange={e => { setWeeks(null); setFailed(false); setStudent(e.target.value); }}
           className="text-sm border border-[var(--border)] rounded-lg px-2 py-1 bg-white">
           <option value="">All students</option>
           {readers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}

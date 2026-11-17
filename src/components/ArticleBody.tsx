@@ -9,7 +9,7 @@ function words(text: string, key: string): ReactNode[] {
     ) : (
       <span
         key={`${key}-${j}`}
-        data-word={w.replace(/[^\p{L}'-]/gu, "")}
+        data-word={w.normalize("NFC").replace(/[\u2018\u2019]/g, "'").replace(/[^\p{L}'-]/gu, "")}
         className="cursor-pointer hover:bg-blue-50 hover:text-[var(--accent)] rounded transition-colors"
       >
         {w}
