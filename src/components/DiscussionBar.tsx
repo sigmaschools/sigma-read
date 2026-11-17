@@ -26,8 +26,9 @@ export function DiscussionBar({ progress, answerPoints, pop }: {
           <span
             key={pop.key}
             role="status"
+            aria-label={`${pop.points} points`}
             className={`pointer-events-none absolute bottom-full mb-1 whitespace-nowrap tabular-nums ${tier === "great" ? "points-rise-great text-lg font-extrabold" : "points-rise text-sm font-semibold"}`}
-            style={{ left: `${fill}%`, color: tier === "great" ? "var(--great)" : "var(--accent)" }}
+            style={{ left: `${Math.min(fill, 92)}%`, color: tier === "great" ? "var(--great)" : "var(--accent)" }}
           >
             +{pop.points}
           </span>

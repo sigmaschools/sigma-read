@@ -95,8 +95,10 @@ export default function ConversationPage() {
         chatTurn(String(id), "__resume_check__", openerDelta)
           .then((data) => {
             if (data.error) { router.push("/student"); return; }
+            if (data.answerPoints) setAnswerPoints(true);
             if (data.existingMessages && data.existingMessages.length > 0) {
               setMessages(data.existingMessages as Message[]);
+              if (data.progressScore !== undefined) setProgressScore(data.progressScore);
               if (data.complete) setComplete(true);
             } else if (data.message) {
               setMessages([{ role: "assistant", content: data.message }]);

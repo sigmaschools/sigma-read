@@ -242,7 +242,8 @@ async function answerPointsTurn(args: TurnArgs, exchangeNumber: number): Promise
     // The classic tutor keeps its rewrite pass for quiz-shaped or long turns
     const problem = rewriteReason(message, args.maxWords, false, lastTutorMessage(args.messages));
     if (problem) {
-      const retry = await askTutor(args, [...conversation, { role: "user", content: problem.instruction(message) }]).catch(() => null);
+      const asked = help ? [...conversation, { role: "user" as const, content: HELP_NOTE }] : conversation;
+      const retry = await askTutor(args, [...asked, { role: "user", content: problem.instruction(message) }]).catch(() => null);
       if (retry?.message?.trim()) message = retry.message.trim();
     }
   }
