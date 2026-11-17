@@ -107,7 +107,7 @@ export function weeklyEngagement(input: EngagementInput, zone: string = REPORT_Z
     if (s.liked === true) a.liked++;
     if (s.liked === false) a.disliked++;
     if (typeof s.score === "number") a.scores.push(s.score);
-    if (s.selfAssessment && s.selfAssessment in a.self) a.self[s.selfAssessment as keyof Acc["self"]]++;
+    if (s.selfAssessment && Object.hasOwn(a.self, s.selfAssessment)) a.self[s.selfAssessment as keyof Acc["self"]]++;
   }
   for (const f of input.favorites) acc(weekOf(localDate(f.createdAt, zone))).favorites++;
   for (const l of input.lookups) acc(weekOf(localDate(l.createdAt, zone))).lookups++;

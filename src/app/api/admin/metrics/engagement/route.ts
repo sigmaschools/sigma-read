@@ -34,10 +34,12 @@ async function engagement(studentId: number | null) {
       .from(schema.articleFavorites).where(and(gte(schema.articleFavorites.createdAt, since), studentId === null ? undefined : eq(schema.articleFavorites.studentId, studentId))),
     db.select({ studentId: schema.wordLookups.studentId, createdAt: schema.wordLookups.createdAt })
       .from(schema.wordLookups).where(and(gte(schema.wordLookups.createdAt, since), studentId === null ? undefined : eq(schema.wordLookups.studentId, studentId)))
-      .catch(e => { console.error("word_lookups query failed:", e); return []; }),
+      .catch(e => { console.error("word_lookups query failed:", e); return null; }),
     db.select({ at: min(schema.wordLookups.createdAt) }).from(schema.wordLookups)
       .then(([r]) => r?.at ?? null).catch(() => null),
   ]);
+  // Without the lookups, show no lookup rate rather than a false zero
+  const lookupsSince = lookups === null ? null : firstLookup;
   // A session can carry more than one report row; count the piece once
   const seen = new Set<number>();
   const pieces = sessions.filter(r => {
@@ -49,9 +51,9 @@ async function engagement(studentId: number | null) {
   const ids = [...new Set(pieces.map(p => p.studentId))];
   const students = ids.length === 0 ? [] : await db.select({ id: schema.students.id, name: schema.students.name, goal: schema.students.dailyGoalArticles })
     .from(schema.students).where(inArray(schema.students.id, ids));
-  const weeks = weeklyEngagement({ sessions: pieces, favorites, lookups, lookupsSince: firstLookup, goals: new Map(students.map(s => [s.id, s.goal])) })
+  const weeks = weeklyEngagement({ sessions: pieces, favorites, lookups: lookups ?? [], lookupsSince, goals: new Map(students.map(s => [s.id, s.goal])) })
     .filter(w => w.week >= firstWeek);
-  return { weeks, lookupsSince: firstLookup, studentId, readers: studentId === null ? students.map(s => ({ id: s.id, name: s.name })).sort((a, b) => a.name.localeCompare(b.name)) : [] };
+  return { weeks, lookupsSince, studentId, readers: studentId === null ? students.map(s => ({ id: s.id, name: s.name })).sort((a, b) => a.name.localeCompare(b.name)) : [] };
 }
 
 export async function GET(req: NextRequest) {

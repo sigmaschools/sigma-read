@@ -394,8 +394,8 @@ export const interestSignals = pgTable("interest_signals", {
 // and so lookups per piece can be counted (src/lib/engagement.ts). `word` is lower case as tapped.
 export const wordLookups = pgTable("word_lookups", {
   id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  articleId: integer("article_id").references(() => articles.id),
+  studentId: integer("student_id").references(() => students.id, { onDelete: "cascade" }).notNull(),
+  articleId: integer("article_id").references(() => articles.id, { onDelete: "set null" }),
   word: text("word").notNull(),
   sentence: text("sentence"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
