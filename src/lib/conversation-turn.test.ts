@@ -355,6 +355,20 @@ async function main() {
     assert.equal(o.points, null);
     assert.equal(o.progressScore, 0);
 
+    // The grade-level scorer's tier sets the move, beside the tutor's reply; the tutor's score is the fallback
+    const scored = fakeClient({ message: "Tell me more about the crows.", progressDelta: 15 });
+    const asked: string[][] = [];
+    const sc = await runTutorTurn({ client: scored.client, model: "test", systemPrompt: "", messages: pts(convo(2), [20]), priorProgress: 20, maxWords: 15, spring: true, answerPoints: true,
+      scoreAnswer: async (q, a) => { asked.push([q, a]); return 2; } });
+    assert.equal(sc.points, 20, "a solid answer moves the bar 20 even when the tutor's own score was stingy");
+    assert.equal(sc.tier, 2);
+    assert.deepEqual(asked, [["Tell me about part 1.", "I think part 1 matters because of the ink"]]);
+    const great = await runTutorTurn({ client: scored.client, model: "test", systemPrompt: "", messages: pts(convo(2), [20]), priorProgress: 20, maxWords: 15, spring: true, answerPoints: true, scoreAnswer: async () => 3 });
+    assert.equal(great.points, 30);
+    const failed = await runTutorTurn({ client: scored.client, model: "test", systemPrompt: "", messages: pts(convo(2), [20]), priorProgress: 20, maxWords: 15, spring: true, answerPoints: true, scoreAnswer: async () => { throw new Error("down"); } });
+    assert.equal(failed.points, 5, "falls back to the tutor's score");
+    assert.equal(failed.tier, null);
+
     // Without answer points nothing changes: points stay null
     const off = fakeClient({ message: "Tell me more.", progressDelta: 25 });
     const n = await run(off.client, convo(1), 0);
