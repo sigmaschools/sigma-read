@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import InterestPanel from "@/components/InterestPanel";
 import ScoreZoneChart from "@/components/ScoreZoneChart";
-import { SKILL_LABELS, SKILL_RATING_LABELS, SKILL_COLORS, REPORT_FLAGS, REPORT_FLAG_LABELS, skillSummary, type ReportFlag } from "@/lib/skills";
+import { SKILL_AREAS, SKILL_LABELS, SKILL_RATING_LABELS, SKILL_COLORS, REPORT_FLAGS, REPORT_FLAG_LABELS, skillSummary, type ReportFlag } from "@/lib/skills";
 
 interface SessionReport {
   sessionId: number;
@@ -401,9 +401,11 @@ export default function StudentDetailPage() {
                   Skills <span className="normal-case tracking-normal font-normal">· last {skills.reports} report{skills.reports === 1 ? "" : "s"}</span>
                 </h2>
                 <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl divide-y divide-[var(--border)]">
-                  {skills.rows.map(row => (
+                  {SKILL_AREAS.flatMap(area => [
+                    <div key={area.label} className="px-4 pt-3 pb-1 text-xs font-medium text-[var(--muted)]">{area.label}</div>,
+                    ...skills.rows.filter(row => area.skills.includes(row.skill)).map(row => (
                     <div key={row.skill} className="px-4 py-2.5 flex items-center gap-3 text-sm">
-                      <span className="w-28 shrink-0">{row.label}</span>
+                      <span className="w-44 shrink-0">{row.label}</span>
                       {row.tested === 0 ? (
                         <span className="text-xs text-[var(--muted)]">Not tested yet</span>
                       ) : (
@@ -417,7 +419,8 @@ export default function StudentDetailPage() {
                         </>
                       )}
                     </div>
-                  ))}
+                  )),
+                  ])}
                 </div>
               </div>
             )}

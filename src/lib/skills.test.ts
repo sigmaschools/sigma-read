@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { skillSummary } from "./skills";
+import { SKILL_AREAS, skillSummary } from "./skills";
+import { SHARED_SKILL_IDS, SKILLS } from "./report-schema";
 
 const r = (main_idea: string, inference = "not_tested") => ({
   skills: { main_idea, key_details: "not_tested", vocabulary: "not_tested", inference, connection: "not_tested" },
@@ -22,4 +23,14 @@ const r = (main_idea: string, inference = "not_tested") => ({
   assert.equal(reports, 10);
   assert.equal(rows[0].shown, 10, "only the newest 10 count");
   console.log("✅ skillSummary uses the newest reports");
+}
+
+{
+  // Every skill sits in exactly one area, and every shared id is unique
+  const placed = SKILL_AREAS.flatMap(a => a.skills);
+  assert.deepEqual([...placed].sort(), [...SKILLS].sort());
+  const ids = Object.values(SHARED_SKILL_IDS).filter(Boolean);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(SHARED_SKILL_IDS.connection, null, "connection is not a test skill");
+  console.log("✅ skill areas and shared ids");
 }

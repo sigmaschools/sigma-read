@@ -9,7 +9,7 @@ npm run dev          # Local dev server
 npm run build        # Production build (use to verify changes)
 npm run lint         # ESLint (pre-existing warnings, non-blocking in CI)
 npm test             # Plain-assert *.test.ts files under src/ and scripts/ (runs in CI)
-npm run eval         # Offline simulated-student conversation eval (needs ANTHROPIC_API_KEY, no DB)
+npm run eval         # Offline simulated-student conversation eval (needs ANTHROPIC_API_KEY, no DB; or label a PR "eval" to run a small before/after in Actions)
 npm run eval:voice   # Does the tutor sound like a person? Realistic kid sims, blind pairwise judge (docs/tutor-redesign.md)
 npx drizzle-kit push # Push schema changes to DB
 npx tsx scripts/<name>.ts  # Run utility scripts (requires DATABASE_URL; add --require ./scripts/md-require.cjs if it imports src/lib/prompts)

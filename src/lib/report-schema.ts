@@ -4,10 +4,26 @@
  */
 
 /** Bump when comprehension-report/base.md changes, so reports can be compared by prompt version. */
-export const REPORT_PROMPT_VERSION = "report-v2";
+export const REPORT_PROMPT_VERSION = "report-v3";
 
-export const SKILLS = ["main_idea", "key_details", "vocabulary", "inference", "connection"] as const;
+export const SKILLS = ["main_idea", "key_details", "inference", "vocabulary", "text_structure", "author_purpose", "text_evidence", "connection"] as const;
 export type Skill = (typeof SKILLS)[number];
+
+/**
+ * Each skill's id in the reading skill names Compass and the reading test practice app share
+ * (compass-lab #403), grouped by area as standardized reading reports group them.
+ * `connection` is this app's own engagement signal and has none.
+ */
+export const SHARED_SKILL_IDS: Record<Skill, string | null> = {
+  main_idea: "reading.informational-key-ideas.main-idea",
+  key_details: "reading.informational-key-ideas.key-details",
+  inference: "reading.informational-key-ideas.inference",
+  vocabulary: "reading.vocabulary.context-clues",
+  text_structure: "reading.informational-craft.text-structure",
+  author_purpose: "reading.informational-craft.author-purpose",
+  text_evidence: "reading.informational-craft.evidence",
+  connection: null,
+};
 
 export const SKILL_RATINGS = ["shown", "partly", "not_shown", "not_tested"] as const;
 export type SkillRating = (typeof SKILL_RATINGS)[number];

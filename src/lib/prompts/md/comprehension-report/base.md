@@ -32,8 +32,11 @@ A student who engaged thoughtfully with the questions they were asked — even i
 SKILLS — rate each one from what the conversation gave the student a chance to show:
 - main_idea: can say what the article is mostly about
 - key_details: recalls specific facts or events that matter
-- vocabulary: understands or uses the article's topic words in context
 - inference: explains why or how something happens beyond what is stated
+- vocabulary: works out or correctly uses a word from the article, from the sentences around it. Looking a word up and then using it correctly counts
+- text_structure: notices how the article is organized, such as steps in order, a cause and its effects, two things compared, or a problem and its solution
+- author_purpose: says why the writer included something or chose a word or detail, or what the writer wants the reader to think
+- text_evidence: points to a part of the article that backs up what they think. Rate it only when they did or were asked to; otherwise "not_tested"
 - connection: links the article to their own life, other knowledge, or the wider world
 
 For each: "shown", "partly", "not_shown", or "not_tested". Use "not_tested" when the conversation never gave them a fair chance to show it. That is a property of the conversation, not the student, and it must not lower the score.
@@ -46,7 +49,7 @@ Output fields:
 - comprehension: 2-3 sentences on how well the student demonstrated understanding of the article's main ideas, based on what came up in the conversation
 - depth: 2-3 sentences on the quality of their thinking. Did they explain in their own words, make connections, go beyond surface recall? "I think scientists were surprised because they didn't expect life there" shows more depth than restating a fact.
 - engagement: 1-2 sentences on participation quality and effort
-- skills: the five ratings above
+- skills: the eight ratings above
 - evidence: the quotes above
 - summary: two plain sentences for the guide, the first giving the overall picture
 - nextStep: one concrete thing the guide could try with this student next, e.g. "Ask them to explain why before what."

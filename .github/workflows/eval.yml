@@ -1,0 +1,53 @@
+# Before-and-after conversation eval for a pull request that changes the tutor or report prompts.
+# Runs only when the PR carries the "eval" label (add it to run, remove and re-add to run again),
+# because each run calls the API for a few dozen simulated conversations.
+# Both summaries land on the run's page and as an artifact; compare them (CLAUDE.md, Commands).
+name: Eval
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  eval:
+    if: github.event.label.name == 'eval'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      EVAL_ARGS: --personas=emma,marcus,aisha --articles=lighthouse,bee-dance,voyager --concurrency=3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: head
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Before (base branch)
+        working-directory: base
+        run: |
+          npm ci --no-audit --no-fund
+          npm run eval -- $EVAL_ARGS --label=before
+      - name: After (this pull request)
+        working-directory: head
+        run: |
+          npm ci --no-audit --no-fund
+          npm run eval -- $EVAL_ARGS --label=after
+      - name: Summaries
+        if: always()
+        run: |
+          for f in base/eval-results/*/summary.md head/eval-results/*/summary.md; do
+            [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY" && echo >> "$GITHUB_STEP_SUMMARY"
+            [ -f "$f" ] && cat "$f"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: |
+            base/eval-results/
+            head/eval-results/

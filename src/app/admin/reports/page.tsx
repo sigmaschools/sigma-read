@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { SKILL_LABELS as SHARED_SKILL_LABELS } from "@/lib/skills";
 import { REPORT_FLAG_LABELS, type ReportFlag } from "@/lib/skills";
 
 interface Row {
@@ -49,9 +50,7 @@ const FILTERS = [
   { value: "missing", label: "Missing report" },
 ];
 
-const SKILL_LABELS: Record<string, string> = {
-  main_idea: "Main idea", key_details: "Key details", vocabulary: "Vocabulary", inference: "Inference", connection: "Connection",
-};
+const SKILL_LABELS: Record<string, string> = SHARED_SKILL_LABELS;
 
 const SKILL_COLORS: Record<string, string> = {
   shown: "bg-green-50 text-green-700", partly: "bg-amber-50 text-amber-700",

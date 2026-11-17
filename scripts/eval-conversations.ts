@@ -191,6 +191,14 @@ function summarize(results: Result[]): string {
   }
   lines.push("");
 
+  lines.push("## Report skills", "", "| Skill | Shown | Partly | Not shown | Not tested |", "| --- | --- | --- | --- | --- |");
+  const skillNames = [...new Set(ok.flatMap(r => Object.keys(r.report?.skills ?? {})))];
+  for (const skill of skillNames) {
+    const n = (rating: string) => ok.filter(r => (r.report?.skills as Record<string, string> | undefined)?.[skill] === rating).length;
+    lines.push(`| ${skill} | ${n("shown")} | ${n("partly")} | ${n("not_shown")} | ${n("not_tested")} |`);
+  }
+  lines.push("");
+
   lines.push("## Conversations", "", "| Persona | Article | Style | Exchanges | Deltas | Close | Score | Violations |", "| --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const r of results) {
     if (r.error) { lines.push(`| ${r.persona} | ${r.article} | - | - | - | error | - | ${r.error} |`); continue; }
