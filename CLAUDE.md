@@ -97,7 +97,7 @@ Branch naming: use short descriptive names like `fix/admin-student-access`, `fea
 | `docs/product-boundary.md` | What SigmaRead is and isn't |
 | `docs/conversation-design.md` | AI conversation rules, 6 styles, scoring rubric (the classic tutor) |
 | `docs/tutor-redesign.md` | The redesigned tutor in `src/lib/tutor/`: character, prep notes, observer, streaming, the `TUTOR_DESIGN` switch, the voice eval |
-| `docs/answer-points.md` | The discussion bar moves by answer quality, good answers' points float above it (test learner only) |
+| `docs/answer-points.md` | The discussion bar moves by answer quality, good answers' points float above it (test learner and pilot student) |
 | `docs/level-progression.md` | Gradual Mix level system |
 | `docs/article-pipeline.md` | Morning batch generation, article sharing and duplicate checks |
 | `docs/ai-models.md` | Which model does each job, the tests behind it, costs |

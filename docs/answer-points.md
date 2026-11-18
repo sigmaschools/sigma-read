@@ -1,6 +1,6 @@
 # Answer points: the discussion bar follows answer quality
 
-*Built 17 November 2026, on for the test learner account only.*
+*Built 17 November 2026 for the test learner account; on for the pilot student from 18 November 2026.*
 
 ## Why
 
@@ -23,6 +23,6 @@ A student who wants to be done can rush the discussion with a run of short answe
 
 ## Who gets it
 
-Only the Compass learner ids in `ANSWER_POINTS_LEARNERS`, on the classic and spring tutors (the redesigned tutor scores in its own observer), never on the tutorial. A conversation that began without answer points keeps the old bar. Each answer's points are kept on the student's message in `conversations.messages` (`points`), and `conversations.progress_score` holds the bar (0-100) for these conversations, so the report's in-chat score is the bar too.
+Only the Compass learner ids in `ANSWER_POINTS_LEARNERS` (the test learner, and the pilot student from 18 Nov), on the classic and spring tutors (the redesigned tutor scores in its own observer), never on the tutorial. A conversation that began without answer points keeps the old bar. Each answer's points are kept on the student's message in `conversations.messages` (`points`), and `conversations.progress_score` holds the bar (0-100) for these conversations, so the report's in-chat score is the bar too.
 
 To widen it, add learner ids to the list, or replace the list with a check that is true for everyone.

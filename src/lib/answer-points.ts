@@ -11,9 +11,10 @@
  * On only for the learners listed below while the owner tries it. See docs/answer-points.md.
  */
 
-/** Compass learner ids (students.external_id) that get answer points: the test learner account */
+/** Compass learner ids (students.external_id) that get answer points: the test learner and the pilot student */
 export const ANSWER_POINTS_LEARNERS: ReadonlySet<string> = new Set([
-  "bb41aac7-6d24-4dcf-aae0-30203739a8fe",
+  "bb41aac7-6d24-4dcf-aae0-30203739a8fe", // the test learner
+  "ee90182d-f088-44c8-bda9-92ab3f90bd4d", // the pilot student, from 18 Nov 2026 (owner's choice after three tries)
 ]);
 
 /** Backstop with answer points: the discussion ends here even if the bar isn't full (6 without) */
