@@ -1,6 +1,6 @@
 /**
  * Matching free text ("Sharkz!", "great whites", "the planets") to topic slugs. Pure: the
- * caller supplies the index (built from the topics and topic_aliases tables).
+ * caller supplies the index (built from the topic map Compass serves, or the bundled one).
  */
 
 /** Lowercase, strip accents and punctuation, collapse spaces, drop a leading "the" */

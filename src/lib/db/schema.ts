@@ -27,34 +27,12 @@ export const blockedTopics = pgTable("blocked_topics", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Unused by the app since admins come from Compass (staff). Kept until the owner agrees to drop it;
-// scripts/sim-guard.ts still counts its rows to recognise production.
-export const admins = pgTable("admins", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
-  externalId: text("external_id"), // Compass person id, set the first time they open admin from Compass
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, t => [uniqueIndex("admins_external_id_unique").on(t.externalId)]);
-
-// No code reads or writes guides, parents, student_parents, parent_conversations or parent_feedback since issue 164:
-// guides and guardians follow reading in Compass. The tables are dropped by hand with the owner's go-ahead.
-export const guides = pgTable("guides", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
-  externalId: text("external_id"), // Compass ID, set by an admin
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, t => [uniqueIndex("guides_external_id_unique").on(t.externalId)]);
-
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   username: text("username").unique(), // left from the password sign-in; not set for a student Compass brings (migration 0022)
   passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
-  guideId: integer("guide_id").references(() => guides.id), // no longer read or set: guides follow reading in Compass (migration 0022)
+  guideId: integer("guide_id"), // no longer read or set: guides follow reading in Compass (migration 0022); the guides table is gone (0028)
   externalId: text("external_id"), // Compass learner id: who the student is. Set when Compass first opens SigmaRead for them
   readingLevel: integer("reading_level"), // 1-6, null until assessed
   gradeLevel: integer("grade_level"), // actual grade (2-8+)
@@ -215,44 +193,6 @@ export const comprehensionReports = pgTable("comprehension_reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const parents = pgTable("parents", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  passwordHash: text("password_hash"), // no longer read or written: sign-in is from Compass (migration 0021)
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const studentParents = pgTable("student_parents", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  parentId: integer("parent_id").references(() => parents.id).notNull(),
-  relationship: varchar("relationship", { length: 30 }).default("parent"),
-  isPrimary: boolean("is_primary").default(true),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const parentConversations = pgTable("parent_conversations", {
-  id: serial("id").primaryKey(),
-  parentId: integer("parent_id").references(() => parents.id).notNull(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  messages: jsonb("messages").$type<{ role: string; content: string; timestamp?: string }[]>().default([]),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const parentFeedback = pgTable("parent_feedback", {
-  id: serial("id").primaryKey(),
-  parentId: integer("parent_id").references(() => parents.id).notNull(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  parentConversationId: integer("parent_conversation_id").references(() => parentConversations.id).notNull(),
-  category: varchar("category", { length: 30 }).notNull(),
-  sentiment: varchar("sentiment", { length: 15 }).notNull(),
-  summary: text("summary").notNull(),
-  sourceMessageIndex: integer("source_message_index"),
-  acknowledgedAt: timestamp("acknowledged_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
 
 export const levelHistory = pgTable("level_history", {
   id: serial("id").primaryKey(),
@@ -305,66 +245,10 @@ export const aiUsage = pgTable("ai_usage", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Left from the read-only /api/v1, removed 13 Nov 2026 (issue 164). No code uses this table; it is dropped by hand with the owner's go-ahead.
-export const apiClients = pgTable("api_clients", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  keyPrefix: varchar("key_prefix", { length: 16 }).notNull(), // first characters, to recognise a key in the admin list
-  keyHash: text("key_hash").notNull(), // sha256 hex of the full key
-  scopes: jsonb("scopes").$type<string[]>().notNull().default([]), // students:read | reports:read | transcripts:read
-  guideId: integer("guide_id"), // when set, only this guide's students are visible
-  createdBy: integer("created_by"),
-  lastUsedAt: timestamp("last_used_at"),
-  revokedAt: timestamp("revoked_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, t => [uniqueIndex("api_clients_key_hash_unique").on(t.keyHash)]);
-
-// Left from the removed /api/v1 (issue 164): its request log. No code uses this table.
-export const apiRequestLog = pgTable("api_request_log", {
-  id: serial("id").primaryKey(),
-  clientId: integer("client_id").notNull(),
-  method: varchar("method", { length: 8 }).notNull(),
-  path: text("path").notNull(),
-  status: integer("status").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, t => [index("api_request_log_client_time_idx").on(t.clientId, t.createdAt)]);
-
 // ─── Interest graph (see src/lib/interest-graph) ─────────────────────────────
-// Compass holds the topic map and each learner's interests. Only article_topics is used here;
-// topics, topic_aliases, topic_relations and interest_signals are unused, kept until the owner
-// agrees to drop them. Slugs are Compass topic ids.
-
-// The shared topic map: domain → category → topic
-export const topics = pgTable("topics", {
-  id: serial("id").primaryKey(),
-  slug: text("slug").notNull(),
-  label: text("label").notNull(),
-  parentSlug: text("parent_slug"),
-  domain: text("domain").notNull(), // the top-level topic's slug
-  safetyStatus: varchar("safety_status", { length: 20 }).default("approved").notNull(), // approved, pending, blocked
-  wikidataId: text("wikidata_id"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, t => [uniqueIndex("topics_slug_unique").on(t.slug)]);
-
-// Free text → topic. `alias` is stored normalized (see normalizePhrase in interest-graph/resolve.ts)
-export const topicAliases = pgTable("topic_aliases", {
-  id: serial("id").primaryKey(),
-  alias: text("alias").notNull(),
-  topicSlug: text("topic_slug").notNull(),
-  origin: varchar("origin", { length: 20 }).default("seed").notNull(), // seed, ai, admin
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, t => [uniqueIndex("topic_aliases_alias_unique").on(t.alias)]);
-
-// Links across the tree (parents and siblings are related through parentSlug already)
-export const topicRelations = pgTable("topic_relations", {
-  id: serial("id").primaryKey(),
-  fromSlug: text("from_slug").notNull(),
-  toSlug: text("to_slug").notNull(),
-  relation: varchar("relation", { length: 20 }).default("related").notNull(),
-  weight: real("weight").default(1).notNull(),
-  origin: varchar("origin", { length: 20 }).default("seeded").notNull(), // seeded, learned
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, t => [uniqueIndex("topic_relations_pair_unique").on(t.fromSlug, t.toSlug, t.relation)]);
+// Compass holds the topic map and each learner's interests. Only article_topics is kept here
+// (the local topics, aliases, relations and signals tables were dropped in migration 0028).
+// Slugs are Compass topic ids.
 
 // Topics of a base cache article; its level adaptations share them (via base_article_id)
 export const articleTopics = pgTable("article_topics", {
@@ -374,22 +258,6 @@ export const articleTopics = pgTable("article_topics", {
   role: varchar("role", { length: 10 }).default("primary").notNull(), // primary, secondary
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, t => [uniqueIndex("article_topics_article_topic_unique").on(t.articleCacheId, t.topicSlug)]);
-
-// Append-only log of what each student did, the source of truth for affinities
-export const interestSignals = pgTable("interest_signals", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id").notNull(),
-  topicSlug: text("topic_slug"), // null when the phrase didn't match a topic yet
-  phrase: text("phrase"), // the student's own words, when the signal came from text
-  signalType: varchar("signal_type", { length: 30 }).notNull(),
-  weight: real("weight").notNull(),
-  sourceApp: varchar("source_app", { length: 30 }).default("sigmaread").notNull(),
-  sourceRef: text("source_ref"), // what produced it, e.g. "article:123"; makes re-recording a no-op
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, t => [
-  uniqueIndex("interest_signals_source_unique").on(t.studentId, t.signalType, t.sourceRef),
-  index("interest_signals_student_time_idx").on(t.studentId, t.createdAt),
-]);
 
 // Every tap-to-define lookup, so a word a student did not know can come back to them
 // and so lookups per piece can be counted (src/lib/engagement.ts). `word` is lower case as tapped.
