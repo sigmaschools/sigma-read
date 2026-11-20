@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date, numeric, real, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, serial, jsonb, boolean, varchar, date, numeric, uniqueIndex, index } from "drizzle-orm/pg-core";
 import type { GuideNotes } from "../tutor/guide-notes";
 import type { ObserverNotes } from "../tutor/observer";
 
@@ -192,7 +192,6 @@ export const comprehensionReports = pgTable("comprehension_reports", {
   guideFlaggedAt: timestamp("guide_flagged_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
-
 
 export const levelHistory = pgTable("level_history", {
   id: serial("id").primaryKey(),

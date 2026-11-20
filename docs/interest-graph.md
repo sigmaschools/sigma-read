@@ -58,7 +58,7 @@ Topic slugs are Compass topic ids. Compass's map holds SigmaRead's topics plus s
 | `article_topics` | Topics of a base `article_cache` row. Level adaptations share their base's tags |
 
 The local `topics`, `topic_aliases`, `topic_relations` and `interest_signals` tables were dropped
-on 20 Nov 2026 (migration 0028), on the owner's go-ahead.
+in migration 0028, on the owner's go-ahead.
 
 `src/lib/interest-graph/taxonomy.ts` holds the alias phrases ("great whites" → `sharks`) and a
 bundled copy of the topic tree, used only when Compass's map can't be read. A new topic is added
