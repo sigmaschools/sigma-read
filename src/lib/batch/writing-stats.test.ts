@@ -22,4 +22,4 @@ assert.match(out, /2026-11-17 complete/);
 // Counts and dollars only: no names or titles are selected
 assert.doesNotMatch(out, /name|title/i);
 console.log("✅ writing stats: weekly table, cost per article finished, no names");
-});
+}).catch(e => { console.error(e); process.exit(1); });

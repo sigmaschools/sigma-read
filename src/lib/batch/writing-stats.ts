@@ -2,7 +2,8 @@
 // Counts and dollars only, in totals: no names, titles, article text or per-student rows.
 //
 // The morning batch logs it on the first call of each morning's run (Vercel runtime logs, kept a
-// day; skipped past 20 seconds), and
+// day; skipped past 20 seconds; nothing is stored, as every run recomputes the 8 weeks from the
+// tables), and
 // scripts/writing-stats.ts prints it by hand: DATABASE_URL="..." npx tsx scripts/writing-stats.ts [--weeks=8]
 //
 // "Explore" is the horizon article (category general). "Base articles read so far" counts a
@@ -12,6 +13,8 @@
 // ai_usage for the batch's own calls (every batch_* feature and guide_notes), at list price, web searches
 // included; reading-level measurement is Compass's and not in it. Articles are counted by batch
 // date (Chicago) and cost by UTC time, so a Sunday-night run can split across two weeks.
+// Cost per article finished compares a week's writing with that week's reading; an article is
+// often read the week after it is written, so the current, partial week reads high.
 
 import { HOME_SHOWS } from "./plan-interests";
 
@@ -105,7 +108,8 @@ export async function writingStats(sql: Query, weeksWanted = 8): Promise<string>
     WHERE run_date >= CURRENT_DATE - INTERVAL '21 days' ORDER BY run_date
   `;
 
-  // Independent queries, together: one round trip's wait, and a timed-out report stops issuing work
+  // Independent queries, together: one round trip's wait. (A timed-out report stops waiting; the
+  // queries already sent finish on their own.)
   const [written, read, cost, costByFeature, [students], runs] = await Promise.all([writtenQ, readQ, costQ, costByFeatureQ, studentsQ, runsQ]) as Row[][];
 
   const day = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10);
