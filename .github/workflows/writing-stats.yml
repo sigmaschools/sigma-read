@@ -1,0 +1,33 @@
+# How much the morning batch writes against how much students read, week by week, from the live
+# database: counts and dollars only (scripts/writing-stats.ts). Read-only.
+# Runs when a pull request gets the "writing-stats" label (remove and re-add to run again).
+name: Writing stats
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  stats:
+    # Same-repo PRs only: a fork's run has no key
+    if: github.event.label.name == 'writing-stats' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The database URL reaches only the report step, never the install
+      - run: npm ci --no-audit --no-fund
+      - name: Report
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx tsx scripts/writing-stats.ts --weeks=8 | tee writing-stats.md
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f writing-stats.md ]; then cat writing-stats.md >> "$GITHUB_STEP_SUMMARY"; fi
