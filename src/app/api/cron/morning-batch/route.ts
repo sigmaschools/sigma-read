@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     outcome.skipped = "already complete or running";
   } else {
     try {
-      const result = await runMorningBatch({ deadline: startedAt + WORK_BUDGET_MS });
+      const result = await runMorningBatch({ deadline: startedAt + WORK_BUDGET_MS, logStats: run.attempts === 1 });
       await finishRun(run.id, result);
       outcome = { ...outcome, attempt: run.attempts, ...result };
     } catch (e) {

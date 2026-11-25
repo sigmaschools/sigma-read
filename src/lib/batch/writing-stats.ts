@@ -1,8 +1,8 @@
 // How much the morning batch writes, against how much students read, week by week.
-// Counts and dollars only: no names, titles or article text, so the output can sit in a public
-// Actions log. Students appear by number, test accounts marked.
+// Counts and dollars only, in totals: no names, titles, article text or per-student rows.
 //
-// The morning batch logs it at the start of every run (Vercel runtime logs, kept a day), and
+// The morning batch logs it on the first call of each morning's run (Vercel runtime logs, kept a
+// day; skipped past 20 seconds), and
 // scripts/writing-stats.ts prints it by hand: DATABASE_URL="..." npx tsx scripts/writing-stats.ts [--weeks=8]
 //
 // "Explore" is the horizon article (category general). "Base articles read so far" counts a
@@ -10,7 +10,10 @@
 // "Written" is the article_cache rows a week added: base articles (base_article_id IS NULL) and
 // all versions. "Read" is distinct articles finished (reading_sessions.completed_at). Cost is
 // ai_usage for the batch's own calls (batch_* and guide_notes), at list price, web searches
-// included; reading-level measurement is Compass's and not in it.
+// included; reading-level measurement is Compass's and not in it. Articles are counted by batch
+// date (Chicago) and cost by UTC time, so a Sunday-night run can split across two weeks.
+
+import { HOME_SHOWS } from "./plan-interests";
 
 /** A tagged-template query, as neon() returns: the report takes one so it can run on any Postgres */
 export type Query = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;
@@ -50,13 +53,17 @@ export async function writingStats(sql: Query, weeksWanted = 8): Promise<string>
     GROUP BY 1 ORDER BY 1
   ` as Row[];
 
+  // Per week: articles finished (article ids are per student, so distinct ids add up across
+  // students), readers, and the most any one reader finished
   const read = await sql`
-    SELECT date_trunc('week', completed_at)::date AS week, student_id,
-      COUNT(DISTINCT article_id)::int AS finished,
-      COUNT(DISTINCT completed_at::date)::int AS days
-    FROM reading_sessions
-    WHERE completed_at >= date_trunc('week', CURRENT_DATE) - (${WEEKS - 1} * INTERVAL '7 days')
-    GROUP BY 1, 2 ORDER BY 1, 2
+    WITH per AS (
+      SELECT date_trunc('week', completed_at)::date AS week, student_id, COUNT(DISTINCT article_id)::int AS finished
+      FROM reading_sessions
+      WHERE completed_at >= date_trunc('week', CURRENT_DATE) - (${WEEKS - 1} * INTERVAL '7 days')
+      GROUP BY 1, 2
+    )
+    SELECT week, SUM(finished)::int AS finished, COUNT(*)::int AS readers, MAX(finished)::int AS most
+    FROM per GROUP BY 1 ORDER BY 1
   ` as Row[];
 
   const cost = await sql`
@@ -74,11 +81,24 @@ export async function writingStats(sql: Query, weeksWanted = 8): Promise<string>
     GROUP BY 1 ORDER BY 2 DESC NULLS LAST
   ` as Row[];
 
-  const students = await sql`
-    SELECT id, (external_id IS NULL) AS local_only, onboarding_complete, reading_level,
-      (SELECT COUNT(*) FROM articles a WHERE a.student_id = s.id AND a.read = false)::int AS unread,
-      (SELECT MAX(completed_at)::date FROM reading_sessions rs WHERE rs.student_id = s.id) AS last_read
-    FROM students s ORDER BY id
+  // Everyone in one pass (no per-student subqueries, no per-student rows): does every student
+  // who reads have enough unread to fill the home screen?
+  const [students] = await sql`
+    WITH unread AS (SELECT student_id, COUNT(*)::int AS n FROM articles WHERE read = false GROUP BY 1),
+    last_read AS (SELECT student_id, MAX(completed_at) AS at FROM reading_sessions GROUP BY 1),
+    s AS (
+      SELECT COALESCE(u.n, 0) AS unread, lr.at AS last_read
+      FROM students st LEFT JOIN unread u ON u.student_id = st.id LEFT JOIN last_read lr ON lr.student_id = st.id
+      WHERE st.onboarding_complete = true AND st.reading_level IS NOT NULL
+    )
+    SELECT COUNT(*)::int AS onboarded,
+      COUNT(*) FILTER (WHERE last_read >= NOW() - INTERVAL '7 days')::int AS read_7d,
+      COUNT(*) FILTER (WHERE last_read >= NOW() - INTERVAL '30 days')::int AS read_30d,
+      COUNT(*) FILTER (WHERE unread < ${HOME_SHOWS})::int AS short,
+      COUNT(*) FILTER (WHERE unread < ${HOME_SHOWS} AND last_read >= NOW() - INTERVAL '30 days')::int AS short_readers,
+      MIN(unread) FILTER (WHERE last_read >= NOW() - INTERVAL '30 days')::int AS min_unread_readers,
+      percentile_disc(0.5) WITHIN GROUP (ORDER BY unread)::int AS median_unread
+    FROM s
   ` as Row[];
 
   const runs = await sql`
@@ -91,24 +111,24 @@ export async function writingStats(sql: Query, weeksWanted = 8): Promise<string>
 
   const out: string[] = [];
   out.push(`# Sigma Read: articles written against articles read, last ${WEEKS} weeks (weeks start Monday, UTC)`, "");
-  out.push("| Week of | Days written | Base articles | All versions | News (read) | Explore (read) | Base articles read so far | Articles finished | Readers | Batch AI cost | Cost per article finished |");
+  out.push("| Week of | Days written | Base articles | All versions | News (read) | Explore (read) | Base articles read so far | Articles finished | Readers (most by one) | Batch AI cost | Cost per article finished |");
   out.push("|---|---|---|---|---|---|---|---|---|---|---|");
   for (const w of weeks) {
     const wr = written.find(r => day(r.week) === w) ?? {};
-    const rd = read.filter(r => day(r.week) === w);
+    const rd = read.find(r => day(r.week) === w) ?? {};
     const c = cost.find(r => day(r.week) === w) ?? {};
-    const finished = rd.reduce((s, r) => s + n(r.finished), 0);
-    out.push(`| ${w} | ${n(wr.writing_days)} | ${n(wr.base)} | ${n(wr.versions)} | ${n(wr.news)} (${n(wr.news_read)}) | ${n(wr.explore)} (${n(wr.explore_read)}) | ${n(wr.base_read)} | ${finished} | ${rd.length} | ${usd(c.usd)} | ${finished ? usd(n(c.usd) / finished) : "-"} |`);
+    const finished = n(rd.finished);
+    out.push(`| ${w} | ${n(wr.writing_days)} | ${n(wr.base)} | ${n(wr.versions)} | ${n(wr.news)} (${n(wr.news_read)}) | ${n(wr.explore)} (${n(wr.explore_read)}) | ${n(wr.base_read)} | ${finished} | ${n(rd.readers)} (most ${n(rd.most)}) | ${usd(c.usd)} | ${finished ? usd(n(c.usd) / finished) : "-"} |`);
   }
-
-  out.push("", "## Articles finished, by student and week", "", "| Week of | Student | Finished | Days read |", "|---|---|---|---|");
-  for (const r of read) out.push(`| ${day(r.week)} | ${r.student_id} | ${n(r.finished)} | ${n(r.days)} |`);
 
   out.push("", "## Batch AI cost by step, last 28 days", "", "| Step | Calls | Cost |", "|---|---|---|");
   for (const r of costByFeature) out.push(`| ${r.feature} | ${n(r.calls)} | ${usd(r.usd)} |`);
 
-  out.push("", "## Students now", "", "| Student | Signed in from Compass | Onboarded | Level | Unread | Last finished |", "|---|---|---|---|---|---|");
-  for (const s of students) out.push(`| ${s.id} | ${s.local_only ? "no" : "yes"} | ${s.onboarding_complete ? "yes" : "no"} | ${s.reading_level ?? "-"} | ${n(s.unread)} | ${s.last_read ? day(s.last_read) : "never"} |`);
+  const st = students ?? {};
+  out.push("", "## Students now (onboarded)", "",
+    `${n(st.onboarded)} onboarded; ${n(st.read_7d)} read in the last 7 days, ${n(st.read_30d)} in the last 30. ` +
+    `Median unread ${n(st.median_unread)}. Fewer than ${HOME_SHOWS} unread (a short home screen until the next batch tops it up): ` +
+    `${n(st.short)} in all, ${n(st.short_readers)} of the recent readers (fewest unread among them: ${st.min_unread_readers ?? "-"}).`);
 
   out.push("", "## Batch runs, last 21 days", "", runs.map(r => `${day(r.run_date)} ${r.status}`).join(", ") || "none");
   return out.join("\n");
