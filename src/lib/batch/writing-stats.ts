@@ -9,7 +9,7 @@
 // week's base articles that any student has finished at any level since.
 // "Written" is the article_cache rows a week added: base articles (base_article_id IS NULL) and
 // all versions. "Read" is distinct articles finished (reading_sessions.completed_at). Cost is
-// ai_usage for the batch's own calls (batch_* and guide_notes), at list price, web searches
+// ai_usage for the batch's own calls (every batch_* feature and guide_notes), at list price, web searches
 // included; reading-level measurement is Compass's and not in it. Articles are counted by batch
 // date (Chicago) and cost by UTC time, so a Sunday-night run can split across two weeks.
 
@@ -18,8 +18,7 @@ import { HOME_SHOWS } from "./plan-interests";
 /** A tagged-template query, as neon() returns: the report takes one so it can run on any Postgres */
 export type Query = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;
 
-const BATCH_FEATURES = ["batch_adjacent", "batch_search", "batch_source_pick", "batch_filter", "batch_rewrite",
-  "batch_adapt", "batch_dedup", "batch_angles", "batch_write", "batch_revise", "guide_notes"];
+
 
 type Row = Record<string, unknown>;
 const n = (v: unknown) => Number(v ?? 0);
@@ -29,7 +28,7 @@ export async function writingStats(sql: Query, weeksWanted = 8): Promise<string>
   const WEEKS = Math.max(1, Math.min(26, Math.floor(weeksWanted) || 8));
   // Weeks start Monday (date_trunc('week')), UTC
   // A base article counts as read when some student has finished it at any level
-  const written = await sql`
+  const writtenQ = sql`
     WITH read_bases AS (
       SELECT DISTINCT COALESCE(v.base_article_id, v.id) AS id
       FROM articles a JOIN article_cache v ON v.id = a.source_cache_id
@@ -40,7 +39,7 @@ export async function writingStats(sql: Query, weeksWanted = 8): Promise<string>
       FROM article_cache ac LEFT JOIN read_bases rb ON rb.id = ac.id
       WHERE ac.generated_date >= date_trunc('week', CURRENT_DATE) - (${WEEKS - 1} * INTERVAL '7 days')
     )
-    SELECT date_trunc('week', generated_date::timestamp)::date AS week,
+    SELECT date_trunc('week', generated_date::timestamp)::date::text AS week,
       COUNT(*) FILTER (WHERE base_article_id IS NULL)::int AS base,
       COUNT(*)::int AS versions,
       COUNT(*) FILTER (WHERE base_article_id IS NULL AND category = 'news')::int AS news,
@@ -51,39 +50,39 @@ export async function writingStats(sql: Query, weeksWanted = 8): Promise<string>
       COUNT(DISTINCT generated_date) FILTER (WHERE base_article_id IS NULL)::int AS writing_days
     FROM c
     GROUP BY 1 ORDER BY 1
-  ` as Row[];
+  `;
 
   // Per week: articles finished (article ids are per student, so distinct ids add up across
   // students), readers, and the most any one reader finished
-  const read = await sql`
+  const readQ = sql`
     WITH per AS (
-      SELECT date_trunc('week', completed_at)::date AS week, student_id, COUNT(DISTINCT article_id)::int AS finished
+      SELECT date_trunc('week', completed_at)::date::text AS week, student_id, COUNT(DISTINCT article_id)::int AS finished
       FROM reading_sessions
       WHERE completed_at >= date_trunc('week', CURRENT_DATE) - (${WEEKS - 1} * INTERVAL '7 days')
       GROUP BY 1, 2
     )
     SELECT week, SUM(finished)::int AS finished, COUNT(*)::int AS readers, MAX(finished)::int AS most
     FROM per GROUP BY 1 ORDER BY 1
-  ` as Row[];
+  `;
 
-  const cost = await sql`
-    SELECT date_trunc('week', created_at)::date AS week, SUM(cost_usd) AS usd, COUNT(*)::int AS calls
+  const costQ = sql`
+    SELECT date_trunc('week', created_at)::date::text AS week, SUM(cost_usd) AS usd, COUNT(*)::int AS calls
     FROM ai_usage
-    WHERE feature = ANY(${BATCH_FEATURES})
+    WHERE (starts_with(feature, 'batch_') OR feature = 'guide_notes')
       AND created_at >= date_trunc('week', CURRENT_DATE) - (${WEEKS - 1} * INTERVAL '7 days')
     GROUP BY 1 ORDER BY 1
-  ` as Row[];
+  `;
 
-  const costByFeature = await sql`
+  const costByFeatureQ = sql`
     SELECT feature, SUM(cost_usd) AS usd, COUNT(*)::int AS calls
     FROM ai_usage
-    WHERE feature = ANY(${BATCH_FEATURES}) AND created_at >= CURRENT_DATE - INTERVAL '28 days'
+    WHERE (starts_with(feature, 'batch_') OR feature = 'guide_notes') AND created_at >= CURRENT_DATE - INTERVAL '28 days'
     GROUP BY 1 ORDER BY 2 DESC NULLS LAST
-  ` as Row[];
+  `;
 
   // Everyone in one pass (no per-student subqueries, no per-student rows): does every student
   // who reads have enough unread to fill the home screen?
-  const [students] = await sql`
+  const studentsQ = sql`
     WITH unread AS (SELECT student_id, COUNT(*)::int AS n FROM articles WHERE read = false GROUP BY 1),
     last_read AS (SELECT student_id, MAX(completed_at) AS at FROM reading_sessions GROUP BY 1),
     s AS (
@@ -99,12 +98,15 @@ export async function writingStats(sql: Query, weeksWanted = 8): Promise<string>
       MIN(unread) FILTER (WHERE last_read >= NOW() - INTERVAL '30 days')::int AS min_unread_readers,
       percentile_disc(0.5) WITHIN GROUP (ORDER BY unread)::int AS median_unread
     FROM s
-  ` as Row[];
+  `;
 
-  const runs = await sql`
-    SELECT run_date, status FROM batch_runs
+  const runsQ = sql`
+    SELECT run_date::text AS run_date, status FROM batch_runs
     WHERE run_date >= CURRENT_DATE - INTERVAL '21 days' ORDER BY run_date
-  ` as Row[];
+  `;
+
+  // Independent queries, together: one round trip's wait, and a timed-out report stops issuing work
+  const [written, read, cost, costByFeature, [students], runs] = await Promise.all([writtenQ, readQ, costQ, costByFeatureQ, studentsQ, runsQ]) as Row[][];
 
   const day = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10);
   const weeks = [...new Set([...written, ...read, ...cost].map(r => day(r.week)))].sort();
