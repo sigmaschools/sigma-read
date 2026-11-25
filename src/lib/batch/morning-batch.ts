@@ -35,6 +35,7 @@ import { BASE_LEVEL, rewriteFromSource as writeBase, writeFromKnowledge as write
 import { nextStructure, type TextStructure } from "./text-structure";
 import { guidanceForLevel, landOnTarget, measureArticles, pickFitFirst, storedLevel, targetForLevel, type StoredLevel } from "../reading-level";
 import { storyAngles, type StoryAngle } from "./story-angles";
+import { writingStats, type Query } from "./writing-stats";
 import { findDuplicate, type ExistingArticle } from "./dedup";
 import { writeGuideNotes } from "../tutor/guide-notes";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
@@ -174,6 +175,8 @@ const SERVE_RESERVE_MS = 150_000;
 export interface BatchOptions {
   /** Epoch ms after which no new unit of work is started. */
   deadline?: number;
+  /** Log the weekly writing report first (the cron passes this on a day's first call only) */
+  logStats?: boolean;
 }
 
 export interface BatchResult {
@@ -1099,7 +1102,7 @@ export async function runMorningBatch(opts: BatchOptions = {}): Promise<BatchRes
   deadline = opts.deadline ?? Infinity;
   const result: BatchResult = { status: "complete", baseArticles: 0, adaptations: 0, served: 0 };
   try {
-    await runSteps(result);
+    await runSteps(result, opts.logStats ?? true);
   } catch (e) {
     if (!(e instanceof OutOfTime)) throw e;
     console.log(`\n⏱️  Out of time during ${e.message}; the next call resumes from here.\n`);
@@ -1111,9 +1114,22 @@ export async function runMorningBatch(opts: BatchOptions = {}): Promise<BatchRes
   return result;
 }
 
-async function runSteps(result: BatchResult) {
+/** The report may never hold up the writing: past this it is skipped */
+const STATS_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`took over ${ms / 1000}s, skipped`)), ms); });
+  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}
+
+async function runSteps(result: BatchResult, logStats: boolean) {
   const today = new Date().toISOString().split("T")[0];
   console.log(`\n🌅 Morning Article Batch — ${today} (source-first pipeline)\n`);
+
+  // What the batch has written against what students read, week by week, for anyone checking
+  // its cost in the log (counts and dollars only). Never stops the run.
+  if (logStats) await quietly(withTimeout(writingStats(sql as unknown as Query), STATS_TIMEOUT_MS).then(text => console.log(`📈 ${text}\n`)), "writing stats");
 
   // Step 1: Analyze students
   const { students, levelsNeeded, interestMap, studentInterests, recentTopics } = await analyzeStudents();
