@@ -35,6 +35,7 @@ import { BASE_LEVEL, rewriteFromSource as writeBase, writeFromKnowledge as write
 import { nextStructure, type TextStructure } from "./text-structure";
 import { guidanceForLevel, landOnTarget, measureArticles, pickFitFirst, storedLevel, targetForLevel, type StoredLevel } from "../reading-level";
 import { storyAngles, type StoryAngle } from "./story-angles";
+import { writingStats, type Query } from "./writing-stats";
 import { findDuplicate, type ExistingArticle } from "./dedup";
 import { writeGuideNotes } from "../tutor/guide-notes";
 import { checkBudget, excerpt, findRepeats, pickWithoutRepeats, type ArticleGist } from "../repeats";
@@ -1114,6 +1115,10 @@ export async function runMorningBatch(opts: BatchOptions = {}): Promise<BatchRes
 async function runSteps(result: BatchResult) {
   const today = new Date().toISOString().split("T")[0];
   console.log(`\n🌅 Morning Article Batch — ${today} (source-first pipeline)\n`);
+
+  // What the batch has written against what students read, week by week, for anyone checking
+  // its cost in the log (counts and dollars only). Never stops the run.
+  await quietly(writingStats(sql as unknown as Query).then(text => console.log(`📈 ${text}\n`)), "writing stats");
 
   // Step 1: Analyze students
   const { students, levelsNeeded, interestMap, studentInterests, recentTopics } = await analyzeStudents();
